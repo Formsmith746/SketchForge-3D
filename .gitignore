@@ -44,3 +44,6 @@ Thumbs.db
 
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
+
+# Staged occt-wasm runtime (copied from node_modules by scripts/copy-occt-wasm.mjs)
+apps/web/public/occt/

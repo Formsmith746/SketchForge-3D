@@ -4030,6 +4030,7 @@ export function SketchForgeEditor({
   const [workplaneMode, setWorkplaneMode] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [topPanel, setTopPanel] = useState<TopPanel>(null);
+  const [stepExporting, setStepExporting] = useState(false);
   const [alignMode, setAlignMode] = useState(false);
   const [alignAnchorId, setAlignAnchorId] = useState<string | null>(null);
   const [alignPreview, setAlignPreview] = useState<{ axis: AlignAxis; target: AlignTarget } | null>(null);
@@ -5008,6 +5009,35 @@ export function SketchForgeEditor({
       .catch((error: unknown) => failNotice("OBJ", error));
   }, [hasSelection, projectName, selectedShapes, shapes]);
 
+  const exportStepDesign = useCallback(async () => {
+    if (stepExporting) {
+      return;
+    }
+    const sourceShapes = hasSelection ? selectedShapes : shapes;
+    if (sourceShapes.some((shape) => shape.hole) && !sourceShapes.some((shape) => !shape.hole)) {
+      setNotice("Select at least one solid shape before exporting STEP");
+      return;
+    }
+    setStepExporting(true);
+    setNotice("Building B-Rep… first STEP export loads the OpenCascade kernel (~22 MB), one time per session");
+    try {
+      const { exportShapesToStep } = await import("@/lib/stepExport");
+      const { blob, exportedCount, skipped } = await exportShapesToStep(sourceShapes);
+      const text = await blob.text();
+      const result = await downloadTextFile(projectExportFileName(projectName, "step"), text, "application/step");
+      const skipNote = skipped.length > 0 ? `; skipped ${skipped.length} non-primitive shape${skipped.length === 1 ? "" : "s"}` : "";
+      if (result.mode === "folder") {
+        setNotice(`Saved STEP (${exportedCount} bod${exportedCount === 1 ? "y" : "ies"}) to ${result.path}${skipNote}`);
+      } else {
+        setNotice(`Exported STEP B-Rep with ${exportedCount} bod${exportedCount === 1 ? "y" : "ies"}${skipNote}`);
+      }
+    } catch (error: unknown) {
+      setNotice(error instanceof Error ? error.message : "Could not export STEP");
+    } finally {
+      setStepExporting(false);
+    }
+  }, [hasSelection, projectName, selectedShapes, shapes, stepExporting]);
+
   const clearDesign = useCallback(() => {
     commitShapes([], [], "New empty design");
     setClipboard([]);
@@ -5368,6 +5398,8 @@ export function SketchForgeEditor({
           scopeLabel={exportScopeLabel}
           onClose={() => setTopPanel(null)}
           onExport={exportDesign}
+          onExportStep={exportStepDesign}
+          stepExporting={stepExporting}
           onImportFiles={selectFiles}
           onPickFile={() => fileInputRef.current?.click()}
           onNotice={setNotice}
@@ -5648,6 +5680,8 @@ function TopActionPanel({
   scopeLabel,
   onClose,
   onExport,
+  onExportStep,
+  stepExporting,
   onImportFiles,
   onPickFile,
   onNotice,
@@ -5657,6 +5691,8 @@ function TopActionPanel({
   scopeLabel: "selected" | "total";
   onClose: () => void;
   onExport: (format: ExportFormat) => void;
+  onExportStep: () => void;
+  stepExporting: boolean;
   onImportFiles: (files: FileList | File[]) => void;
   onPickFile: () => void;
   onNotice: (message: string) => void;
@@ -5713,6 +5749,11 @@ function TopActionPanel({
             <ToolbarExportIcon />
             Download OBJ
           </button>
+          <button onClick={onExportStep} disabled={stepExporting}>
+            <ToolbarExportIcon />
+            {stepExporting ? "Building STEP…" : "Download STEP (B-Rep)"}
+          </button>
+          <p className="export-step-note">STEP keeps boxes, cylinders and spheres as exact CAD geometry (OpenCascade). Other shapes are skipped.</p>
         </div>
       ) : null}
       {panel === "tips" ? (

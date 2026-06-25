@@ -15,6 +15,17 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true
   },
+  // brepjs (loaded lazily by the STEP exporter) ships an auto-init helper that
+  // tries optional kernel backends via guarded `import().catch()`. We only install
+  // and use occt-wasm, so silence the resolution warnings for the backends we omit.
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "brepkit-wasm": false,
+      "brepjs-opencascade": false,
+    };
+    return config;
+  },
   ...(isStaticExport
     ? {
         output: "export" as const,

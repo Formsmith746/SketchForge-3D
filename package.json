@@ -3,7 +3,10 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
+    "copy:occt": "node scripts/copy-occt-wasm.mjs",
+    "predev": "npm run copy:occt",
     "dev": "next dev apps/web",
+    "prebuild": "npm run copy:occt",
     "build": "next build apps/web",
     "export": "set STATIC_EXPORT=true&& next build apps/web",
     "start": "next start apps/web",
@@ -20,10 +23,12 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.8",
     "@types/three": "^0.184.1",
+    "brepjs": "^18.118.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "manifold-3d": "^3.5.0",
     "next": "^15.3.2",
+    "occt-wasm": "^3.6.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.3.0",
