@@ -73,6 +73,9 @@ jobs:
       - name: Build frontend
         run: npm ci && npm run desktop:export
 
+      - name: Create frontend archive for flatpak-builder
+        run: tar -czf flatpak/web-out.tar.gz -C apps/web out
+
       - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: SketchForge3D.flatpak
