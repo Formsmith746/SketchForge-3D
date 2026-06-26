@@ -5,16 +5,14 @@ on:
   pull_request:
 
 jobs:
+  # ── Stage 1: Lint & tests ─────────────────────────────────────────────────
   checks:
-    name: Typecheck and unit tests
+    name: Lint & tests
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -27,3 +25,85 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+  # ── Stage 2: Build ────────────────────────────────────────────────────────
+  build:
+    name: Build
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Static export
+        run: npm run desktop:export
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-out
+          path: apps/web/out/
+          retention-days: 7
+
+  # ── Stage 3: Package ──────────────────────────────────────────────────────
+  package:
+    name: Package
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Reuse the frontend build from stage 2 — tauri build reads apps/web/out/
+      # and embeds it into the binary, so no re-export is needed.
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-out
+          path: apps/web/out/
+
+      - name: System dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build Tauri packages
+        run: npx tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-deb
+          path: src-tauri/target/release/bundle/deb/*.deb
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-rpm
+          path: src-tauri/target/release/bundle/rpm/*.rpm
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-appimage
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          retention-days: 7
