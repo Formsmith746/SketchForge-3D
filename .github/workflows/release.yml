@@ -1,0 +1,242 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # ── Desktop packages (deb / rpm / AppImage) ────────────────────────────────
+  build-packages:
+    name: Desktop packages
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: System dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Build Tauri packages
+        run: npm run desktop:build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-deb
+          path: src-tauri/target/release/bundle/deb/*.deb
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-rpm
+          path: src-tauri/target/release/bundle/rpm/*.rpm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-appimage
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
+
+  # ── Flatpak (via Docker, no host deps) ────────────────────────────────────
+  build-flatpak:
+    name: Flatpak
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Flatpak bundle
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/flatpak/Dockerfile
+          target: artifact
+          push: false
+          outputs: type=local,dest=dist/
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-flatpak
+          path: dist/SketchForge3D.flatpak
+
+  # ── Docker image → ghcr.io ────────────────────────────────────────────────
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── GitHub Release ─────────────────────────────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: [build-packages, build-flatpak, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Build release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG:  ${{ github.ref_name }}
+        run: |
+          python3 << 'PYEOF'
+          import os, subprocess, urllib.request, json
+
+          TAG  = os.environ['TAG']
+          REPO = os.environ['REPO']
+          TOKEN = os.environ.get('GH_TOKEN', '')
+
+          # ── Previous tag ────────────────────────────────────────────────
+          all_tags = subprocess.check_output(
+              ['git', 'tag', '--sort=-version:refname'], text=True
+          ).strip().split('\n')
+          prev_tags = [t for t in all_tags if t and t != TAG]
+          PREV = prev_tags[0] if prev_tags else ''
+
+          # ── Commits ─────────────────────────────────────────────────────
+          RANGE = f'{PREV}..HEAD' if PREV else 'HEAD'
+          commits_raw = subprocess.check_output(
+              ['git', 'log', RANGE, '--pretty=format:- %s', '--no-merges'],
+              text=True
+          ).strip()
+          commits = commits_raw[:3000] if commits_raw else '- Initial release'
+
+          # ── Contributors via GitHub API ──────────────────────────────────
+          headers = {
+              'Authorization': f'Bearer {TOKEN}',
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'SketchForge-Release-Action',
+          }
+
+          def gh_get(url):
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req, timeout=15) as r:
+                  return json.loads(r.read())
+
+          try:
+              if PREV:
+                  data = gh_get(f'https://api.github.com/repos/{REPO}/compare/{PREV}...{TAG}')
+                  logins = list({
+                      c['author']['login']
+                      for c in data.get('commits', [])
+                      if c.get('author')
+                  })
+              else:
+                  data = gh_get(f'https://api.github.com/repos/{REPO}/commits?per_page=100')
+                  logins = list({c['author']['login'] for c in data if c.get('author')})
+          except Exception as e:
+              print(f'Warning: could not fetch contributors: {e}', flush=True)
+              logins = []
+
+          # ── Avatar chips (square, 48 px, side by side) ──────────────────
+          avatars = ''.join(
+              f'<a href="https://github.com/{l}">'
+              f'<img src="https://github.com/{l}.png?size=64"'
+              f' width="48" height="48"'
+              f' style="border-radius:4px;margin:2px"'
+              f' alt="{l}" title="{l}"></a>'
+              for l in sorted(logins)
+          )
+
+          REPO_LC = REPO.lower()
+
+          body = f"""\
+          ## What's Changed
+
+          {commits}
+
+          ## Contributors
+
+          {avatars or '_No contributor data available._'}
+
+          &nbsp;
+
+          ## Packages
+
+          | File | Format | Install |
+          |---|---|---|
+          | `*.deb` | Debian / Ubuntu | `sudo dpkg -i SketchForge*.deb` |
+          | `*.rpm` | Fedora / openSUSE | `sudo rpm -i SketchForge*.rpm` |
+          | `*.AppImage` | Universal Linux | `chmod +x *.AppImage && ./*.AppImage` |
+          | `SketchForge3D.flatpak` | Flatpak | `flatpak install --user SketchForge3D.flatpak` |
+
+          ## Docker
+
+          ```bash
+          docker pull ghcr.io/{REPO_LC}:{TAG}
+          docker run --rm -p 3000:80 ghcr.io/{REPO_LC}:{TAG}
+          ```
+          """
+
+          with open('release_body.md', 'w') as f:
+              f.write(body)
+
+          print(f'Release body: {len(body)} chars, {len(logins)} contributors', flush=True)
+          PYEOF
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG:      ${{ github.ref_name }}
+        run: |
+          mapfile -t FILES < <(find artifacts -type f)
+          gh release create "$TAG" \
+            --title "SketchForge 3D ${TAG}" \
+            --notes-file release_body.md \
+            "${FILES[@]}"
