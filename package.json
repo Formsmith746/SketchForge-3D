@@ -2,6 +2,11 @@
   "name": "sketchforge",
   "version": "0.2.0",
   "private": true,
+  "description": "SketchForge - local-first 3D design editor.",
+  "author": {
+    "name": "Formsmith"
+  },
+  "main": "deploy/electron/main.js",
   "scripts": {
     "dev": "next dev apps/web",
     "build": "next build apps/web",
@@ -18,24 +23,27 @@
     "docker:down": "docker compose -f deploy/docker/compose.yaml down"
   },
   "dependencies": {
-    "@tailwindcss/postcss": "^4.1.8",
-    "@types/three": "^0.184.1",
+    "@tailwindcss/postcss": "^4.3.1",
+    "@types/three": "^0.185.0",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.511.0",
-    "manifold-3d": "^3.5.0",
-    "next": "^15.3.2",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "tailwind-merge": "^3.3.0",
-    "tailwindcss": "^4.1.8",
-    "three": "^0.184.0",
+    "lucide-react": "^1.21.0",
+    "manifold-3d": "^3.5.1",
+    "next": "^16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.1",
+    "three": "^0.185.0",
     "three-bvh-csg": "^0.0.18"
   },
   "devDependencies": {
-    "@types/node": "^22.15.18",
-    "@types/react": "^19.1.4",
-    "@types/react-dom": "^19.1.5",
-    "typescript": "^5.8.3",
-    "vitest": "^4.1.8"
+    "@types/node": "^26.0.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "cross-env": "^10.1.0",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }
