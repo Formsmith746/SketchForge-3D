@@ -1,44 +1,41 @@
-# Dependencies
+# ── Dependencies ──────────────────────────────────────────────────────────────
 node_modules/
-.pnp
-.pnp.*
 
-# Next.js
-.next/
-out/
-build/
+# ── Next.js ───────────────────────────────────────────────────────────────────
+apps/web/.next/
+apps/web/out/
+
+# ── Tauri / Rust ──────────────────────────────────────────────────────────────
+src-tauri/target/
+src-tauri/gen/
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
 dist/
 
-# Environment files
+# ── Environment files ─────────────────────────────────────────────────────────
 .env
 .env*.local
 !.env.example
 
-# Logs
+# ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# TypeScript
+# ── TypeScript ────────────────────────────────────────────────────────────────
 *.tsbuildinfo
 
-# Test and automation output
+# ── Test output ───────────────────────────────────────────────────────────────
 coverage/
 test-results/
 playwright-report/
 .playwright-cli/
 
-# Local workspace state
+# ── Tool state (not project files) ────────────────────────────────────────────
+.serena/
 .codex/
 .codex-remote-attachments/
 
-# Tauri / Rust
-src-tauri/target/
-src-tauri/gen/
-
-# OS/editor noise
+# ── OS / editor noise ─────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .idea/
