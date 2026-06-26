@@ -55,30 +55,35 @@ jobs:
           name: pkg-appimage
           path: src-tauri/target/release/bundle/appimage/*.AppImage
 
-  # ── Flatpak (via Docker, no host deps) ────────────────────────────────────
+  # ── Flatpak (flatpak-builder + GNOME SDK) ─────────────────────────────────
   build-flatpak:
     name: Flatpak
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/bilelmoussaoui/flatpak-github-actions:gnome-49
+      options: --privileged
     steps:
       - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v4
-
-      - name: Build Flatpak bundle
-        uses: docker/build-push-action@v7
+      - uses: actions/setup-node@v6
         with:
-          context: .
-          file: deploy/flatpak/Dockerfile
-          target: artifact
-          push: false
-          outputs: type=local,dest=dist/
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          node-version: 22
+          cache: npm
+
+      - name: Build frontend
+        run: npm ci && npm run desktop:export
+
+      - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: SketchForge3D.flatpak
+          manifest-path: flatpak/info.friedjof.SketchForge3D.yaml
+          cache-key: flatpak-builder-${{ hashFiles('flatpak/info.friedjof.SketchForge3D.yaml') }}
+          upload-artifact: false
 
       - uses: actions/upload-artifact@v7
         with:
           name: pkg-flatpak
-          path: dist/SketchForge3D.flatpak
+          path: SketchForge3D.flatpak
 
   # ── Docker image → ghcr.io ────────────────────────────────────────────────
   docker:

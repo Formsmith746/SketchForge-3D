@@ -19,8 +19,8 @@
     "desktop:export": "STATIC_EXPORT=true next build apps/web",
     "desktop:dev": "tauri dev",
     "desktop:build": "npm run desktop:export && tauri build",
-    "desktop:flatpak": "tauri build --bundles flatpak",
-    "desktop:flatpak:docker": "docker build --output dist/ --target artifact -f deploy/flatpak/Dockerfile . && echo '\\nInstall with: flatpak install --user dist/SketchForge3D.flatpak'"
+    "desktop:flatpak": "flatpak-builder --user --install --force-clean .flatpak-builddir flatpak/info.friedjof.SketchForge3D.yaml",
+    "desktop:flatpak:bundle": "test -f apps/web/out/index.html || npm run desktop:export && tar -czf flatpak/web-out.tar.gz -C apps/web out && flatpak-builder --repo=.flatpak-repo --force-clean .flatpak-builddir flatpak/info.friedjof.SketchForge3D.yaml && flatpak build-bundle .flatpak-repo dist/SketchForge3D.flatpak info.friedjof.SketchForge3D && echo 'Install: flatpak install --user dist/SketchForge3D.flatpak'"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.8",

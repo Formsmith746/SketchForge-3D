@@ -11,6 +11,10 @@ src-tauri/gen/
 
 # ── Build outputs ─────────────────────────────────────────────────────────────
 dist/
+.flatpak-builddir/
+.flatpak-builder/
+.flatpak-repo/
+flatpak/web-out.tar.gz
 
 # ── Environment files ─────────────────────────────────────────────────────────
 .env
