@@ -1,6 +1,6 @@
 [package]
 name = "sketchforge"
-version = "0.2.0"
+version = "0.3.5"
 description = "SketchForge 3D — browser-based 3D CAD editor"
 authors = ["Friedjof Noweck"]
 license = "MIT"
