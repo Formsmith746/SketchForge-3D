@@ -2,10 +2,11 @@
   "name": "sketchforge",
   "version": "0.2.0",
   "private": true,
+  "main": "deploy/electron/main.js",
   "scripts": {
     "dev": "next dev apps/web",
     "build": "next build apps/web",
-    "export": "set STATIC_EXPORT=true&& next build apps/web",
+    "export": "cross-env STATIC_EXPORT=true next build apps/web",
     "start": "next start apps/web",
     "typecheck": "tsc -p apps/web/tsconfig.json --noEmit",
     "test": "vitest run --config tests/vitest.config.ts",
@@ -15,7 +16,13 @@
     "docker:build": "docker build -f deploy/docker/Dockerfile -t sketchforge:local .",
     "docker:run": "docker run --rm -p 3000:80 sketchforge:local",
     "docker:up": "docker compose -f deploy/docker/compose.yaml up --build -d",
-    "docker:down": "docker compose -f deploy/docker/compose.yaml down"
+    "docker:down": "docker compose -f deploy/docker/compose.yaml down",
+    "electron": "electron .",
+    "electron:dev": "npm run export && electron .",
+    "electron:dist": "npm run export && electron-builder --config deploy/electron/electron-builder.yml",
+    "electron:dist:win": "npm run export && electron-builder --config deploy/electron/electron-builder.yml --win",
+    "electron:dist:mac": "npm run export && electron-builder --config deploy/electron/electron-builder.yml --mac",
+    "electron:dist:linux": "npm run export && electron-builder --config deploy/electron/electron-builder.yml --linux"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.8",
@@ -35,6 +42,9 @@
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
+    "cross-env": "^7.0.3",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.8.3",
     "vitest": "^4.1.8"
   }

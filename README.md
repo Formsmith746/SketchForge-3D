@@ -65,6 +65,27 @@ Open:
 http://127.0.0.1:3000/
 ```
 
+## Desktop App (Electron)
+
+Run SketchForge as a native desktop app on Windows, macOS, or Linux. 
+
+```bash
+npm install
+npm run electron:dev      # build the static export and open it in Electron
+```
+
+Package installers (Windows NSIS / macOS DMG / Linux AppImage) go to
+`deploy/electron/dist/`:
+
+```bash
+npm run electron:dist        # current platform
+npm run electron:dist:win    # Windows
+npm run electron:dist:mac    # macOS
+npm run electron:dist:linux  # Linux
+```
+
+See [`deploy/electron/README.md`](deploy/electron/README.md) for details.
+
 ## Docker / FabLab Server (Recommended)
 
 The Docker image contains a static SketchForge build served by Nginx. Projects stay in each user's browser; STL and OBJ files download through that browser. The container does not receive or store project files.

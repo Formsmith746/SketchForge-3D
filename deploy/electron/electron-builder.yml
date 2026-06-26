@@ -1,0 +1,43 @@
+appId: com.formsmith.sketchforge
+productName: SketchForge
+copyright: Copyright (c) Formsmith
+directories:
+  output: deploy/electron/dist
+  buildResources: deploy/electron
+files:
+  - "package.json"
+  - "deploy/electron/main.js"
+  - "apps/web/out/**/*"
+  - "!**/node_modules/**/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/node_modules/**/{test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/**/*.d.ts"
+  - "!**/node_modules/**/.bin"
+asar: true
+asarUnpack: []
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: SketchForge-${version}-${os}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: SketchForge-Setup-${version}.${ext}
+  shortcutName: SketchForge
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  category: public.app-category.graphics-design
+  artifactName: SketchForge-${version}-${os}-${arch}.${ext}
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Graphics
+  artifactName: SketchForge-${version}-${os}-${arch}.${ext}
