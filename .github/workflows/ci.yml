@@ -51,39 +51,7 @@ jobs:
           path: apps/web/out/
           retention-days: 7
 
-  # ── Stage 3: Flatpak ──────────────────────────────────────────────────────
-  flatpak:
-    name: Flatpak
-    needs: build
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/bilelmoussaoui/flatpak-github-actions:gnome-49
-      options: --privileged
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: web-out
-          path: apps/web/out/
-
-      - name: Create frontend archive for flatpak-builder
-        run: tar -czf flatpak/web-out.tar.gz -C apps/web out
-
-      - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
-        with:
-          bundle: SketchForge3D.flatpak
-          manifest-path: flatpak/info.friedjof.SketchForge3D.yaml
-          cache-key: flatpak-builder-${{ hashFiles('flatpak/info.friedjof.SketchForge3D.yaml') }}
-          upload-artifact: false
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: pkg-flatpak
-          path: SketchForge3D.flatpak
-          retention-days: 7
-
-  # ── Stage 4: Package ──────────────────────────────────────────────────────
+  # ── Stage 3: Package + Flatpak (parallel) ────────────────────────────────
   package:
     name: Package
     needs: build
@@ -99,8 +67,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Reuse the frontend build from stage 2 — tauri build reads apps/web/out/
-      # and embeds it into the binary, so no re-export is needed.
       - uses: actions/download-artifact@v8
         with:
           name: web-out
@@ -138,4 +104,35 @@ jobs:
         with:
           name: pkg-appimage
           path: src-tauri/target/release/bundle/appimage/*.AppImage
+          retention-days: 7
+
+  flatpak:
+    name: Flatpak
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-out
+          path: apps/web/out/
+
+      - name: Create frontend archive for flatpak-builder
+        run: tar -czf flatpak/web-out.tar.gz -C apps/web out
+
+      - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: SketchForge3D.flatpak
+          manifest-path: flatpak/info.friedjof.SketchForge3D.yaml
+          cache-key: flatpak-builder-${{ hashFiles('flatpak/info.friedjof.SketchForge3D.yaml') }}
+          upload-artifact: false
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pkg-flatpak
+          path: SketchForge3D.flatpak
           retention-days: 7
