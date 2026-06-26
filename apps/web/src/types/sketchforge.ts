@@ -91,7 +91,11 @@ export type WorkplaneShape = {
     baseDepth: number;
     baseHeight: number;
     triangleCount: number;
-    sourceFormat: "stl" | "obj" | "svg" | "json";
+    sourceFormat: "stl" | "obj" | "svg" | "json" | "step";
+    // Exact OpenCascade B-Rep of the body (single-shape STEP text) in the same
+    // local frame as `positions`. Set only for STEP imports; lets the exporter
+    // re-emit the original analytic geometry instead of the tessellation.
+    brepStep?: string;
   };
   imagePlate?: {
     dataUrl: string;

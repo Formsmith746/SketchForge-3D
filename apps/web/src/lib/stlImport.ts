@@ -10,7 +10,12 @@ function fileExtension(fileName: string) {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
 }
 
-function importedShapeFromTriangleSoup(fileName: string, rawPositions: number[], rawNormals: number[] | undefined): WorkplaneShape {
+export function importedShapeFromTriangleSoup(
+  fileName: string,
+  rawPositions: number[],
+  rawNormals: number[] | undefined,
+  sourceFormat: NonNullable<WorkplaneShape["importedMesh"]>["sourceFormat"] = "stl",
+): WorkplaneShape {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(rawPositions, 3));
   if (rawNormals?.length === rawPositions.length) {
@@ -55,7 +60,7 @@ function importedShapeFromTriangleSoup(fileName: string, rawPositions: number[],
 
   return {
     id: createLocalId("uploaded-mesh"),
-    name: fileName.replace(/\.[^.]+$/, "") || "Imported STL",
+    name: fileName.replace(/\.[^.]+$/, "") || `Imported ${sourceFormat.toUpperCase()}`,
     kind: "mesh",
     color: "#0098c7",
     x: 10,
@@ -74,7 +79,7 @@ function importedShapeFromTriangleSoup(fileName: string, rawPositions: number[],
       baseDepth: depth,
       baseHeight: height,
       triangleCount,
-      sourceFormat: "stl",
+      sourceFormat,
     },
     locked: false,
     hidden: false,

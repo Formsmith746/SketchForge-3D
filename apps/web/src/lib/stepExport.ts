@@ -1,5 +1,6 @@
 import type { WorkplaneShape } from "@/types/sketchforge";
 import { shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
+import { loadBrepWithOcct, type Brep, type BrepSolid } from "@/lib/brepKernel";
 
 export type SkippedShape = {
   name: string;
@@ -30,31 +31,6 @@ function unsupportedReason(kind: WorkplaneShape["kind"]): string {
     return "cone STEP export blocked by an upstream occt-wasm multi-solid writer bug (drops CONICAL_SURFACE)";
   }
   return "no exact B-Rep mapping";
-}
-
-// occt-wasm is staged into public/occt by scripts/copy-occt-wasm.mjs and loaded
-// at runtime, deliberately outside the Next bundler — the Emscripten glue self
-// loads ./occt-wasm.js relative to its own URL and does not survive bundling.
-// Typed as string (not a string literal) so TypeScript treats the dynamic import
-// as runtime-resolved and does not try to resolve the public/ URL as a module.
-const OCCT_INDEX_URL: string = "/occt/index.js";
-const OCCT_WASM_URL = "/occt/occt-wasm.wasm";
-
-type Brep = typeof import("brepjs");
-type BrepSolid = ReturnType<Brep["box"]>;
-type OcctWasmModule = typeof import("occt-wasm");
-
-let brepReady: Promise<Brep> | null = null;
-
-async function loadBrepWithOcct(): Promise<Brep> {
-  brepReady ??= (async () => {
-    const brep = await import("brepjs");
-    const occt = (await import(/* webpackIgnore: true */ OCCT_INDEX_URL)) as unknown as OcctWasmModule;
-    const kernel = await occt.OcctKernel.init({ wasm: OCCT_WASM_URL });
-    brep.registerKernel("occt-wasm", brep.OcctWasmAdapter.fromKernel(kernel));
-    return brep;
-  })();
-  return brepReady;
 }
 
 // SketchForge composes rotation as a THREE Euler in "XYZ" order, so the world
@@ -133,6 +109,53 @@ function toCadZUp(brep: Brep, solid: BrepSolid): BrepSolid {
   return brep.rotate(solid, 90, { axis: [1, 0, 0] });
 }
 
+// Place a STEP-imported body (stored in its normalized local frame: x/z-centred,
+// y in [0, baseHeight], Y-up) into world space, reproducing the editor's
+// transformMesh exactly. Built from rigid kernel ops (rotate/translate/uniform
+// scale) which preserve analytic surfaces and the original geometry losslessly;
+// only genuinely non-uniform resize falls back to applyMatrix, which validly
+// turns the affected primitives into B-splines. The shared toCadZUp applies the
+// final Y-up→Z-up flip afterwards, as for primitives.
+async function buildImportedBody(brep: Brep, shape: WorkplaneShape): Promise<BuildOutcome> {
+  const mesh = shape.importedMesh;
+  if (!mesh?.brepStep) {
+    return { skip: "imported mesh has no B-Rep source; re-import as STEP to round-trip" };
+  }
+  const imported = await brep.importSTEP(new Blob([mesh.brepStep]));
+  if (!imported.ok) {
+    return { skip: "stored B-Rep failed to re-import" };
+  }
+
+  const h = shape.height;
+  const sx = shapeWidth(shape) / Math.max(0.001, mesh.baseWidth);
+  const sy = h / Math.max(0.001, mesh.baseHeight);
+  const sz = shapeDepth(shape) / Math.max(0.001, mesh.baseDepth);
+  let body = imported.value as unknown as BrepSolid;
+
+  if (Math.abs(sx - sy) < 1e-6 && Math.abs(sy - sz) < 1e-6) {
+    if (Math.abs(sx - 1) > 1e-6) body = brep.scale(body, sx);
+  } else {
+    const scaled = brep.applyMatrix(body, { linear: [sx, 0, 0, 0, sy, 0, 0, 0, sz], translation: [0, 0, 0] });
+    if (!scaled.ok) {
+      return { skip: `non-uniform scale failed: ${String(scaled.error.message ?? scaled.error)}` };
+    }
+    body = scaled.value as unknown as BrepSolid;
+  }
+
+  body = brep.translate(body, [0, -h / 2, 0]);
+  if (shape.mirrorX) body = brep.mirror(body, { normal: [1, 0, 0] });
+  if (shape.mirrorY) body = brep.mirror(body, { normal: [0, 1, 0] });
+  if (shape.mirrorZ) body = brep.mirror(body, { normal: [0, 0, 1] });
+  const rotZ = shape.rotationZ ?? 0;
+  const rotY = shapeYawDegrees(shape);
+  const rotX = shape.rotationX ?? 0;
+  if (rotZ) body = brep.rotate(body, rotZ, { axis: [0, 0, 1] });
+  if (rotY) body = brep.rotate(body, rotY, { axis: [0, 1, 0] });
+  if (rotX) body = brep.rotate(body, rotX, { axis: [1, 0, 0] });
+  body = brep.translate(body, [shape.x, (shape.elevation ?? 0) + h / 2, shape.z]);
+  return { solid: body };
+}
+
 function describe(shape: WorkplaneShape, reason: string): SkippedShape {
   return { name: shape.name, kind: shape.kind, reason };
 }
@@ -193,13 +216,20 @@ export async function exportShapesToStep(shapes: WorkplaneShape[]): Promise<Step
     holes.push({ box: worldAabb(shape), solid: built.solid });
   }
 
+  const isImportedBody = (shape: WorkplaneShape) => shape.kind === "mesh" && Boolean(shape.importedMesh?.brepStep);
+
   const parts: { shape: BrepSolid; name: string; color: string }[] = [];
   for (const shape of shapes.filter((s) => !s.hole)) {
-    if (!EXACT_KINDS.has(shape.kind)) {
-      skipped.push(describe(shape, unsupportedReason(shape.kind)));
+    let built: BuildOutcome;
+    if (isImportedBody(shape)) {
+      built = await buildImportedBody(brep, shape);
+    } else if (EXACT_KINDS.has(shape.kind)) {
+      built = buildExactSolid(brep, shape);
+    } else {
+      const reason = shape.kind === "mesh" ? "imported mesh has no B-Rep source; re-import as STEP to round-trip" : unsupportedReason(shape.kind);
+      skipped.push(describe(shape, reason));
       continue;
     }
-    const built = buildExactSolid(brep, shape);
     if ("skip" in built) {
       skipped.push(describe(shape, built.skip));
       continue;
@@ -221,7 +251,7 @@ export async function exportShapesToStep(shapes: WorkplaneShape[]): Promise<Step
   }
 
   if (parts.length === 0) {
-    throw new Error("No box/cylinder/sphere solids to export as B-Rep STEP");
+    throw new Error("No box/cylinder/sphere or imported STEP solids to export as B-Rep STEP");
   }
 
   const result = brep.exportAssemblySTEP(parts, { unit: "MM" });

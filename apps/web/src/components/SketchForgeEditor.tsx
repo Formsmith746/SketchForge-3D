@@ -5090,13 +5090,21 @@ export function SketchForgeEditor({
   }, [commitShapes, shapes]);
 
   const selectFile = useCallback(async (file: File) => {
-    if (!importExtensionSupported(file.name)) {
-      setNotice("Unsupported file type. Use STL.");
+    const isStep = /\.(step|stp)$/i.test(file.name);
+    if (!isStep && !importExtensionSupported(file.name)) {
+      setNotice("Unsupported file type. Use STL or STEP.");
       return;
     }
 
     try {
-      const nextShape = importedShapeFromStl(file.name, await file.arrayBuffer());
+      let nextShape: WorkplaneShape;
+      if (isStep) {
+        setNotice("Reading STEP… first import loads the OpenCascade kernel (~22 MB), one time per session");
+        const { importedShapeFromStep } = await import("@/lib/stepImport");
+        nextShape = await importedShapeFromStep(file.name, await file.arrayBuffer());
+      } else {
+        nextShape = importedShapeFromStl(file.name, await file.arrayBuffer());
+      }
       commitShapes([...shapes, nextShape], nextShape.id, `Imported ${file.name}`);
       setTopPanel(null);
     } catch (error) {
@@ -5409,7 +5417,7 @@ export function SketchForgeEditor({
         ref={fileInputRef}
         className="hidden-file-input"
         type="file"
-        accept=".stl"
+        accept=".stl,.step,.stp"
         onChange={(event) => {
           if (event.currentTarget.files) {
             selectFiles(event.currentTarget.files);
@@ -5733,7 +5741,7 @@ function TopActionPanel({
             }}
           >
             <ToolbarImportIcon />
-            <strong>Drop STL files</strong>
+            <strong>Drop STL or STEP files</strong>
             <span>or click to choose from your computer</span>
           </button>
         </div>
