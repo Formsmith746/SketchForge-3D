@@ -1,0 +1,41 @@
+app-id: info.friedjof.SketchForge3D
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+command: sketchforge
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=home
+  - --env=WEBKIT_DISABLE_COMPOSITING_MODE=1
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
+  env:
+    CARGO_HOME: /run/build/sketchforge/cargo
+    npm_config_cache: /run/build/sketchforge/npm-cache
+    STATIC_EXPORT: 'true'
+modules:
+  - name: sketchforge
+    buildsystem: simple
+    build-commands:
+      # Install npm dependencies
+      - npm ci --offline
+      # Build static Next.js export
+      - next build apps/web
+      # Build Tauri binary
+      - cargo build --release --manifest-path src-tauri/Cargo.toml
+      # Install binary
+      - install -Dm755 src-tauri/target/release/sketchforge /app/bin/sketchforge
+      # Desktop entry
+      - install -Dm644 flatpak/info.friedjof.SketchForge3D.desktop /app/share/applications/info.friedjof.SketchForge3D.desktop
+      # Icons
+      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/info.friedjof.SketchForge3D.png
+      - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/info.friedjof.SketchForge3D.png
+    sources:
+      - type: dir
+        path: ..

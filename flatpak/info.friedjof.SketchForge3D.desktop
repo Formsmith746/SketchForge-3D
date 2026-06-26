@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=SketchForge 3D
+Comment=Browser-based 3D CAD editor
+Exec=sketchforge
+Icon=info.friedjof.SketchForge3D
+Type=Application
+Categories=Graphics;3DGraphics;Engineering;
+StartupWMClass=SketchForge 3D

@@ -1,0 +1,26 @@
+# Node
+node_modules/
+
+# Next.js build outputs
+apps/web/.next/
+apps/web/out/
+
+# Rust build outputs
+src-tauri/target/
+
+# Distribution
+dist/
+
+# Git
+.git/
+
+# IDE / tools
+.serena/
+.codex/
+.codex-remote-attachments/
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
