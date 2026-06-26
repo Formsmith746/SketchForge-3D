@@ -15,7 +15,12 @@
     "docker:build": "docker build -f deploy/docker/Dockerfile -t sketchforge:local .",
     "docker:run": "docker run --rm -p 3000:80 sketchforge:local",
     "docker:up": "docker compose -f deploy/docker/compose.yaml up --build -d",
-    "docker:down": "docker compose -f deploy/docker/compose.yaml down"
+    "docker:down": "docker compose -f deploy/docker/compose.yaml down",
+    "desktop:export": "STATIC_EXPORT=true next build apps/web",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "npm run desktop:export && tauri build",
+    "desktop:flatpak": "tauri build --bundles flatpak",
+    "desktop:flatpak:docker": "docker build --output dist/ --target artifact -f deploy/flatpak/Dockerfile . && echo '\\nInstall with: flatpak install --user dist/SketchForge3D.flatpak'"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.8",
@@ -32,6 +37,7 @@
     "three-bvh-csg": "^0.0.18"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.3",
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",

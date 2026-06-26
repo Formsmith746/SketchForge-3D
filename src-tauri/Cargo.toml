@@ -1,0 +1,21 @@
+[package]
+name = "sketchforge"
+version = "0.2.0"
+description = "SketchForge 3D — browser-based 3D CAD editor"
+authors = ["Friedjof Noweck"]
+license = "MIT"
+repository = "https://github.com/friedjof/SketchForge-3D"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "sketchforge_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

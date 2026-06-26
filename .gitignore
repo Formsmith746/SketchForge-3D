@@ -34,6 +34,10 @@ playwright-report/
 .codex/
 .codex-remote-attachments/
 
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
 # OS/editor noise
 .DS_Store
 Thumbs.db
