@@ -17,12 +17,18 @@ type OcctWasmModule = typeof import("occt-wasm");
 let brepReady: Promise<Brep> | null = null;
 
 export async function loadBrepWithOcct(): Promise<Brep> {
+  // Cache the in-flight/resolved load, but drop a rejected attempt so a transient
+  // failure (e.g. a blip fetching the 22 MB wasm) can be retried on the next call
+  // instead of poisoning STEP for the rest of the session.
   brepReady ??= (async () => {
     const brep = await import("brepjs");
     const occt = (await import(/* webpackIgnore: true */ OCCT_INDEX_URL)) as unknown as OcctWasmModule;
     const kernel = await occt.OcctKernel.init({ wasm: OCCT_WASM_URL });
     brep.registerKernel("occt-wasm", brep.OcctWasmAdapter.fromKernel(kernel));
     return brep;
-  })();
+  })().catch((error) => {
+    brepReady = null;
+    throw error;
+  });
   return brepReady;
 }

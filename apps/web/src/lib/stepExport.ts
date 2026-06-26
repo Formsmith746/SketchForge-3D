@@ -18,18 +18,13 @@ export type StepExportResult = {
 // rigid placement are mapped to B-Rep. Everything else (swept/tessellated/text
 // shapes) is reported as skipped rather than faceted into a low-fidelity STEP.
 //
-// Cone construction is correct in the kernel (verified volume/bbox), but the
-// occt-wasm multi-solid STEP writer drops a cone's lateral CONICAL_SURFACE when
-// more than one solid is written to a file (both exportAssemblySTEP and a plain
-// compound). A lone cone via exportSTEP is fine. Until that upstream writer bug
-// is fixed, cones are reported as skipped rather than exported as a corrupt disk.
-const EXACT_KINDS: ReadonlySet<WorkplaneShape["kind"]> = new Set(["box", "cylinder", "sphere"]);
+// Cones are exact: the multi-solid STEP writer that used to drop a cone's lateral
+// CONICAL_SURFACE was fixed upstream in occt-wasm 3.6.1 (verified end-to-end —
+// cone keeps its full surface and volume in a multi-solid assembly).
+const EXACT_KINDS: ReadonlySet<WorkplaneShape["kind"]> = new Set(["box", "cylinder", "sphere", "cone"]);
 const SIZE_EPS = 0.0005;
 
-function unsupportedReason(kind: WorkplaneShape["kind"]): string {
-  if (kind === "cone") {
-    return "cone STEP export blocked by an upstream occt-wasm multi-solid writer bug (drops CONICAL_SURFACE)";
-  }
+function unsupportedReason(): string {
   return "no exact B-Rep mapping";
 }
 
@@ -38,7 +33,7 @@ function unsupportedReason(kind: WorkplaneShape["kind"]): string {
 // the origin (Z, then Y, then X) reproduces that product before the shape is
 // translated off-origin. Circular cylinders/cones ignore yaw, matching the
 // editor's meshYawDegrees so the exported diameter is invariant.
-function shapeYawDegrees(shape: WorkplaneShape): number {
+export function shapeYawDegrees(shape: WorkplaneShape): number {
   const round = shape.kind === "cylinder" || shape.kind === "cone";
   const circular = Math.abs(shapeWidth(shape) - shapeDepth(shape)) < SIZE_EPS;
   return round && circular ? 0 : shape.rotation;
@@ -82,6 +77,8 @@ function buildExactSolid(brep: Brep, shape: WorkplaneShape): BuildOutcome {
       if (Math.abs(width - depth) >= SIZE_EPS) {
         return { skip: "elliptical base is not an exact OCCT primitive" };
       }
+      // Honor the resized footprint (width) while keeping the shape's own
+      // top/base radius ratio, so a truncated cone stays truncated after resize.
       const baseRadius = width / 2;
       const topScale = shape.baseRadius ? (shape.topRadius ?? 0) / shape.baseRadius : 0;
       solid = brep.cone(baseRadius, baseRadius * topScale, height, { axis: [0, 1, 0], centered: true });
@@ -160,7 +157,7 @@ function describe(shape: WorkplaneShape, reason: string): SkippedShape {
   return { name: shape.name, kind: shape.kind, reason };
 }
 
-type Aabb = { min: [number, number, number]; max: [number, number, number] };
+export type Aabb = { min: [number, number, number]; max: [number, number, number] };
 
 // World-space AABB used to decide whether a hole actually reaches a body. A hole
 // is only cut from a body when their boxes overlap, so a body far from every hole
@@ -170,7 +167,7 @@ type Aabb = { min: [number, number, number]; max: [number, number, number] };
 // Axis-aligned shapes get a tight box. Rotated shapes fall back to the box that
 // encloses the bounding sphere (rotation-invariant, never under-reports), trading
 // tightness for the guarantee that a real intersection is never missed.
-function worldAabb(shape: WorkplaneShape): Aabb {
+export function worldAabb(shape: WorkplaneShape): Aabb {
   const w = shapeWidth(shape);
   const d = shapeDepth(shape);
   const h = shape.height;
@@ -187,7 +184,7 @@ function worldAabb(shape: WorkplaneShape): Aabb {
   return { min: [cx - hx, cy - hy, cz - hz], max: [cx + hx, cy + hy, cz + hz] };
 }
 
-function aabbsOverlap(a: Aabb, b: Aabb): boolean {
+export function aabbsOverlap(a: Aabb, b: Aabb): boolean {
   return (
     a.min[0] <= b.max[0] &&
     a.max[0] >= b.min[0] &&
@@ -205,7 +202,7 @@ export async function exportShapesToStep(shapes: WorkplaneShape[]): Promise<Step
   const holes: { box: Aabb; solid: BrepSolid }[] = [];
   for (const shape of shapes.filter((s) => s.hole)) {
     if (!EXACT_KINDS.has(shape.kind)) {
-      skipped.push(describe(shape, `hole ${unsupportedReason(shape.kind)}; cut omitted`));
+      skipped.push(describe(shape, `hole ${unsupportedReason()}; cut omitted`));
       continue;
     }
     const built = buildExactSolid(brep, shape);
@@ -226,7 +223,7 @@ export async function exportShapesToStep(shapes: WorkplaneShape[]): Promise<Step
     } else if (EXACT_KINDS.has(shape.kind)) {
       built = buildExactSolid(brep, shape);
     } else {
-      const reason = shape.kind === "mesh" ? "imported mesh has no B-Rep source; re-import as STEP to round-trip" : unsupportedReason(shape.kind);
+      const reason = shape.kind === "mesh" ? "imported mesh has no B-Rep source; re-import as STEP to round-trip" : unsupportedReason();
       skipped.push(describe(shape, reason));
       continue;
     }

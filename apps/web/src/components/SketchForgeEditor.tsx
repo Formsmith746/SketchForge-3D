@@ -5761,7 +5761,7 @@ function TopActionPanel({
             <ToolbarExportIcon />
             {stepExporting ? "Building STEP…" : "Download STEP (B-Rep)"}
           </button>
-          <p className="export-step-note">STEP keeps boxes, cylinders and spheres as exact CAD geometry (OpenCascade). Other shapes are skipped.</p>
+          <p className="export-step-note">STEP keeps boxes, cylinders, spheres and cones as exact CAD geometry (OpenCascade). Other shapes are skipped.</p>
         </div>
       ) : null}
       {panel === "tips" ? (
