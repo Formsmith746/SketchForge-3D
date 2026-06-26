@@ -5,6 +5,7 @@ describe("project export filenames", () => {
   it("uses the project name for each supported export format", () => {
     expect(projectExportFileName("Gearbox Prototype", "stl")).toBe("Gearbox Prototype.stl");
     expect(projectExportFileName("Gearbox Prototype", "obj")).toBe("Gearbox Prototype.obj");
+    expect(projectExportFileName("Gearbox Prototype", "step")).toBe("Gearbox Prototype.step");
   });
 
   it("removes filesystem-reserved characters without discarding the project name", () => {
