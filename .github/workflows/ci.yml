@@ -10,9 +10,9 @@ jobs:
     name: Lint & tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -32,9 +32,9 @@ jobs:
     needs: checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -45,7 +45,7 @@ jobs:
       - name: Static export
         run: npm run desktop:export
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web-out
           path: apps/web/out/
@@ -57,9 +57,9 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -69,7 +69,7 @@ jobs:
 
       # Reuse the frontend build from stage 2 — tauri build reads apps/web/out/
       # and embeds it into the binary, so no re-export is needed.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: web-out
           path: apps/web/out/
@@ -90,19 +90,19 @@ jobs:
       - name: Build Tauri packages
         run: npx tauri build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pkg-deb
           path: src-tauri/target/release/bundle/deb/*.deb
           retention-days: 7
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pkg-rpm
           path: src-tauri/target/release/bundle/rpm/*.rpm
           retention-days: 7
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pkg-appimage
           path: src-tauri/target/release/bundle/appimage/*.AppImage
