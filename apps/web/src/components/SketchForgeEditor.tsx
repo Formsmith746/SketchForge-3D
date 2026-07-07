@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Download, X } from "lucide-react";
+import { Check, Download, Moon, Sun, X } from "lucide-react";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -84,6 +84,7 @@ export { importedShapeFromStl };
 type TopPanel = "import" | "export" | "tips" | "profile" | "settings" | null;
 type ExportFormat = "stl" | "obj";
 type ToolbarMode = "geometry" | "sketch";
+type ColorTheme = "light" | "dark";
 type Vec3 = [number, number, number];
 type MeshData = { name: string; vertices: Vec3[]; faces: [number, number, number][] };
 type Cuboid = { minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number };
@@ -5103,6 +5104,8 @@ export function SketchForgeEditor({
   projectId,
   projectName = "SketchForge design",
   projectRevision = 0,
+  theme = "light",
+  onToggleTheme,
 }: {
   initialShapes?: WorkplaneShape[];
   initialSnap?: GridSize;
@@ -5114,6 +5117,8 @@ export function SketchForgeEditor({
   projectId?: string | null;
   projectName?: string;
   projectRevision?: number;
+  theme?: ColorTheme;
+  onToggleTheme?: () => void;
 } = {}) {
   const [shapes, setShapes] = useState<WorkplaneShape[]>(() => initialShapes.map(canonicalizeShape));
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -7819,6 +7824,7 @@ export function SketchForgeEditor({
     <div className="sketchforge-editor">
       <SecondaryToolbar
         toolbarMode={toolbarMode}
+        theme={theme}
         onToolbarModeChange={(mode) => {
           setToolbarMode(mode);
           setTopPanel(null);
@@ -7882,6 +7888,7 @@ export function SketchForgeEditor({
           setTopPanel(panel);
           setMenuOpen(false);
         }}
+        onToggleTheme={onToggleTheme}
         onAddShape={(shape) => {
           addShape(shape);
           setTopPanel(null);
@@ -7942,6 +7949,7 @@ export function SketchForgeEditor({
           initialSnap={initialSnap}
           initialWorkspace={initialWorkspace}
           workspaceSettingsKey={projectId ?? "local-workplane"}
+          theme={theme}
           onAddShape={addShape}
           onAlignAnchorChange={chooseAlignAnchor}
           onAlignPreview={previewAlignSelection}
@@ -8095,6 +8103,7 @@ function SketchReferenceIcon({ name }: { name: SketchReferenceIconName }) {
 
 function SecondaryToolbar({
   toolbarMode,
+  theme,
   onToolbarModeChange,
   alignMode,
   canAlign,
@@ -8142,9 +8151,11 @@ function SecondaryToolbar({
   onWorkplaneTool,
   workplaneMode,
   onTopPanel,
+  onToggleTheme,
   onAddShape,
 }: {
   toolbarMode: ToolbarMode;
+  theme: ColorTheme;
   onToolbarModeChange: (mode: ToolbarMode) => void;
   alignMode: boolean;
   canAlign: boolean;
@@ -8192,6 +8203,7 @@ function SecondaryToolbar({
   onWorkplaneTool: () => void;
   workplaneMode: boolean;
   onTopPanel: (panel: TopPanel) => void;
+  onToggleTheme?: () => void;
   onAddShape: (shape: ShapeAsset) => void;
 }) {
   const [shapesOpen, setShapesOpen] = useState(false);
@@ -8385,6 +8397,11 @@ function SecondaryToolbar({
           <button className="action-icon-button" aria-label="Workspace settings" title="Workspace settings" onClick={() => window.dispatchEvent(new Event("sketchforge:open-workspace-settings"))}>
             <ToolbarSettingsIcon />
           </button>
+          {onToggleTheme ? (
+            <button className="action-icon-button theme-toggle-icon" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} onClick={onToggleTheme}>
+              {theme === "dark" ? <Sun size={20} strokeWidth={2.4} /> : <Moon size={20} strokeWidth={2.4} />}
+            </button>
+          ) : null}
         </div>
       </div>
           </>

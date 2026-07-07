@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock3, EllipsisVertical, FileUp, Grid3X3, HomeIcon, List, Pencil, Plus, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Clock3, EllipsisVertical, FileUp, Grid3X3, HomeIcon, List, Moon, Pencil, Plus, Search, Settings, SlidersHorizontal, Sun, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SketchForgeEditor, importedShapeFromStl } from "@/components/SketchForgeEditor";
 import { createLocalId } from "@/lib/localIds";
@@ -12,6 +12,7 @@ type AppView = "dashboard" | "editor";
 type ViewMode = "grid" | "list";
 type DashboardSection = "home" | "challenges";
 type DownloadMode = "browser" | "folder";
+type ColorTheme = "light" | "dark";
 
 type DashboardProject = {
   id: string;
@@ -46,6 +47,7 @@ const PROJECT_SHAPES_DB_NAME = "sketchForge.projectShapes";
 const PROJECT_SHAPES_STORE_NAME = "projectShapes";
 const DOWNLOAD_MODE_STORAGE_KEY = "sketchForge.downloadMode";
 const DOWNLOAD_FOLDER_STORAGE_KEY = "sketchForge.downloadFolder";
+const THEME_STORAGE_KEY = "sketchForge.theme";
 const PROJECT_ACCENTS: DashboardProject["accent"][] = ["cyan", "green", "gold", "red"];
 const STATIC_EXPORT_BUILD = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
 
@@ -239,8 +241,16 @@ function projectNameFromFileName(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "").trim() || "Imported STL design";
 }
 
+function storedColorTheme(): ColorTheme {
+  if (typeof window === "undefined") return "light";
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "dark" || stored === "light") return stored;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export default function Home() {
   const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<ColorTheme>("light");
   const [view, setView] = useState<AppView>("dashboard");
   const [editorStarted, setEditorStarted] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -260,6 +270,11 @@ export default function Home() {
   const projectShapeSaveQueuesRef = useRef<Record<string, Promise<void>>>({});
 
   useEffect(() => {
+    const nextTheme = storedColorTheme();
+    setTheme(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    document.documentElement.style.colorScheme = nextTheme;
+
     const { projects: storedProjects, legacyShapes } = readStoredProjects();
     setProjects(storedProjects);
     if (Object.keys(legacyShapes).length > 0) {
@@ -284,6 +299,14 @@ export default function Home() {
     }
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    if (mounted) {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
+  }, [mounted, theme]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -592,6 +615,7 @@ export default function Home() {
   const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) ?? null : null;
   const activeProjectShapeEntry = activeProjectId ? projectShapesById[activeProjectId] : null;
   const canRenderEditor = !activeProjectId || (Boolean(activeProject) && Boolean(activeProjectShapeEntry));
+  const toggleTheme = () => setTheme((current) => (current === "dark" ? "light" : "dark"));
   const projectDebugSummary = projects.map((project) => ({
     id: project.id,
     revision: project.revision,
@@ -631,6 +655,7 @@ export default function Home() {
           settingsOpen={settingsOpen}
           staticExportBuild={STATIC_EXPORT_BUILD}
           sortMode={sortMode}
+          theme={theme}
           viewMode={viewMode}
           onCloseSettings={() => setSettingsOpen(false)}
           onCreate={() => createAndOpenProject()}
@@ -648,6 +673,7 @@ export default function Home() {
           onQueryChange={setQuery}
           onRenameProject={renameProject}
           onSortModeChange={setSortMode}
+          onToggleTheme={toggleTheme}
           onViewModeChange={setViewMode}
           onWorkspace={openLatestProject}
         />
@@ -665,6 +691,8 @@ export default function Home() {
             projectId={activeProjectId}
             projectName={activeProject?.name}
             projectRevision={activeProjectShapeEntry?.revision ?? activeProject?.revision ?? 0}
+            theme={theme}
+            onToggleTheme={toggleTheme}
           />
         </div>
       ) : null}
@@ -682,6 +710,7 @@ function Dashboard({
   settingsOpen,
   staticExportBuild,
   sortMode,
+  theme,
   viewMode,
   onCloseSettings,
   onCreate,
@@ -696,6 +725,7 @@ function Dashboard({
   onQueryChange,
   onRenameProject,
   onSortModeChange,
+  onToggleTheme,
   onViewModeChange,
   onWorkspace,
 }: {
@@ -708,6 +738,7 @@ function Dashboard({
   settingsOpen: boolean;
   staticExportBuild: boolean;
   sortMode: string;
+  theme: ColorTheme;
   viewMode: ViewMode;
   onCloseSettings: () => void;
   onCreate: () => void;
@@ -722,6 +753,7 @@ function Dashboard({
   onQueryChange: (value: string) => void;
   onRenameProject: (projectId: string, name: string) => void;
   onSortModeChange: (value: string) => void;
+  onToggleTheme: () => void;
   onViewModeChange: (value: ViewMode) => void;
   onWorkspace: () => void;
 }) {
@@ -772,6 +804,10 @@ function Dashboard({
           <Search size={18} strokeWidth={2.4} />
           <input value={query} onChange={(event) => onQueryChange(event.currentTarget.value)} placeholder="Search projects" aria-label="Search projects" />
         </div>
+        <button className="theme-toggle" type="button" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} onClick={onToggleTheme}>
+          {theme === "dark" ? <Sun size={18} strokeWidth={2.4} /> : <Moon size={18} strokeWidth={2.4} />}
+          <span>{theme === "dark" ? "Light" : "Dark"}</span>
+        </button>
         <button className="dashboard-primary" type="button" onClick={onCreate}>
           <Plus size={20} strokeWidth={2.6} />
           <span>Create</span>

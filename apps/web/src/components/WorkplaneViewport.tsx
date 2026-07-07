@@ -136,6 +136,7 @@ type WorkplaneViewportProps = {
   initialSnap?: GridSize;
   initialWorkspace?: WorkplaneWorkspaceSettings;
   workspaceSettingsKey?: string | null;
+  theme?: "light" | "dark";
   onAddShape: (shape: ShapeAsset, point?: { x: number; z: number; elevation?: number }) => void;
   onAlignAnchorChange: (id: string) => void;
   onAlignPreview: (axis: AlignAxis, target: AlignTarget) => void;
@@ -1150,6 +1151,7 @@ export function WorkplaneViewport({
   initialSnap,
   initialWorkspace,
   workspaceSettingsKey,
+  theme = "light",
   onAddShape,
   onAlignAnchorChange,
   onAlignPreview,
@@ -1442,7 +1444,7 @@ export function WorkplaneViewport({
 
   useEffect(() => {
     workspaceRef.current = workspace;
-    rebuildWorkplane(threeRef.current, workspace);
+    rebuildWorkplane(threeRef.current, themedWorkspace(workspace, theme));
     if (threeRef.current) {
       syncTransformOverlay(
         threeRef.current,
@@ -1456,7 +1458,7 @@ export function WorkplaneViewport({
       syncRulerOverlay(threeRef.current, rulerModelRef.current, rulerOverlayRef, setRulerOverlay, workspace.accuracy);
       threeRef.current.needsRender = true;
     }
-  }, [workspace]);
+  }, [theme, workspace]);
 
   useEffect(() => {
     setSelectionHelpersVisible(threeRef.current, activeTransformKind !== "rotate");
@@ -3203,6 +3205,13 @@ function syncViewCube(state: ThreeState, cube: HTMLDivElement | null) {
   cube.style.transform = `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
 }
 
+function themedWorkspace(workspace: WorkspaceSettings, theme: "light" | "dark"): WorkspaceSettings {
+  if (theme !== "dark" || workspace.background.toLowerCase() !== DEFAULT_WORKSPACE.background.toLowerCase()) {
+    return workspace;
+  }
+  return { ...workspace, background: "#12161b" };
+}
+
 function rebuildWorkplane(state: ThreeState | null, workspace: WorkspaceSettings) {
   if (!state) {
     return;
@@ -3216,9 +3225,9 @@ function rebuildWorkplane(state: ThreeState | null, workspace: WorkspaceSettings
   const base = new THREE.Mesh(
     new THREE.PlaneGeometry(workspace.width, workspace.depth),
     new THREE.MeshStandardMaterial({
-      color: "#ddf8ff",
+      color: workspace.background === "#12161b" ? "#26343d" : "#ddf8ff",
       transparent: true,
-      opacity: 0.68,
+      opacity: workspace.background === "#12161b" ? 0.82 : 0.68,
       roughness: 0.92,
       side: THREE.FrontSide,
     }),
