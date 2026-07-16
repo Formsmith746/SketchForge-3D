@@ -64,3 +64,13 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
 export function workplaneSettingsFingerprint(workspace: WorkplaneWorkspaceSettings, snapGrid: GridSize) {
   return JSON.stringify({ workspace, snapGrid });
 }
+
+export function workspaceHydrationSyncDecision(pendingFingerprint: string | null, currentFingerprint: string) {
+  if (pendingFingerprint === null) {
+    return { shouldSync: true, pendingFingerprint: null };
+  }
+  return {
+    shouldSync: false,
+    pendingFingerprint: currentFingerprint === pendingFingerprint ? null : pendingFingerprint,
+  };
+}

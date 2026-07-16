@@ -1,5 +1,6 @@
 export const CAD_MODIFIER_RUNTIME_BASE = "/occt";
 export const CAD_MODIFIER_REQUEST_TIMEOUT_MS = 30_000;
+export const CAD_MODIFIER_MAX_SHARP_ANGLE = 90;
 
 export type CadModifierRequestPhase = "prepare" | "preview";
 

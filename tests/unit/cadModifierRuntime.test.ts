@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CAD_MODIFIER_MAX_SHARP_ANGLE,
   CAD_MODIFIER_REQUEST_TIMEOUT_MS,
   CAD_MODIFIER_RUNTIME_BASE,
   cadModifierTimeoutMessage,
@@ -21,5 +22,9 @@ describe("CAD modifier runtime state", () => {
     expect(CAD_MODIFIER_REQUEST_TIMEOUT_MS).toBeGreaterThanOrEqual(20_000);
     expect(CAD_MODIFIER_REQUEST_TIMEOUT_MS).toBeLessThanOrEqual(60_000);
     expect(cadModifierTimeoutMessage("prepare")).toContain("Firefox 121+");
+  });
+
+  it("does not expose thresholds above the worker's folded edge-angle range", () => {
+    expect(CAD_MODIFIER_MAX_SHARP_ANGLE).toBe(90);
   });
 });

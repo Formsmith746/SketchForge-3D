@@ -17,6 +17,7 @@ import helvetikerBoldFontJson from "three/examples/fonts/helvetiker_bold.typefac
 import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json";
 import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
+import { sphereTessellation } from "@/lib/sphereTessellation";
 import {
   ToolbarAlignIcon,
   ToolbarChamferIcon,
@@ -66,12 +67,14 @@ import {
 import { bakeCadMetadataForShapeTransform, cadBrepTransformForShape, cadModifierPrimitiveForAnalyticBox, cadModifierPrimitiveForBakedShape } from "@/lib/cadBakeMetadata";
 import { hasOneToOneCadComponentMapping } from "@/lib/cadModifierGroups";
 import {
+  CAD_MODIFIER_MAX_SHARP_ANGLE,
   CAD_MODIFIER_REQUEST_TIMEOUT_MS,
   cadModifierTimeoutMessage,
   cadModifierWorkerFailureMessage,
   type CadModifierRequestPhase,
 } from "@/lib/cadModifierRuntime";
-import { cloneWorkplaneShapeSnapshot, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
+import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatmentAppliedFrame, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
+import { appendEditorHistorySnapshot, editorHistoryEntry, hydrateEditorHistoryState, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { createLocalId } from "@/lib/localIds";
 import { projectExportFileName } from "@/lib/exportNames";
@@ -185,6 +188,7 @@ const CUTTER_PADDING = 0.05;
 const POINT_TOLERANCE = 0.0001;
 const CUTTER_RESIDUAL_INSET = CUTTER_PADDING * 0.4;
 const MIN_SHAPE_DIMENSION = 0.01;
+const MAX_SKETCH_HISTORY_ENTRIES = 100;
 const MODEL_DIMENSION_PRECISION = 3;
 const IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT = 150000;
 const COPLANAR_BOOLEAN_RESCUE_DEGREES = 0.02;
@@ -1196,7 +1200,26 @@ function tangentCadEdgeChain(edges: CadModifierEdge[], startId: number, allowedI
   const edgeById = new Map(edges.map((edge) => [edge.id, edge]));
   const selected = new Set<number>([startId]);
   const queue = [startId];
-  const tolerance = 0.025;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let minZ = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let maxZ = Number.NEGATIVE_INFINITY;
+  edges.forEach((edge) => {
+    for (let index = 0; index + 2 < edge.points.length; index += 3) {
+      minX = Math.min(minX, edge.points[index]);
+      minY = Math.min(minY, edge.points[index + 1]);
+      minZ = Math.min(minZ, edge.points[index + 2]);
+      maxX = Math.max(maxX, edge.points[index]);
+      maxY = Math.max(maxY, edge.points[index + 1]);
+      maxZ = Math.max(maxZ, edge.points[index + 2]);
+    }
+  });
+  const diagonal = [minX, minY, minZ, maxX, maxY, maxZ].every(Number.isFinite)
+    ? Math.hypot(maxX - minX, maxY - minY, maxZ - minZ)
+    : 1;
+  const tolerance = Math.max(1e-6, Math.min(0.01, diagonal * 1e-5));
   while (queue.length > 0) {
     const id = queue.shift() as number;
     const edge = edgeById.get(id);
@@ -1220,7 +1243,7 @@ function tangentCadEdgeChain(edges: CadModifierEdge[], startId: number, allowedI
 }
 
 function selectableCadModifierEdge(edge: CadModifierEdge, sharpAngle: number) {
-  return edge.selectable && edge.manifold && !edge.boundary && edge.angle + 1e-3 >= sharpAngle;
+  return edge.display && edge.selectable && edge.manifold && !edge.boundary && edge.angle + 1e-3 >= sharpAngle;
 }
 
 function cadDisplayEdgesAfterTreatment(shape: WorkplaneShape, session: EdgeModifierSession) {
@@ -1298,14 +1321,26 @@ function shapeWithEdgeTreatmentRecord(
       },
     ],
     edgeTreatmentHistory: [
-      ...(before.edgeTreatmentHistory ?? []),
+      ...compactEdgeTreatmentHistory(before.edgeTreatmentHistory),
       {
         id: createLocalId("edge-history"),
         createdAt,
         feature,
         before: cloneWorkplaneShapeSnapshot(before),
+        appliedFrame: edgeTreatmentAppliedFrame(shape),
       },
     ],
+  });
+}
+
+function bakedEdgeTreatmentPreview(shape: WorkplaneShape, base: WorkplaneShape) {
+  if (!base.groupedShapes?.length) return shape;
+  return canonicalizeShape({
+    ...shape,
+    groupedShapes: undefined,
+    groupedBaseWidth: undefined,
+    groupedBaseDepth: undefined,
+    groupedBaseHeight: undefined,
   });
 }
 
@@ -1412,7 +1447,7 @@ function groupedShapeWithComponentEdgeTreatment(
     ...preview,
     edgeResizeMode: session.preserveEdgeSize ? "preserve" : "scale",
     edgeTreatments: base.edgeTreatments,
-    edgeTreatmentHistory: base.edgeTreatmentHistory,
+    edgeTreatmentHistory: base.edgeTreatmentHistory?.length ? compactEdgeTreatmentHistory(base.edgeTreatmentHistory) : undefined,
     groupedBaseWidth: shapeWidth(preview),
     groupedBaseDepth: shapeDepth(preview),
     groupedBaseHeight: preview.height,
@@ -1481,9 +1516,13 @@ async function restoreEdgeTreatmentInShape(shape: WorkplaneShape, path: number[]
       ...rebuilt.group,
       id: shape.id,
       name: shape.name,
+      color: shape.color,
       hole: shape.hole || rebuilt.group.hole,
       locked: shape.locked,
       hidden: shape.hidden,
+      edgeResizeMode: shape.edgeResizeMode,
+      edgeTreatments: shape.edgeTreatments,
+      edgeTreatmentHistory: shape.edgeTreatmentHistory?.length ? compactEdgeTreatmentHistory(shape.edgeTreatmentHistory) : undefined,
     }),
     label: restoredChild.label,
   };
@@ -1577,8 +1616,7 @@ function cylinderMesh(shape: WorkplaneShape, sides = 96, topRadiusScale = 1): Me
 }
 
 function sphereMesh(shape: WorkplaneShape): MeshData {
-  const lat = 12;
-  const lon = 32;
+  const { widthSegments: lon, heightSegments: lat } = sphereTessellation(shape.steps);
   const width = shapeWidth(shape);
   const depth = shapeDepth(shape);
   const height = shape.height;
@@ -1871,7 +1909,7 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
       geometry.scale(width / 2, 1, depth / 2);
       break;
     case "sphere":
-      geometry = new THREE.SphereGeometry(1, Math.max(8, (shape.steps ?? 24) * 2), Math.max(6, shape.steps ?? 24));
+      geometry = new THREE.SphereGeometry(1, sphereTessellation(shape.steps).widthSegments, sphereTessellation(shape.steps).heightSegments);
       geometry.scale(width / 2, height / 2, depth / 2);
       break;
     case "cone": {
@@ -3727,9 +3765,10 @@ function primitiveManifoldForShape(runtime: ManifoldToplevel, shape: WorkplaneSh
   }
 
   if (shape.kind === "sphere") {
+    const { widthSegments } = sphereTessellation(shape.steps);
     return transformedPrimitiveManifold(
       runtime,
-      runtime.Manifold.sphere(1, shape.sides ?? 32),
+      runtime.Manifold.sphere(1, widthSegments),
       primitiveTransformMatrix(shape, new THREE.Vector3(width / 2, height / 2, depth / 2)),
       created,
     );
@@ -4940,63 +4979,10 @@ function readMcpEditorIdentity() {
   return identity;
 }
 
-function projectShapesFingerprint(shapes: WorkplaneShape[]) {
-  return shapes
-    .map((shape, index) =>
-      [
-        compactShapeSummary(shape, index),
-        `id${shape.id}`,
-        `n${shape.name}`,
-        `clr${shape.color}`,
-        `txt${shape.text ?? ""}`,
-        `screw${shape.screwHole ? JSON.stringify(shape.screwHole) : ""}`,
-        `mesh${shape.importedMesh?.positions.length ?? 0}:${shape.importedMesh?.normals?.length ?? 0}`,
-        `cadFrame${shape.cadBrepFrame ? JSON.stringify({
-          x: Number(shape.cadBrepFrame.x.toFixed(6)),
-          z: Number(shape.cadBrepFrame.z.toFixed(6)),
-          elevation: Number(shape.cadBrepFrame.elevation.toFixed(6)),
-          width: Number(shape.cadBrepFrame.width.toFixed(6)),
-          depth: Number(shape.cadBrepFrame.depth.toFixed(6)),
-          height: Number(shape.cadBrepFrame.height.toFixed(6)),
-          sourceTransform: shape.cadBrepFrame.sourceTransform?.map((value) => Number(value.toFixed(9))) ?? null,
-        }) : ""}`,
-        `primitiveFrame${shape.cadPrimitiveFrame ? JSON.stringify({
-          kind: shape.cadPrimitiveFrame.kind,
-          width: Number(shape.cadPrimitiveFrame.width.toFixed(6)),
-          depth: Number(shape.cadPrimitiveFrame.depth.toFixed(6)),
-          height: Number(shape.cadPrimitiveFrame.height.toFixed(6)),
-          frame: {
-            x: Number(shape.cadPrimitiveFrame.frame.x.toFixed(6)),
-            z: Number(shape.cadPrimitiveFrame.frame.z.toFixed(6)),
-            elevation: Number(shape.cadPrimitiveFrame.frame.elevation.toFixed(6)),
-            width: Number(shape.cadPrimitiveFrame.frame.width.toFixed(6)),
-            depth: Number(shape.cadPrimitiveFrame.frame.depth.toFixed(6)),
-            height: Number(shape.cadPrimitiveFrame.frame.height.toFixed(6)),
-            sourceTransform: shape.cadPrimitiveFrame.frame.sourceTransform?.map((value) => Number(value.toFixed(9))) ?? null,
-          },
-        }) : ""}`,
-        `sketch${shape.sketchProfile ? JSON.stringify({
-          points: shape.sketchProfile.points,
-          segments: shape.sketchProfile.segments,
-          images: (shape.sketchProfile.images ?? []).map((image) => ({
-            id: image.id,
-            name: image.name,
-            x: image.x,
-            z: image.z,
-            width: image.width,
-            depth: image.depth,
-            opacity: image.opacity,
-            lockAspect: image.lockAspect,
-            sourceLength: image.dataUrl.length,
-          })),
-        }) : ""}`,
-      ].join(","),
-    )
-    .join(";");
-}
-
 export function SketchForgeEditor({
   initialShapes = [],
+  initialHistory,
+  initialHistoryIndex,
   initialSnap,
   initialWorkspace,
   onHome,
@@ -5008,22 +4994,37 @@ export function SketchForgeEditor({
   projectRevision = 0,
 }: {
   initialShapes?: WorkplaneShape[];
+  initialHistory?: EditorHistoryEntry[];
+  initialHistoryIndex?: number;
   initialSnap?: GridSize;
   initialWorkspace?: WorkplaneWorkspaceSettings;
   onHome?: () => void;
-  onProjectShapesChange?: (snapshot: { projectId: string; shapes: WorkplaneShape[] }) => void;
+  onProjectShapesChange?: (snapshot: {
+    projectId: string;
+    shapes: WorkplaneShape[];
+    history: EditorHistoryEntry[];
+    historyIndex: number;
+  }) => void;
   onProjectSnapshot?: (snapshot: { image: string; projectId: string; shapes: number }) => void;
   onProjectWorkspaceChange?: (snapshot: { projectId: string; workspace: WorkplaneWorkspaceSettings; snap: GridSize }) => void;
   projectId?: string | null;
   projectName?: string;
   projectRevision?: number;
 } = {}) {
-  const [shapes, setShapes] = useState<WorkplaneShape[]>(() => initialShapes.map(canonicalizeShape));
+  const initialSceneRef = useRef<WorkplaneShape[] | null>(null);
+  if (initialSceneRef.current === null) {
+    initialSceneRef.current = initialShapes.map(canonicalizeShape);
+  }
+  const initialHistoryStateRef = useRef<EditorHistoryState | null>(null);
+  if (initialHistoryStateRef.current === null) {
+    initialHistoryStateRef.current = hydrateEditorHistoryState(initialSceneRef.current, initialHistory, initialHistoryIndex);
+  }
+  const [shapes, setShapes] = useState<WorkplaneShape[]>(() => initialSceneRef.current as WorkplaneShape[]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [clipboard, setClipboard] = useState<WorkplaneShape[]>([]);
   const [systemClipboardSupported, setSystemClipboardSupported] = useState(false);
-  const [history, setHistory] = useState<WorkplaneShape[][]>([[]]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  const [history, setHistory] = useState<EditorHistoryEntry[]>(() => (initialHistoryStateRef.current as EditorHistoryState).entries);
+  const [historyIndex, setHistoryIndex] = useState(() => (initialHistoryStateRef.current as EditorHistoryState).index);
   const [placementElevation, setPlacementElevation] = useState(0);
   const [workspaceSettings, setWorkspaceSettings] = useState<WorkplaneWorkspaceSettings>(() => normalizeWorkspaceSettings(initialWorkspace));
   const [workplaneMode, setWorkplaneMode] = useState(false);
@@ -5059,6 +5060,7 @@ export function SketchForgeEditor({
   const noticeRef = useRef(notice);
   const projectInfoRef = useRef({ projectId: projectId ?? null, projectName });
   const historyIndexRef = useRef(historyIndex);
+  const historyRef = useRef(history);
   const interactionHistoryStartRef = useRef("");
   const interactionHistoryChangedRef = useRef(false);
   const interactionHistoryTimerRef = useRef<number | null>(null);
@@ -5069,6 +5071,8 @@ export function SketchForgeEditor({
   const [sketchProfile, setSketchProfile] = useState<SketchProfile>(() => emptySketchProfile());
   const [sketchHistory, setSketchHistory] = useState<SketchProfile[]>([emptySketchProfile()]);
   const [sketchHistoryIndex, setSketchHistoryIndex] = useState(0);
+  const sketchHistoryRef = useRef(sketchHistory);
+  const sketchHistoryIndexRef = useRef(sketchHistoryIndex);
   const [sketchActivePointId, setSketchActivePointId] = useState<string | null>(null);
   const [sketchSelection, setSketchSelection] = useState<SketchSelection>(null);
   const [sketchMeasureStart, setSketchMeasureStart] = useState<SketchPoint | null>(null);
@@ -5187,6 +5191,8 @@ export function SketchForgeEditor({
           selectedEdgeIds: [],
           busy: false,
           prepared: true,
+          preview: null,
+          componentPreviews: [],
           error: message.selectableEdgeIds.length ? null : "No sharp manifold edges were found at this threshold",
         } : current);
         if (message.selectableEdgeIds.length) setNotice("Select highlighted edges, then adjust the preview");
@@ -5246,12 +5252,19 @@ export function SketchForgeEditor({
   const invalidateCadModifierSession = useCallback(() => {
     const wasActive = cadModifierBaseShapeRef.current !== null;
     if (!wasActive) return false;
+    const hadInFlightRequest = cadModifierWatchdogRef.current !== null;
     clearCadModifierWatchdog();
     const requestId = cadModifierRequestRef.current + 1;
     cadModifierRequestRef.current = requestId;
     cadModifierLatestPreviewRef.current = requestId;
     cadModifierPrepareRef.current = requestId;
-    cadModifierWorkerRef.current?.postMessage({ type: "dispose", requestId } satisfies CadModifierWorkerRequest);
+    if (hadInFlightRequest) {
+      cadModifierWorkerRef.current?.terminate();
+      cadModifierWorkerRef.current = null;
+      cadModifierWorkerRestartRef.current();
+    } else {
+      cadModifierWorkerRef.current?.postMessage({ type: "dispose", requestId } satisfies CadModifierWorkerRequest);
+    }
     cadModifierBaseShapeRef.current = null;
     cadModifierBaseFingerprintRef.current = "";
     cadModifierSourcePartsRef.current = [];
@@ -5311,6 +5324,14 @@ export function SketchForgeEditor({
 
   useEffect(() => {
     selectedIdsRef.current = selectedIds;
+    const currentHistory = historyRef.current;
+    const currentIndex = Math.min(historyIndexRef.current, Math.max(0, currentHistory.length - 1));
+    const currentEntry = currentHistory[currentIndex];
+    if (currentEntry && currentEntry.selectedIds.join("\0") !== selectedIds.join("\0")) {
+      const updated = currentHistory.map((entry, index) => index === currentIndex ? { ...entry, selectedIds: [...selectedIds] } : entry);
+      historyRef.current = updated;
+      setHistory(updated);
+    }
   }, [selectedIds]);
 
   useEffect(() => {
@@ -5328,6 +5349,18 @@ export function SketchForgeEditor({
   useEffect(() => {
     historyIndexRef.current = historyIndex;
   }, [historyIndex]);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  useEffect(() => {
+    sketchHistoryRef.current = sketchHistory;
+  }, [sketchHistory]);
+
+  useEffect(() => {
+    sketchHistoryIndexRef.current = sketchHistoryIndex;
+  }, [sketchHistoryIndex]);
 
   useEffect(() => {
     edgeModifierRef.current = edgeModifier;
@@ -5372,7 +5405,7 @@ export function SketchForgeEditor({
   );
   const toggleModifierEdge = useCallback((id: number, singleEdge = false) => {
     setEdgeModifier((current) => {
-      if (!current) return current;
+      if (!current || current.busy) return current;
       const allowed = new Set(current.edges.filter((edge) => selectableCadModifierEdge(edge, current.sharpAngle)).map((edge) => edge.id));
       if (!allowed.has(id)) return current;
       const ids = current.tangentChain && !singleEdge ? tangentCadEdgeChain(current.edges, id, allowed) : [id];
@@ -5483,12 +5516,29 @@ export function SketchForgeEditor({
       projectSyncTimerRef.current = window.setTimeout(() => {
         lastProjectShapesSyncRef.current = serialized;
         lastProjectShapesEchoRef.current = serialized;
-        onProjectShapesChange({ projectId, shapes: canonicalNext });
+        onProjectShapesChange({
+          projectId,
+          shapes: canonicalNext,
+          history: historyRef.current,
+          historyIndex: historyIndexRef.current,
+        });
         projectSyncTimerRef.current = null;
       }, 120);
     },
     [onProjectShapesChange, projectId],
   );
+
+  const appendHistorySnapshot = useCallback((nextShapes: WorkplaneShape[], nextSelection: string[]) => {
+    const entry = editorHistoryEntry(nextShapes, nextSelection);
+    const result = appendEditorHistorySnapshot(historyRef.current, historyIndexRef.current, entry);
+    if (result.entries !== historyRef.current) {
+      historyRef.current = result.entries;
+      setHistory(result.entries);
+    }
+    historyIndexRef.current = result.index;
+    setHistoryIndex(result.index);
+    return result.changed;
+  }, []);
 
   const finalizeInteractionHistory = useCallback(() => {
     const startFingerprint = interactionHistoryStartRef.current;
@@ -5505,22 +5555,8 @@ export function SketchForgeEditor({
       return;
     }
 
-    setHistory((current) => {
-      const historyIndex = Math.min(historyIndexRef.current, Math.max(0, current.length - 1));
-      const trimmed = current.slice(0, historyIndex + 1);
-      const latestHistory = trimmed.at(-1) ?? [];
-      if (projectShapesFingerprint(latestHistory) === nextFingerprint) {
-        historyIndexRef.current = Math.max(0, trimmed.length - 1);
-        setHistoryIndex(historyIndexRef.current);
-        return trimmed;
-      }
-
-      const nextHistory = [...trimmed, canonicalNext];
-      historyIndexRef.current = nextHistory.length - 1;
-      setHistoryIndex(historyIndexRef.current);
-      return nextHistory;
-    });
-  }, []);
+    appendHistorySnapshot(canonicalNext, selectedIdsRef.current);
+  }, [appendHistorySnapshot]);
 
   useEffect(() => {
     if (projectInteractionActive || !pendingProjectShapesRef.current) {
@@ -5538,6 +5574,7 @@ export function SketchForgeEditor({
         if (interactionHistoryTimerRef.current !== null) {
           window.clearTimeout(interactionHistoryTimerRef.current);
           interactionHistoryTimerRef.current = null;
+          finalizeInteractionHistory();
         }
         if (!projectInteractionActiveRef.current) {
           interactionHistoryStartRef.current = projectShapesFingerprint(shapesRef.current);
@@ -5578,20 +5615,18 @@ export function SketchForgeEditor({
       const requestedSelection = Array.isArray(nextSelection) ? nextSelection : nextSelection ? [nextSelection] : [];
       const validSelection = requestedSelection.filter((id, index) => requestedSelection.indexOf(id) === index && canonicalNext.some((shape) => shape.id === id));
       shapesRef.current = canonicalNext;
+      selectedIdsRef.current = validSelection;
       setShapes(canonicalNext);
       setSelectedIds(validSelection);
-      setHistory((current) => {
-        const trimmed = current.slice(0, historyIndex + 1);
-        historyIndexRef.current = trimmed.length;
-        setHistoryIndex(historyIndexRef.current);
-        return [...trimmed, canonicalNext];
-      });
+      const changed = appendHistorySnapshot(canonicalNext, validSelection);
       if (message) {
         setNotice(message);
       }
-      syncProjectShapes(canonicalNext);
+      if (changed) {
+        syncProjectShapes(canonicalNext);
+      }
     },
-    [historyIndex, selectedIds, syncProjectShapes],
+    [appendHistorySnapshot, selectedIds, syncProjectShapes],
   );
 
   const removeEdgeTreatment = useCallback(async (optionId: string) => {
@@ -5608,32 +5643,46 @@ export function SketchForgeEditor({
       setNotice("Choose an edge feature to remove");
       return;
     }
+    const sourceFingerprint = projectShapesFingerprint([selectedShape]);
+    const sourceProjectId = projectInfoRef.current.projectId;
     const restored = await restoreEdgeTreatmentInShape(selectedShape, option.path, option.entryId);
     if (!restored) {
       setNotice(selectedEdgeFeatureCount > 0 ? "This edge feature has no stored undo history" : "No edge feature to remove");
       return;
     }
+    const currentTarget = shapesRef.current.find((shape) => shape.id === selectedShape.id);
+    if (projectInfoRef.current.projectId !== sourceProjectId || !currentTarget || projectShapesFingerprint([currentTarget]) !== sourceFingerprint) {
+      setNotice("The object changed while removing the edge feature; try again");
+      return;
+    }
     invalidateCadModifierSession();
     commitShapes(
-      shapes.map((shape) => shape.id === selectedShape.id ? restored.shape : shape),
+      shapesRef.current.map((shape) => shape.id === selectedShape.id ? restored.shape : shape),
       restored.shape.id,
       `Removed ${restored.label}`,
     );
     setNotice(`Removed ${restored.label}`);
-  }, [commitShapes, invalidateCadModifierSession, selectedEdgeFeatureCount, selectedEdgeHistoryOptions, selectedShape, shapes]);
+  }, [commitShapes, invalidateCadModifierSession, selectedEdgeFeatureCount, selectedEdgeHistoryOptions, selectedShape]);
 
   const commitSketchProfile = useCallback(
     (next: SketchProfile, message?: string) => {
       const snapshot = cloneSketchProfile(next);
+      const current = sketchHistoryRef.current;
+      const currentIndex = Math.min(sketchHistoryIndexRef.current, Math.max(0, current.length - 1));
+      const trimmed = current.slice(0, currentIndex + 1);
+      const latest = trimmed.at(-1);
       setSketchProfile(snapshot);
-      setSketchHistory((current) => {
-        const trimmed = current.slice(0, sketchHistoryIndex + 1);
-        return [...trimmed, cloneSketchProfile(snapshot)];
-      });
-      setSketchHistoryIndex(sketchHistoryIndex + 1);
+      if (latest && JSON.stringify(latest) === JSON.stringify(snapshot)) {
+        return;
+      }
+      const nextHistory = [...trimmed, cloneSketchProfile(snapshot)].slice(-MAX_SKETCH_HISTORY_ENTRIES);
+      sketchHistoryRef.current = nextHistory;
+      sketchHistoryIndexRef.current = nextHistory.length - 1;
+      setSketchHistory(nextHistory);
+      setSketchHistoryIndex(sketchHistoryIndexRef.current);
       if (message) setNotice(message);
     },
-    [sketchHistoryIndex],
+    [],
   );
 
   const beginSketch = useCallback((profile?: SketchProfile, editingId: string | null = null) => {
@@ -5642,7 +5691,10 @@ export function SketchForgeEditor({
     setSketchActive(true);
     setSketchTool(profile?.segments.length ? "select" : "line");
     setSketchProfile(initial);
-    setSketchHistory([cloneSketchProfile(initial)]);
+    const initialHistory = [cloneSketchProfile(initial)];
+    sketchHistoryRef.current = initialHistory;
+    sketchHistoryIndexRef.current = 0;
+    setSketchHistory(initialHistory);
     setSketchHistoryIndex(0);
     setSketchActivePointId(null);
     setSketchSelection(null);
@@ -5671,30 +5723,36 @@ export function SketchForgeEditor({
   }, []);
 
   const sketchUndo = useCallback(() => {
-    if (sketchHistoryIndex <= 0) {
+    const currentHistory = sketchHistoryRef.current;
+    const currentIndex = sketchHistoryIndexRef.current;
+    if (currentIndex <= 0) {
       setNotice("Nothing to undo in this sketch");
       return;
     }
-    const nextIndex = sketchHistoryIndex - 1;
+    const nextIndex = currentIndex - 1;
+    sketchHistoryIndexRef.current = nextIndex;
     setSketchHistoryIndex(nextIndex);
-    setSketchProfile(cloneSketchProfile(sketchHistory[nextIndex] ?? emptySketchProfile()));
+    setSketchProfile(cloneSketchProfile(currentHistory[nextIndex] ?? emptySketchProfile()));
     setSketchActivePointId(null);
     setSketchSelection(null);
     setNotice("Sketch undo");
-  }, [sketchHistory, sketchHistoryIndex]);
+  }, []);
 
   const sketchRedo = useCallback(() => {
-    if (sketchHistoryIndex >= sketchHistory.length - 1) {
+    const currentHistory = sketchHistoryRef.current;
+    const currentIndex = sketchHistoryIndexRef.current;
+    if (currentIndex >= currentHistory.length - 1) {
       setNotice("Nothing to redo in this sketch");
       return;
     }
-    const nextIndex = sketchHistoryIndex + 1;
+    const nextIndex = currentIndex + 1;
+    sketchHistoryIndexRef.current = nextIndex;
     setSketchHistoryIndex(nextIndex);
-    setSketchProfile(cloneSketchProfile(sketchHistory[nextIndex] ?? emptySketchProfile()));
+    setSketchProfile(cloneSketchProfile(currentHistory[nextIndex] ?? emptySketchProfile()));
     setSketchActivePointId(null);
     setSketchSelection(null);
     setNotice("Sketch redo");
-  }, [sketchHistory, sketchHistoryIndex]);
+  }, []);
 
   const setActiveSketchTool = useCallback((tool: SketchTool) => {
     setSketchTool(tool);
@@ -6020,7 +6078,11 @@ export function SketchForgeEditor({
       lastProjectShapesEchoRef.current = null;
       return;
     }
-    if (lastProjectIdRef.current !== projectId) {
+    if (projectInteractionActiveRef.current) {
+      return;
+    }
+    const projectChanged = lastProjectIdRef.current !== projectId;
+    if (projectChanged) {
       lastProjectIdRef.current = projectId;
       lastProjectShapesSyncRef.current = "";
       lastProjectShapesEchoRef.current = null;
@@ -6028,11 +6090,8 @@ export function SketchForgeEditor({
     const incoming = initialShapes.map(canonicalizeShape);
     const incomingSerialized = projectShapesFingerprint(incoming);
     // The parent echoes shapes after a local save; rehydrating that echo can reset active transform state.
-    if (lastProjectShapesEchoRef.current !== null && incomingSerialized === lastProjectShapesEchoRef.current) {
+    if (!projectChanged && lastProjectShapesEchoRef.current !== null && incomingSerialized === lastProjectShapesEchoRef.current) {
       lastProjectShapesSyncRef.current = incomingSerialized;
-      return;
-    }
-    if (projectInteractionActiveRef.current) {
       return;
     }
     lastProjectShapesSyncRef.current = incomingSerialized;
@@ -6040,16 +6099,21 @@ export function SketchForgeEditor({
       window.clearTimeout(projectSyncTimerRef.current);
       projectSyncTimerRef.current = null;
     }
-    if (incomingSerialized === projectShapesFingerprint(shapes)) {
+    if (!projectChanged && incomingSerialized === projectShapesFingerprint(shapes)) {
       return;
     }
+    const hydratedHistory = hydrateEditorHistoryState(incoming, initialHistory, initialHistoryIndex);
     projectHydratingRef.current = true;
+    shapesRef.current = incoming;
+    selectedIdsRef.current = [];
+    historyRef.current = hydratedHistory.entries;
+    historyIndexRef.current = hydratedHistory.index;
     setShapes(incoming);
     setSelectedIds([]);
-    setHistory([incoming]);
-    setHistoryIndex(0);
+    setHistory(hydratedHistory.entries);
+    setHistoryIndex(hydratedHistory.index);
     setNotice(incoming.length ? "Project synced" : "Ready");
-  }, [initialShapes, projectId, projectRevision]);
+  }, [initialHistory, initialHistoryIndex, initialShapes, projectId, projectInteractionActive, projectRevision]);
 
   useEffect(() => {
     if (!projectId || !onProjectShapesChange) {
@@ -6228,11 +6292,16 @@ export function SketchForgeEditor({
   }, [hasSelection, selectedShapes]);
 
   const pasteShape = useCallback(async () => {
+    const sourceProjectId = projectInfoRef.current.projectId;
     const systemClipboard = await readSystemClipboard();
     const sharedClipboard = readSharedClipboard();
     const sourceClipboard = systemClipboard.length > 0 ? systemClipboard : sharedClipboard.length > 0 ? sharedClipboard : clipboard;
     if (sourceClipboard.length === 0) {
       setNotice("SketchForge clipboard is empty");
+      return;
+    }
+    if (projectInfoRef.current.projectId !== sourceProjectId) {
+      setNotice("Paste cancelled because the project changed");
       return;
     }
     if (serializeShapesForSync(sourceClipboard) !== serializeShapesForSync(clipboard)) {
@@ -6248,38 +6317,56 @@ export function SketchForgeEditor({
   }, [clipboard, commitShapes]);
 
   const undo = useCallback(() => {
+    if (projectInteractionActiveRef.current) {
+      setNotice("Finish the current drag or transform before undoing");
+      return;
+    }
     const modifierCancelled = invalidateCadModifierSession();
-    if (historyIndex <= 0) {
+    const currentHistory = historyRef.current;
+    const currentIndex = historyIndexRef.current;
+    if (currentIndex <= 0) {
       setNotice(modifierCancelled ? "Edge modifier cancelled" : "Nothing to undo");
       return;
     }
-    const nextIndex = historyIndex - 1;
-    const nextShapes = (history[nextIndex] ?? []).map(canonicalizeShape);
+    const nextIndex = currentIndex - 1;
+    const entry = currentHistory[nextIndex];
+    const nextShapes = (entry?.shapes ?? []).map(canonicalizeShape);
+    const nextSelection = (entry?.selectedIds ?? []).filter((id) => nextShapes.some((shape) => shape.id === id));
     historyIndexRef.current = nextIndex;
     shapesRef.current = nextShapes;
+    selectedIdsRef.current = nextSelection;
     setHistoryIndex(nextIndex);
     setShapes(nextShapes);
-    setSelectedIds((current) => current.filter((id) => nextShapes.some((shape) => shape.id === id)));
+    setSelectedIds(nextSelection);
     syncProjectShapes(nextShapes);
     setNotice(modifierCancelled ? "Edge modifier cancelled · Undo" : "Undo");
-  }, [history, historyIndex, invalidateCadModifierSession, syncProjectShapes]);
+  }, [invalidateCadModifierSession, syncProjectShapes]);
 
   const redo = useCallback(() => {
-    if (historyIndex >= history.length - 1) {
+    if (projectInteractionActiveRef.current) {
+      setNotice("Finish the current drag or transform before redoing");
+      return;
+    }
+    const currentHistory = historyRef.current;
+    const currentIndex = historyIndexRef.current;
+    if (currentIndex >= currentHistory.length - 1) {
       setNotice("Nothing to redo");
       return;
     }
     const modifierCancelled = invalidateCadModifierSession();
-    const nextIndex = historyIndex + 1;
-    const nextShapes = (history[nextIndex] ?? []).map(canonicalizeShape);
+    const nextIndex = currentIndex + 1;
+    const entry = currentHistory[nextIndex];
+    const nextShapes = (entry?.shapes ?? []).map(canonicalizeShape);
+    const nextSelection = (entry?.selectedIds ?? []).filter((id) => nextShapes.some((shape) => shape.id === id));
     historyIndexRef.current = nextIndex;
     shapesRef.current = nextShapes;
+    selectedIdsRef.current = nextSelection;
     setHistoryIndex(nextIndex);
     setShapes(nextShapes);
-    setSelectedIds((current) => current.filter((id) => nextShapes.some((shape) => shape.id === id)));
+    setSelectedIds(nextSelection);
     syncProjectShapes(nextShapes);
     setNotice(modifierCancelled ? "Edge modifier cancelled · Redo" : "Redo");
-  }, [history, historyIndex, invalidateCadModifierSession, syncProjectShapes]);
+  }, [invalidateCadModifierSession, syncProjectShapes]);
 
   const toggleAlignMode = useCallback(() => {
     if (selectedShapes.length < 2) {
@@ -6411,8 +6498,22 @@ export function SketchForgeEditor({
     cadModifierRequestRef.current = requestId;
     return new Promise<CadModifierWorkerResponse>((resolve, reject) => {
       const timer = window.setTimeout(() => {
-        cadModifierPendingRef.current.delete(requestId);
-        reject(new Error("Timed out waiting for the CAD worker"));
+        if (!cadModifierPendingRef.current.has(requestId)) return;
+        const pendingRequests = [...cadModifierPendingRef.current.values()];
+        cadModifierPendingRef.current.clear();
+        pendingRequests.forEach((pending) => window.clearTimeout(pending.timer));
+        cadModifierWorkerRef.current?.terminate();
+        cadModifierWorkerRef.current = null;
+        const invalidationId = cadModifierRequestRef.current + 1;
+        cadModifierRequestRef.current = invalidationId;
+        cadModifierLatestPreviewRef.current = invalidationId;
+        cadModifierPrepareRef.current = invalidationId;
+        cadModifierBaseShapeRef.current = null;
+        cadModifierBaseFingerprintRef.current = "";
+        cadModifierSourcePartsRef.current = [];
+        setEdgeModifier(null);
+        cadModifierWorkerRestartRef.current();
+        pendingRequests.forEach((pending) => pending.reject(new Error("Timed out waiting for the CAD worker; the worker was restarted")));
       }, timeoutMs);
       cadModifierPendingRef.current.set(requestId, { resolve, reject, timer });
       try {
@@ -6435,6 +6536,7 @@ export function SketchForgeEditor({
       setNotice(`Select one unlocked solid to ${kind}`);
       return;
     }
+    invalidateCadModifierSession();
     const appliedEdgeTreatmentCount = edgeTreatmentFeatureCount(selectedShape);
     const hasAppliedEdgeTreatment = Boolean(selectedShape.importedMesh && selectedShape.edgeTreatments?.length);
     const sourceParts = selectedShape.groupedShapes?.length && !hasAppliedEdgeTreatment ? restoreGroupedChildren(selectedShape) : [selectedShape];
@@ -6502,7 +6604,7 @@ export function SketchForgeEditor({
     }
     cadModifierPrepareRef.current = prepareRequestId;
     armCadModifierWatchdog(prepareRequestId, "prepare");
-  }, [armCadModifierWatchdog, postCadModifierRequest, selectedShape, selectedShapes.length]);
+  }, [armCadModifierWatchdog, invalidateCadModifierSession, postCadModifierRequest, selectedShape, selectedShapes.length]);
 
   const prepareCadModifierForMcp = useCallback(async (shape: WorkplaneShape, sharpAngle: number) => {
     if (shape.locked || shape.hole) {
@@ -6554,8 +6656,10 @@ export function SketchForgeEditor({
     params: Record<string, unknown>,
   ) => {
     invalidateCadModifierSession();
+    const sourceFingerprint = projectShapesFingerprint([shape]);
+    const sourceProjectId = projectInfoRef.current.projectId;
     const kind: CadModifierKind = params.kind === "fillet" ? "fillet" : "chamfer";
-    const sharpAngle = Math.max(1, Math.min(120, mcpNumber(params.sharpAngle, 25)));
+    const sharpAngle = Math.max(1, Math.min(CAD_MODIFIER_MAX_SHARP_ANGLE, mcpNumber(params.sharpAngle, 25)));
     const amount = Math.max(MIN_EDGE_MODIFIER_AMOUNT, mcpNumber(params.amount, 1));
     const chamferAngle = Math.max(5, Math.min(85, mcpNumber(params.chamferAngle, 45)));
     const quality: CadModifierQuality = params.quality === "draft" || params.quality === "fine" ? params.quality : "standard";
@@ -6615,7 +6719,21 @@ export function SketchForgeEditor({
     };
     const createdAt = Date.now();
     const groupedModifiedShape = groupedShapeWithComponentEdgeTreatment(shape, preview, sourceParts, session, feature, createdAt);
-    const modifiedShape = groupedModifiedShape ?? shapeWithEdgeTreatmentRecord(preview, shape, feature, preserveEdgeSize, createdAt);
+    const modifiedShape = groupedModifiedShape ?? shapeWithEdgeTreatmentRecord(
+      bakedEdgeTreatmentPreview(preview, shape),
+      shape,
+      feature,
+      preserveEdgeSize,
+      createdAt,
+    );
+    const currentTarget = shapesRef.current.find((candidate) => candidate.id === shape.id);
+    if (
+      projectInfoRef.current.projectId !== sourceProjectId ||
+      !currentTarget ||
+      projectShapesFingerprint([currentTarget]) !== sourceFingerprint
+    ) {
+      throw new Error("The target object or project changed while the edge treatment was running; try again");
+    }
     commitShapes(
       shapesRef.current.map((candidate) => candidate.id === shape.id ? modifiedShape : candidate),
       modifiedShape.id,
@@ -6667,7 +6785,7 @@ export function SketchForgeEditor({
       createdAt,
     );
     const modifiedShape: WorkplaneShape = groupedModifiedShape ?? shapeWithEdgeTreatmentRecord(
-      previewShape,
+      bakedEdgeTreatmentPreview(previewShape, base),
       base,
       feature,
       edgeModifier.preserveEdgeSize,
@@ -6687,7 +6805,9 @@ export function SketchForgeEditor({
       if (event.key === "Escape") {
         event.preventDefault();
         cancelEdgeModifier();
-      } else if (event.key === "Enter" && edgeModifier.preview && !edgeModifier.busy && !edgeModifier.error) {
+      } else if (event.key === "Enter" && edgeModifier.preview && edgeModifier.selectedEdgeIds.length > 0 && !edgeModifier.busy && !edgeModifier.error) {
+        const target = event.target instanceof HTMLElement ? event.target : null;
+        if (target?.closest("input, select, textarea, button, [contenteditable='true']")) return;
         event.preventDefault();
         applyEdgeModifier();
       }
@@ -6873,20 +6993,26 @@ export function SketchForgeEditor({
       return;
     }
 
+    const sourceFingerprint = projectShapesFingerprint(shapesRef.current);
+    const sourceProjectId = projectInfoRef.current.projectId;
     const result = await buildGroupedShapeFromSelection(selectedShapes);
+    if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(shapesRef.current) !== sourceFingerprint) {
+      setNotice("The scene changed while grouping; select the objects and try again");
+      return;
+    }
     const { group } = result;
     if (!group) {
       if (result.consumed) {
         const selected = new Set(selectedIds);
-        commitShapes(shapes.filter((shape) => !selected.has(shape.id)), null, "Grouped: hole consumed solid");
+        commitShapes(shapesRef.current.filter((shape) => !selected.has(shape.id)), null, "Grouped: hole consumed solid");
         return;
       }
       setNotice(result.failureNotice);
       return;
     }
     const selected = new Set(selectedIds);
-    commitShapes([...shapes.filter((shape) => !selected.has(shape.id)), group], group.id, `Grouped ${selectedShapes.length} shapes`);
-  }, [commitShapes, selectedIds, selectedShapes, shapes]);
+    commitShapes([...shapesRef.current.filter((shape) => !selected.has(shape.id)), group], group.id, `Grouped ${selectedShapes.length} shapes`);
+  }, [commitShapes, selectedIds, selectedShapes]);
 
   const intersectSelected = useCallback(async () => {
     const groupable = selectedShapes.filter((shape) => !shape.locked);
@@ -6897,14 +7023,20 @@ export function SketchForgeEditor({
       return;
     }
 
+    const sourceFingerprint = projectShapesFingerprint(shapesRef.current);
+    const sourceProjectId = projectInfoRef.current.projectId;
     const result = await buildIntersectionShapeFromSelection(groupable);
+    if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(shapesRef.current) !== sourceFingerprint) {
+      setNotice("The scene changed while intersecting; select the objects and try again");
+      return;
+    }
     if (!result.group && !result.empty) {
       setNotice(result.failureNotice);
       return;
     }
 
     const operandIds = new Set(groupable.map((shape) => shape.id));
-    const remainingShapes = shapes.filter((shape) => !operandIds.has(shape.id));
+    const remainingShapes = shapesRef.current.filter((shape) => !operandIds.has(shape.id));
     if (result.empty) {
       commitShapes(remainingShapes, null, "Intersection is empty");
       return;
@@ -6915,7 +7047,7 @@ export function SketchForgeEditor({
       return;
     }
     commitShapes([...remainingShapes, intersection], intersection.id, `Intersected ${groupable.length} shapes`);
-  }, [commitShapes, selectedShapes, shapes]);
+  }, [commitShapes, selectedShapes]);
 
   const ungroupSelected = useCallback(() => {
     const groups = selectedShapes.filter((shape) => shape.groupedShapes?.length);
@@ -7015,7 +7147,17 @@ export function SketchForgeEditor({
           const profile = defaultMcpSketchProfile(width, depth);
           const extruded = shapeFromSketchProfile(profile, height);
           if (!extruded) throw new Error("Could not create the sketch profile");
-          shape = canonicalizeShape({ ...extruded, name, color, x, z, elevation, rotation: mcpNumber(params.rotation, 0) });
+          shape = canonicalizeShape({
+            ...extruded,
+            name,
+            color,
+            x,
+            z,
+            elevation,
+            rotation: mcpNumber(params.rotation, 0),
+            rotationX: mcpNumber(params.rotationX, 0),
+            rotationZ: mcpNumber(params.rotationZ, 0),
+          });
         } else if (kind === "box" || kind === "cylinder") {
           shape = sceneShape({
             name,
@@ -7036,8 +7178,9 @@ export function SketchForgeEditor({
         } else {
           throw new Error("MCP create_shape currently supports box, cube, cylinder, and sketch");
         }
-        commitShapes([...currentShapes(), shape], shape.id, `${shape.name} added by MCP`);
-        return { object: mcpShapeSummary(shape) };
+        const committedShape = canonicalizeShape(bakeShapeTransformIntoMesh(shape));
+        commitShapes([...currentShapes(), committedShape], committedShape.id, `${committedShape.name} added by MCP`);
+        return { object: mcpShapeSummary(committedShape) };
       }
 
       if (command.action === "import_mesh") {
@@ -7102,6 +7245,9 @@ export function SketchForgeEditor({
         if (!target) throw new Error("Object not found");
         if (target.locked) throw new Error("Unlock the object before updating it");
         const patch: ShapeUpdatePatch = {};
+        const rotationWasRequested = [params.rotation, params.rotationX, params.rotationZ].some(
+          (value) => typeof value === "number" && Number.isFinite(value),
+        );
         (["x", "z", "elevation", "width", "depth", "height", "size", "rotation", "rotationX", "rotationZ"] as const).forEach((key) => {
           if (typeof params[key] === "number" && Number.isFinite(params[key])) {
             patch[key] = params[key];
@@ -7115,7 +7261,8 @@ export function SketchForgeEditor({
           const patched = { ...shape, ...cleanShapePatch(patch) };
           const width = shapeWidth(patched);
           const depth = shapeDepth(patched);
-          return canonicalizeShape({ ...patched, size: Math.max(width, depth) });
+          const canonical = canonicalizeShape({ ...patched, size: Math.max(width, depth) });
+          return rotationWasRequested ? canonicalizeShape(bakeShapeTransformIntoMesh(canonical)) : canonical;
         });
         const updated = nextShapes.find((shape) => shape.id === target.id) as WorkplaneShape;
         commitShapes(nextShapes, target.id, `${updated.name} updated by MCP`);
@@ -7159,7 +7306,12 @@ export function SketchForgeEditor({
         const groupable = currentShapes().filter((shape) => ids.has(shape.id));
         if (groupable.length < 2) throw new Error("Select at least two objects to group");
         if (groupable.some((shape) => shape.locked)) throw new Error("Unlock every selected object before grouping");
+        const sourceFingerprint = projectShapesFingerprint(currentShapes());
+        const sourceProjectId = projectInfoRef.current.projectId;
         const result = await buildGroupedShapeFromSelection(groupable);
+        if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(currentShapes()) !== sourceFingerprint) {
+          throw new Error("The scene changed while grouping; run the command again");
+        }
         if (!result.group) {
           if (result.consumed) {
             commitShapes(currentShapes().filter((shape) => !ids.has(shape.id)), null, "MCP group consumed solid");
@@ -7195,7 +7347,12 @@ export function SketchForgeEditor({
         if (operands.some((shape) => shape.locked)) {
           throw new Error("Unlock every boolean operand before cutting");
         }
+        const sourceFingerprint = projectShapesFingerprint(currentShapes());
+        const sourceProjectId = projectInfoRef.current.projectId;
         const result = await buildGroupedShapeFromSelection(operands);
+        if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(currentShapes()) !== sourceFingerprint) {
+          throw new Error("The scene changed while cutting; run the command again");
+        }
         const remainingShapes = currentShapes().filter((shape) => !operandIds.has(shape.id));
         if (result.consumed) {
           commitShapes(remainingShapes, null, "MCP cut consumed solid");
@@ -7222,7 +7379,7 @@ export function SketchForgeEditor({
         const target = findShape(params.id);
         if (!target) throw new Error("Object not found");
         invalidateCadModifierSession();
-        const sharpAngle = Math.max(1, Math.min(120, mcpNumber(params.sharpAngle, 25)));
+        const sharpAngle = Math.max(1, Math.min(CAD_MODIFIER_MAX_SHARP_ANGLE, mcpNumber(params.sharpAngle, 25)));
         const { response } = await prepareCadModifierForMcp(target, sharpAngle);
         const selectableEdgeIds = response.edges.filter((edge) => selectableCadModifierEdge(edge, sharpAngle)).map((edge) => edge.id);
         return { object: mcpShapeSummary(target), sharpAngle, selectableEdgeIds, edges: response.edges };
@@ -7637,6 +7794,7 @@ export function SketchForgeEditor({
       return;
     }
 
+    const sourceProjectId = projectInfoRef.current.projectId;
     try {
       let nextShape: WorkplaneShape;
       if (isStep) {
@@ -7648,12 +7806,16 @@ export function SketchForgeEditor({
       } else {
         nextShape = importedShapeFromStl(file.name, await file.arrayBuffer());
       }
-      commitShapes([...shapes, nextShape], nextShape.id, `Imported ${file.name}`);
+      if (projectInfoRef.current.projectId !== sourceProjectId) {
+        setNotice(`Import of ${file.name} cancelled because the project changed`);
+        return;
+      }
+      commitShapes([...shapesRef.current, nextShape], nextShape.id, `Imported ${file.name}`);
       setTopPanel(null);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : `Could not import ${file.name}`);
     }
-  }, [commitShapes, shapes]);
+  }, [commitShapes]);
 
   const selectFiles = useCallback(
     (files: FileList | File[]) => {
@@ -7906,8 +8068,8 @@ export function SketchForgeEditor({
           setTopPanel(null);
           setMenuOpen(false);
         }}
-        canUndo={historyIndex > 0 || Boolean(edgeModifier)}
-        canRedo={historyIndex < history.length - 1}
+        canUndo={!projectInteractionActive && (historyIndex > 0 || Boolean(edgeModifier))}
+        canRedo={!projectInteractionActive && historyIndex < history.length - 1}
         canGroup={selectedShapes.length > 1 && selectedShapes.every((shape) => !shape.locked)}
         canIntersect={selectedShapes.some((shape) => !shape.locked && !shape.hole) && selectedShapes.some((shape) => !shape.locked && Boolean(shape.hole))}
         canUngroup={selectedShapes.some((shape) => Boolean(shape.groupedShapes?.length))}
@@ -8078,7 +8240,7 @@ export function SketchForgeEditor({
           onQualityChange={(quality) => setEdgeModifier((current) => current?.prepared ? { ...current, quality, preview: null, busy: true, error: null } : current)}
           onSharpAngleChange={(sharpAngle) => setEdgeModifier((current) => {
             if (!current?.prepared) return current;
-            const nextAngle = Math.max(1, Math.min(120, sharpAngle));
+            const nextAngle = Math.max(1, Math.min(CAD_MODIFIER_MAX_SHARP_ANGLE, sharpAngle));
             const availableIds = new Set(current.edges
               .filter((edge) => selectableCadModifierEdge(edge, nextAngle))
               .map((edge) => edge.id));

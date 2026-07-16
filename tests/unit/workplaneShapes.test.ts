@@ -167,4 +167,25 @@ describe("workplane shape helpers", () => {
     expect(resizedImportedMeshPositions({ ...modified, edgeResizeMode: "scale" })[3]).toBe(-18);
     expect(resizedImportedCoordinates(modified, [-9, 1, 0, 9, 19, 0])).toEqual([-19, 1, 0, 19, 39, 0]);
   });
+
+  it("uses child edge features when preserving the size of grouped treatments", () => {
+    const grouped = shape({
+      kind: "mesh",
+      edgeResizeMode: "preserve",
+      importedMesh: {
+        positions: [-10, 0, 0, -8, 2, 0, 8, 18, 0, 10, 20, 0],
+        baseWidth: 20,
+        baseDepth: 20,
+        baseHeight: 20,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+      groupedShapes: [shape({ edgeTreatments: [{ kind: "fillet", amount: 2, edgeCount: 1 }] })],
+      width: 40,
+      height: 40,
+    });
+
+    expect(preservesEdgeTreatmentSize(grouped)).toBe(true);
+    expect(resizedImportedMeshPositions(grouped)).toEqual([-20, 0, 0, -18, 2, 0, 18, 38, 0, 20, 40, 0]);
+  });
 });

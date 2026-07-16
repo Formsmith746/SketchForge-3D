@@ -121,6 +121,20 @@ export type EdgeTreatmentHistoryEntry = {
   createdAt: number;
   feature: EdgeTreatmentFeature;
   before: WorkplaneShape;
+  appliedFrame?: {
+    x: number;
+    z: number;
+    elevation: number;
+    width: number;
+    depth: number;
+    height: number;
+    rotation: number;
+    rotationX: number;
+    rotationZ: number;
+    mirrorX: boolean;
+    mirrorY: boolean;
+    mirrorZ: boolean;
+  };
 };
 
 export type CadDisplayEdge = {

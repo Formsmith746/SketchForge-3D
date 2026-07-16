@@ -2950,6 +2950,11 @@ button {
   cursor: default;
 }
 
+.workplane-wrap.ruler-move-mode .three-workplane-host,
+.workplane-wrap.ruler-move-mode .three-workplane-host:active {
+  cursor: default;
+}
+
 .workplane-wrap.modifier-edge-pick .three-workplane-host,
 .workplane-wrap.modifier-edge-pick .three-workplane-host:active {
   cursor: crosshair;
@@ -3014,6 +3019,16 @@ button {
   transition: fill 120ms ease, stroke 120ms ease, filter 120ms ease;
 }
 
+.ruler-overlay.move-mode .ruler-point {
+  cursor: grab;
+}
+
+.ruler-overlay.move-mode .ruler-point:active {
+  cursor: grabbing;
+  fill: #dff7ff;
+  filter: drop-shadow(0 0 4px rgba(0, 143, 190, 0.4));
+}
+
 .ruler-overlay.delete-mode .ruler-segment-group:hover .ruler-segment {
   stroke: #dc3f36;
   stroke-width: 3;
@@ -3035,6 +3050,17 @@ button {
 .ruler-hover-point {
   fill: rgba(0, 167, 216, 0.28);
   stroke-dasharray: 3 2;
+  pointer-events: none;
+}
+
+.ruler-hover-edge {
+  fill: none;
+  stroke: #00aeea;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 3px rgba(0, 174, 234, 0.48));
   pointer-events: none;
 }
 

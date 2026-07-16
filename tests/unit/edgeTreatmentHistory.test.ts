@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
+import { compactEdgeTreatmentHistory, edgeTreatmentAppliedFrame, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
 import type { EdgeTreatmentHistoryEntry, WorkplaneShape } from "@/types/sketchforge";
 
 function box(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
@@ -115,5 +115,50 @@ describe("edge treatment history restoration", () => {
 
     expect(restored).toMatchObject({ kind: "box", x: 18, width: 8, depth: 6, height: 50, size: 8 });
     expect(restored.importedMesh).toBeUndefined();
+  });
+
+  it("keeps history snapshots flat instead of recursively nesting older history", () => {
+    const first = historyEntry(box({ id: "before-first" }));
+    const second = {
+      ...historyEntry(box({ id: "before-second", edgeTreatmentHistory: [first] })),
+      id: "history-2",
+    };
+
+    const compacted = compactEdgeTreatmentHistory([first, second]);
+
+    expect(compacted).toHaveLength(2);
+    expect(compacted[0].before.edgeTreatmentHistory).toBeUndefined();
+    expect(compacted[1].before.edgeTreatmentHistory).toBeUndefined();
+  });
+
+  it("preserves edits made after applying a feature while restoring the pre-feature geometry", () => {
+    const before = box({ x: 8, z: 3, width: 40, depth: 20, height: 30, rotation: 15 });
+    const applied = box({ kind: "mesh", x: 7.5, z: 3, width: 39, depth: 20, height: 30, rotation: 0 });
+    const entry: EdgeTreatmentHistoryEntry = {
+      ...historyEntry(before),
+      appliedFrame: edgeTreatmentAppliedFrame(applied),
+    };
+    const current = box({
+      ...applied,
+      x: 17.5,
+      z: -2,
+      width: 78,
+      depth: 30,
+      height: 45,
+      rotation: 20,
+      edgeTreatmentHistory: [entry],
+    });
+
+    const restored = restoreShapeBeforeEdgeTreatment(current, entry);
+
+    expect(restored).toMatchObject({
+      kind: "box",
+      x: 18,
+      z: -2,
+      width: 80,
+      depth: 30,
+      height: 45,
+      rotation: 35,
+    });
   });
 });

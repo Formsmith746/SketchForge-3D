@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { Check, LoaderCircle, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay } from "@/lib/measurementUnits";
 import type { CadModifierKind, CadModifierQuality } from "@/lib/cadModifierTypes";
-import { edgeModifierSelectionStatus } from "@/lib/cadModifierRuntime";
+import { CAD_MODIFIER_MAX_SHARP_ANGLE, edgeModifierSelectionStatus } from "@/lib/cadModifierRuntime";
 import type { WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 const MIN_EDGE_MODIFIER_AMOUNT = 0.001;
@@ -104,8 +104,12 @@ function EdgeModifierSlider({
             onBlur={commitDraft}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
+                event.preventDefault();
+                event.stopPropagation();
                 event.currentTarget.blur();
               } else if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
                 setDraft(formatSliderValue(controlValue, workspace.accuracy, controlStep));
                 setEditing(false);
               }
@@ -216,8 +220,8 @@ export function EdgeModifierPanel({
       </div>
 
       <div className="edge-modifier-quick-actions">
-        <button type="button" disabled={!prepared} onClick={onSelectAll}>All sharp edges</button>
-        <button type="button" disabled={!prepared} onClick={onClear}>Clear</button>
+        <button type="button" disabled={!prepared || busy} onClick={onSelectAll}>All sharp edges</button>
+        <button type="button" disabled={!prepared || busy} onClick={onClear}>Clear</button>
       </div>
 
       {appliedFeatureCount > 0 ? (
@@ -260,27 +264,27 @@ export function EdgeModifierPanel({
         step={EDGE_MODIFIER_AMOUNT_STEP}
         workspace={workspace}
         length
-        disabled={!prepared}
+        disabled={!prepared || busy}
         onChange={onAmountChange}
       />
 
-      {kind === "chamfer" ? <EdgeModifierSlider label="Angle" value={chamferAngle} min={5} max={85} step={1} unit="deg" workspace={workspace} disabled={!prepared} onChange={onChamferAngleChange} /> : null}
+      {kind === "chamfer" ? <EdgeModifierSlider label="Angle" value={chamferAngle} min={5} max={85} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy} onChange={onChamferAngleChange} /> : null}
 
-      <EdgeModifierSlider label="Sharp-edge threshold" value={sharpAngle} min={1} max={120} step={1} unit="deg" workspace={workspace} disabled={!prepared} onChange={onSharpAngleChange} />
+      <EdgeModifierSlider label="Sharp-edge threshold" value={sharpAngle} min={1} max={CAD_MODIFIER_MAX_SHARP_ANGLE} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy} onChange={onSharpAngleChange} />
 
       <label className="edge-modifier-check">
-        <input type="checkbox" checked={tangentChain} disabled={!prepared} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
+        <input type="checkbox" checked={tangentChain} disabled={!prepared || busy} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
         <span>Select tangent chains</span>
       </label>
 
       <label className="edge-modifier-check">
-        <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
+        <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared || busy} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
         <span>Keep edge size when resizing</span>
       </label>
 
       <label className="edge-modifier-field">
         <span>Preview quality</span>
-        <select value={quality} disabled={!prepared} onChange={(event) => onQualityChange(event.currentTarget.value as CadModifierQuality)}>
+        <select value={quality} disabled={!prepared || busy} onChange={(event) => onQualityChange(event.currentTarget.value as CadModifierQuality)}>
           <option value="draft">Draft</option>
           <option value="standard">Standard</option>
           <option value="fine">Fine</option>
