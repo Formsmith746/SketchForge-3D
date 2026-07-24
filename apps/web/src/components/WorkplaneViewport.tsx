@@ -17,8 +17,10 @@ import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
 import { ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
 import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettingsModal";
+import { createGearGeometry } from "@/lib/gearGeometry";
+import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint, workspaceHydrationRequired, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
-import { interiorWorkplaneGridCoordinates, workplaneGridPalette, WORKPLANE_LINE_ELEVATION } from "@/lib/workplaneGrid";
+import { interiorWorkplaneGridCoordinates, workplaneGridPalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, fallbackSolidColor, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { SketchForgeMcpViewFace } from "@/lib/sketchforgeMcpProtocol";
@@ -73,6 +75,7 @@ const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "halfSphere",
   "torus",
   "tube",
+  "gear",
   "ring",
   "wedge",
   "polygon",
@@ -155,6 +158,7 @@ type WorkplaneViewportProps = {
   onMirrorSelection: (axis: AlignAxis) => void;
   onSelectShape: (id: string | string[] | null, mode?: "replace" | "toggle") => void;
   onSetPlacementElevation: (elevation: number, source: "shape" | "base") => void;
+  onCreateFaceConstructionPlane: (input: { sourceShapeId: string; origin: [number, number, number]; normal: [number, number, number]; preferredXAxis: [number, number, number] }) => void;
   onInteractionActiveChange?: (active: boolean) => void;
   onEditSketch?: () => void;
   canSeparateParts?: boolean;
@@ -573,6 +577,13 @@ function rulerShapeTopologyKey(shape: WorkplaneShape): string {
     segments: shape.segments,
     topRadius: shape.topRadius,
     baseRadius: shape.baseRadius,
+    teeth: shape.teeth,
+    toothSize: shape.toothSize,
+    toothWidth: shape.toothWidth,
+    centerHoleSize: shape.centerHoleSize,
+    gearType: shape.gearType,
+    helixAngle: shape.helixAngle,
+    helixQuality: shape.helixQuality,
     text: shape.text,
     font: shape.font,
     mesh: [positions.length, positionSample],
@@ -1556,6 +1567,7 @@ export function WorkplaneViewport({
   onMirrorSelection,
   onSelectShape,
   onSetPlacementElevation,
+  onCreateFaceConstructionPlane,
   onInteractionActiveChange,
   onEditSketch,
   canSeparateParts = false,
@@ -1591,14 +1603,20 @@ export function WorkplaneViewport({
   const [rulerMoveMode, setRulerMoveMode] = useState(false);
   const [rulerToolsOpen, setRulerToolsOpen] = useState(false);
   const [cameraControlsCollapsed, setCameraControlsCollapsed] = useState(false);
+  const [rendererError, setRendererError] = useState<string | null>(null);
+  const [rendererRetry, setRendererRetry] = useState(0);
   const [rulerModel, setRulerModel] = useState<RulerModel>({ points: [], segments: [], startPointId: null, hover: null });
   const [rulerOverlay, setRulerOverlay] = useState<RulerOverlayState | null>(null);
+  const interactiveSelectedIds = useMemo(
+    () => selectedIds.filter((id) => shapes.some((shape) => shape.id === id && shape.kind !== "constructionPlane")),
+    [selectedIds, shapes],
+  );
   const hostRef = useRef<HTMLDivElement | null>(null);
   const threeRef = useRef<ThreeState | null>(null);
   const shapesRef = useRef(shapes);
   const alignReferenceShapesRef = useRef(alignReferenceShapes);
   const mirrorReferenceShapesRef = useRef(mirrorReferenceShapes);
-  const selectedIdsRef = useRef(selectedIds);
+  const selectedIdsRef = useRef(interactiveSelectedIds);
   const dragRef = useRef<DragState | null>(null);
   const marqueeRef = useRef<MarqueeState | null>(null);
   const transformRef = useRef<TransformDragState | null>(null);
@@ -1628,7 +1646,7 @@ export function WorkplaneViewport({
   const modifierPreviewActiveRef = useRef(modifierPreviewActive);
   const modifierEdgesRef = useRef(modifierEdges);
   const [hoverModifierEdgeId, setHoverModifierEdgeId] = useState<number | null>(null);
-  const selectedIdsKeyRef = useRef(selectedIds.join("|"));
+  const selectedIdsKeyRef = useRef(interactiveSelectedIds.join("|"));
   const perfRef = useRef({
     fps: 0,
     frameMs: 0,
@@ -1637,7 +1655,7 @@ export function WorkplaneViewport({
     lastSample: 0,
   });
 
-  const selectedShape = useMemo(() => (selectedIds.length === 1 ? shapes.find((shape) => shape.id === selectedIds[0]) ?? null : null), [selectedIds, shapes]);
+  const selectedShape = useMemo(() => (interactiveSelectedIds.length === 1 ? shapes.find((shape) => shape.id === interactiveSelectedIds[0]) ?? null : null), [interactiveSelectedIds, shapes]);
   const renderSelectionIds = useCallback(
     (ids = selectedIdsRef.current) => (modifierActiveRef.current && !modifierPreviewActiveRef.current ? [] : ids),
     [],
@@ -1794,7 +1812,7 @@ export function WorkplaneViewport({
   }, [mirrorReferenceShapes]);
 
   useEffect(() => {
-    const nextSelectedIdsKey = selectedIds.join("|");
+    const nextSelectedIdsKey = interactiveSelectedIds.join("|");
     if (nextSelectedIdsKey !== selectedIdsKeyRef.current) {
       selectedIdsKeyRef.current = nextSelectedIdsKey;
       lastResizeAnchorRef.current = null;
@@ -1806,24 +1824,24 @@ export function WorkplaneViewport({
       setActiveRotationWheel(false);
       setActiveTransformKind(null);
     }
-    selectedIdsRef.current = selectedIds;
-    rebuildShapes(threeRef.current, shapesRef.current, renderSelectionIds(selectedIds), !transformRef.current && !dragRef.current);
+    selectedIdsRef.current = interactiveSelectedIds;
+    rebuildShapes(threeRef.current, shapesRef.current, renderSelectionIds(interactiveSelectedIds), !transformRef.current && !dragRef.current);
     refreshDragPreviewObjects(threeRef.current, dragRef.current);
     if (threeRef.current) {
       syncTransformOverlay(
         threeRef.current,
         previewShapesForDrag(shapesRef.current, dragRef.current),
-        selectedIds,
+        interactiveSelectedIds,
         transformOverlayRef,
         setTransformOverlay,
         workspaceRef.current.accuracy,
         Boolean(transformRef.current || dragRef.current),
       );
-      syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIds, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
-      syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIds, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
+      syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, interactiveSelectedIds, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
+      syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, interactiveSelectedIds, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
       threeRef.current.needsRender = true;
     }
-  }, [selectedIds]);
+  }, [interactiveSelectedIds]);
 
   useEffect(() => {
     modifierActiveRef.current = modifierActive;
@@ -1922,7 +1940,14 @@ export function WorkplaneViewport({
       return;
     }
 
-    const state = createThreeScene(host);
+    let state: ThreeState;
+    try {
+      state = createThreeScene(host);
+      setRendererError(null);
+    } catch {
+      setRendererError("The 3D viewport needs WebGL. Enable browser hardware acceleration or use a browser/environment that permits WebGL, then retry.");
+      return;
+    }
     threeRef.current = state;
     rebuildWorkplane(state, workspaceRef.current);
     window.sketchforgeCaptureCanvas = () => {
@@ -2018,7 +2043,7 @@ export function WorkplaneViewport({
       }
       threeRef.current = null;
     };
-  }, []);
+  }, [rendererRetry]);
 
   useEffect(() => {
     window.sketchforgePerf = {
@@ -2772,7 +2797,7 @@ export function WorkplaneViewport({
       setEditingDimension(null);
       return;
     }
-    const value = Number.parseFloat(edit.value);
+    const value = parseMeasurementInput(edit.value);
     if (edit.axis === "elevation") {
       if (Number.isFinite(value)) {
         const frame = selectionFrameForShapes(shapesRef.current, selectedIdsRef.current);
@@ -2832,7 +2857,7 @@ export function WorkplaneViewport({
     if (!edit) {
       return;
     }
-    const value = Number.parseFloat(edit.value);
+    const value = parseMeasurementInput(edit.value);
     if (Number.isFinite(value)) {
       selectedIdsRef.current.forEach((id) => onUpdateShape(id, { ...rotationPatchForAxis(edit.axis, value), bakeTransform: true }));
     }
@@ -2865,6 +2890,7 @@ export function WorkplaneViewport({
     let nearestId: string | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
     shapesRef.current.forEach((shape) => {
+      if (shape.kind === "constructionPlane") return;
       const center = new THREE.Vector3(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z).project(state.camera);
       const screenX = rect.left + ((center.x + 1) / 2) * rect.width;
       const screenY = rect.top + ((1 - center.y) / 2) * rect.height;
@@ -2877,6 +2903,29 @@ export function WorkplaneViewport({
     });
 
     return nearestId;
+  }, []);
+
+  const pickShapeSurface = useCallback((clientX: number, clientY: number) => {
+    const state = threeRef.current;
+    if (!state) return null;
+    const rect = state.renderer.domElement.getBoundingClientRect();
+    state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    state.raycaster.setFromCamera(state.pointer, state.camera);
+    const hit = state.raycaster.intersectObjects(state.shapeLayer.children, true).find((intersection) => {
+      const id = intersection.object.userData.shapeId;
+      const shape = typeof id === "string" ? shapesRef.current.find((candidate) => candidate.id === id) : null;
+      return Boolean(intersection.face && shape && shape.kind !== "constructionPlane");
+    });
+    if (!hit?.face || typeof hit.object.userData.shapeId !== "string") return null;
+    const normal = hit.face.normal.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
+    const preferredXAxis = new THREE.Vector3(1, 0, 0).transformDirection(hit.object.matrixWorld).normalize();
+    return {
+      sourceShapeId: hit.object.userData.shapeId as string,
+      origin: [hit.point.x, hit.point.y, hit.point.z] as [number, number, number],
+      normal: [normal.x, normal.y, normal.z] as [number, number, number],
+      preferredXAxis: [preferredXAxis.x, preferredXAxis.y, preferredXAxis.z] as [number, number, number],
+    };
   }, []);
 
   const pickModifierEdge = useCallback((clientX: number, clientY: number) => {
@@ -2959,12 +3008,9 @@ export function WorkplaneViewport({
 
       if (workplaneModeRef.current) {
         event.preventDefault();
-        const id = pickShape(event.clientX, event.clientY);
-        if (id) {
-          const frame = selectionFrameForShapes(shapesRef.current, [id]);
-          const top = frame ? selectionWorldYBounds(frame).max : 0;
-          onSetPlacementElevation(snapPositionValue(top, snapStep(snapRef.current), MIN_ELEVATION, MAX_ELEVATION), "shape");
-          onSelectShape(id);
+        const surface = pickShapeSurface(event.clientX, event.clientY);
+        if (surface) {
+          onCreateFaceConstructionPlane(surface);
         } else {
           onSetPlacementElevation(0, "base");
         }
@@ -3174,6 +3220,7 @@ export function WorkplaneViewport({
     [
       modifierActive,
       onAlignAnchorChange,
+      onCreateFaceConstructionPlane,
       onInteractionActiveChange,
       onModifierEdgeToggle,
       onSelectShape,
@@ -3181,6 +3228,7 @@ export function WorkplaneViewport({
       onWorkplaneModeChange,
       pickModifierEdge,
       pickShape,
+      pickShapeSurface,
       pickTransformHandle,
       resolveRulerCandidate,
       selectRulerCandidate,
@@ -3687,6 +3735,13 @@ export function WorkplaneViewport({
             onPointerCancel={finishDrag}
             onPointerLeave={handlePointerLeave}
           />
+          {rendererError ? (
+            <div className="workplane-renderer-error" role="alert">
+              <strong>3D viewport unavailable</strong>
+              <span>{rendererError}</span>
+              <button type="button" onClick={() => setRendererRetry((value) => value + 1)}>Retry WebGL</button>
+            </div>
+          ) : null}
           {marqueeRect ? <div className="selection-marquee" style={marqueeRect} /> : null}
           {transformOverlay && !alignMode && !mirrorMode && !rulerMode && !rulerDeleteMode && !rulerMoveMode && !modifierActive ? (
             <TransformOverlay
@@ -3772,7 +3827,11 @@ export function WorkplaneViewport({
 }
 
 function createThreeScene(host: HTMLDivElement): ThreeState {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: shouldPreserveDrawingBufferForLocalAutomation() });
+  const canvas = document.createElement("canvas");
+  const preserveDrawingBuffer = shouldPreserveDrawingBufferForLocalAutomation();
+  const context = canvas.getContext("webgl2", { antialias: true, powerPreference: "high-performance", preserveDrawingBuffer });
+  if (!context) throw new Error("WebGL2 is unavailable");
+  const renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(host.clientWidth, host.clientHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -4008,14 +4067,13 @@ function createGridLines(width = WORKPLANE_WIDTH, depth = WORKPLANE_DEPTH, block
     points.push(...from, ...to);
   };
   const step = clamp(blockSize, MIN_GRID_BLOCK_SIZE, MAX_GRID_BLOCK_SIZE);
-  const majorEvery = 4;
   for (const { coordinate: centeredX, index } of interiorWorkplaneGridCoordinates(width, step)) {
-    const points = centeredX === 0 ? axisPoints : index % majorEvery === 0 ? majorPoints : minorPoints;
+    const points = centeredX === 0 ? axisPoints : index % WORKPLANE_MAJOR_GRID_INTERVAL === 0 ? majorPoints : minorPoints;
     pushLine(points, [centeredX, WORKPLANE_LINE_ELEVATION, -depth / 2], [centeredX, WORKPLANE_LINE_ELEVATION, depth / 2]);
   }
 
   for (const { coordinate: centeredZ, index } of interiorWorkplaneGridCoordinates(depth, step)) {
-    const points = centeredZ === 0 ? axisPoints : index % majorEvery === 0 ? majorPoints : minorPoints;
+    const points = centeredZ === 0 ? axisPoints : index % WORKPLANE_MAJOR_GRID_INTERVAL === 0 ? majorPoints : minorPoints;
     pushLine(points, [-width / 2, WORKPLANE_LINE_ELEVATION, centeredZ], [width / 2, WORKPLANE_LINE_ELEVATION, centeredZ]);
   }
 
@@ -5166,6 +5224,35 @@ function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureRe
   );
   group.scale.set(mirrorSign(shape.mirrorX), mirrorSign(shape.mirrorY), mirrorSign(shape.mirrorZ));
 
+  if (shape.kind === "constructionPlane") {
+    const width = shapeWidth(shape);
+    const depth = shapeDepth(shape);
+    const planeMaterial = new THREE.MeshBasicMaterial({
+      color: shape.color,
+      transparent: true,
+      opacity: 0.2,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), planeMaterial);
+    plane.rotation.x = -Math.PI / 2;
+    plane.raycast = () => {};
+    group.add(plane);
+    const borderPoints = [
+      new THREE.Vector3(-width / 2, 0, -depth / 2),
+      new THREE.Vector3(width / 2, 0, -depth / 2),
+      new THREE.Vector3(width / 2, 0, depth / 2),
+      new THREE.Vector3(-width / 2, 0, depth / 2),
+    ];
+    const border = new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(borderPoints),
+      new THREE.LineBasicMaterial({ color: shape.color, transparent: true, opacity: 0.9 }),
+    );
+    border.raycast = () => {};
+    group.add(border);
+    return group;
+  }
+
   if (shape.groupedShapes?.length && !shape.importedMesh) {
     const content = new THREE.Group();
     shape.groupedShapes
@@ -5254,6 +5341,20 @@ function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureRe
       break;
     case "tube":
       addMesh(group, createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144), material, shape);
+      break;
+    case "gear":
+      addMesh(group, createGearGeometry({
+        width,
+        depth,
+        height,
+        teeth: shape.teeth,
+        toothSize: shape.toothSize,
+        toothWidth: shape.toothWidth,
+        centerHoleSize: shape.centerHoleSize,
+        gearType: shape.gearType,
+        helixAngle: shape.helixAngle,
+        helixQuality: shape.helixQuality,
+      }), material, shape);
       break;
     case "wedge":
       addMesh(group, createWedgeGeometry(width, height, depth), material, shape);
@@ -5365,7 +5466,7 @@ function addMesh(
   const complexEdges =
     shape.kind === "mesh" ||
     Boolean(shape.importedMesh) ||
-    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "wedge"].includes(shape.kind);
+    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "gear", "wedge"].includes(shape.kind);
   const importedTriangleCount = shape.importedMesh?.triangleCount ?? 0;
   const skipHeavyImportedEdges = Boolean(shape.importedMesh) && importedTriangleCount > IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT;
   if ((group.userData.showEdges || complexEdges) && !skipHeavyImportedEdges) {

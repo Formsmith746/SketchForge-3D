@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="91" height="20" role="img" aria-label="version: 0.6.5">
-  <title>Version 0.6.5</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="91" height="20" role="img" aria-label="version: 0.7.0">
+  <title>Version 0.7.0</title>
   <linearGradient id="badge-shadow" x2="0" y2="100%">
     <stop offset="0" stop-color="#fff" stop-opacity=".12"/>
     <stop offset="1" stop-opacity=".12"/>
@@ -15,7 +15,7 @@
   <g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle">
     <text x="25.5" y="15" fill="#010101" fill-opacity=".3">version</text>
     <text x="25.5" y="14">version</text>
-    <text x="71" y="15" fill="#010101" fill-opacity=".3">0.6.5</text>
-    <text x="71" y="14">0.6.5</text>
+    <text x="71" y="15" fill="#010101" fill-opacity=".3">0.7.0</text>
+    <text x="71" y="14">0.7.0</text>
   </g>
 </svg>

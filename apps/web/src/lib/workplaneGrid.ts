@@ -1,6 +1,7 @@
 const WORKPLANE_BOUNDARY_EPSILON = 0.0001;
 
 export const WORKPLANE_LINE_ELEVATION = 0;
+export const WORKPLANE_MAJOR_GRID_INTERVAL = 5;
 
 export type WorkplaneGridCoordinate = {
   coordinate: number;

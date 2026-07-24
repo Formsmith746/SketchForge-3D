@@ -155,6 +155,7 @@ export function TransformOverlay({
           style={{ "--overlay-x": `${editingDimension.x}px`, "--overlay-y": `${editingDimension.y}px` } as CSSProperties}
           value={editingDimension.value}
           autoFocus
+          inputMode="decimal"
           onPointerDown={(event) => event.stopPropagation()}
           onChange={(event) => onEditingDimensionChange(event.target.value)}
           onBlur={onCommitDimensionEdit}

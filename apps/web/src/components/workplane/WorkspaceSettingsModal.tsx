@@ -2,7 +2,7 @@
 
 import { Grid3X3, Palette, Ruler, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { normalizeScaleForUnits, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
+import { normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
 import { customThemeWithDefaults } from "@/lib/themes";
 import type { GridSize, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
@@ -101,6 +101,7 @@ export function WorkspaceSettingsModal({
     width: workspace.width.toFixed(workspace.accuracy),
     depth: workspace.depth.toFixed(workspace.accuracy),
   }));
+  const [gridBlockSizeDraft, setGridBlockSizeDraft] = useState(() => workspace.gridBlockSize.toFixed(workspace.accuracy));
   const scaleOptions = scaleOptionsForUnits(workspace.units);
   const scaleValue = normalizeScaleForUnits(workspace.units, workspace.scale);
   const customTheme = customThemeWithDefaults(workspace.customTheme);
@@ -110,13 +111,16 @@ export function WorkspaceSettingsModal({
       depth: workspace.depth.toFixed(workspace.accuracy),
     });
   }, [workspace.accuracy, workspace.depth, workspace.width]);
+  useEffect(() => {
+    setGridBlockSizeDraft(workspace.gridBlockSize.toFixed(workspace.accuracy));
+  }, [workspace.accuracy, workspace.gridBlockSize]);
   const patchWorkspace = (patch: Partial<WorkspaceSettings>) => {
     setDefaultSaved(false);
     const next = { ...workspace, ...patch };
     onWorkspaceChange({ ...next, scale: normalizeScaleForUnits(next.units, next.scale) });
   };
   const setDimension = (key: "width" | "depth", value: string) => {
-    const parsed = Number.parseFloat(value);
+    const parsed = parseMeasurementInput(value);
     const next = clamp(Number.isFinite(parsed) ? parsed : workspace[key], MIN_WORKSPACE_SIZE, MAX_WORKSPACE_SIZE);
     setDimensionDrafts((current) => ({ ...current, [key]: next.toFixed(workspace.accuracy) }));
     patchWorkspace({ [key]: next, sizePreset: "Custom" } as Partial<WorkspaceSettings>);
@@ -133,7 +137,9 @@ export function WorkspaceSettingsModal({
     patchWorkspace({ gridBlockPreset, gridBlockSize: gridBlockSizeForPreset(gridBlockPreset, workspace.gridBlockSize) });
   };
   const setGridBlockSize = (value: string) => {
-    const next = clamp(Number.parseFloat(value) || DEFAULT_WORKPLANE_WORKSPACE.gridBlockSize, MIN_GRID_BLOCK_SIZE, MAX_GRID_BLOCK_SIZE);
+    const parsed = parseMeasurementInput(value);
+    const next = clamp(Number.isFinite(parsed) ? parsed : workspace.gridBlockSize, MIN_GRID_BLOCK_SIZE, MAX_GRID_BLOCK_SIZE);
+    setGridBlockSizeDraft(next.toFixed(workspace.accuracy));
     patchWorkspace({ gridBlockPreset: "Custom", gridBlockSize: next });
   };
 
@@ -332,11 +338,9 @@ export function WorkspaceSettingsModal({
                     <label>
                       <span>Width</span>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         value={dimensionDrafts.width}
-                        min={MIN_WORKSPACE_SIZE}
-                        max={MAX_WORKSPACE_SIZE}
-                        step={1}
                         onChange={(event) => {
                           const value = event.currentTarget.value;
                           setDimensionDrafts((current) => ({ ...current, width: value }));
@@ -350,11 +354,9 @@ export function WorkspaceSettingsModal({
                     <label>
                       <span>Length</span>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         value={dimensionDrafts.depth}
-                        min={MIN_WORKSPACE_SIZE}
-                        max={MAX_WORKSPACE_SIZE}
-                        step={1}
                         onChange={(event) => {
                           const value = event.currentTarget.value;
                           setDimensionDrafts((current) => ({ ...current, depth: value }));
@@ -372,12 +374,14 @@ export function WorkspaceSettingsModal({
                       <label>
                         <span>Block size</span>
                         <input
-                          type="number"
-                          value={workspace.gridBlockSize.toFixed(workspace.accuracy)}
-                          min={MIN_GRID_BLOCK_SIZE}
-                          max={MAX_GRID_BLOCK_SIZE}
-                          step={0.5}
-                          onChange={(event) => setGridBlockSize(event.currentTarget.value)}
+                          type="text"
+                          inputMode="decimal"
+                          value={gridBlockSizeDraft}
+                          onChange={(event) => setGridBlockSizeDraft(event.currentTarget.value)}
+                          onBlur={(event) => setGridBlockSize(event.currentTarget.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") event.currentTarget.blur();
+                          }}
                         />
                       </label>
                     </div>

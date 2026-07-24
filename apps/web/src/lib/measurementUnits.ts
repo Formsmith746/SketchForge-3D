@@ -75,6 +75,26 @@ export function displayStepFromMillimeters(step: number, workspace: Pick<Workpla
   return step / lengthDisplayUnit(workspace).millimetersPerUnit;
 }
 
+export function parseMeasurementInput(value: string | number) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : Number.NaN;
+  const compact = value.trim().replace(/[\s\u00a0]/g, "");
+  if (!compact) return Number.NaN;
+
+  const commaIndex = compact.lastIndexOf(",");
+  const dotIndex = compact.lastIndexOf(".");
+  let normalized = compact;
+  if (commaIndex >= 0 && dotIndex >= 0) {
+    normalized = commaIndex > dotIndex
+      ? compact.replace(/\./g, "").replace(",", ".")
+      : compact.replace(/,/g, "");
+  } else if (commaIndex >= 0) {
+    normalized = compact.replace(",", ".");
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 export function formatMeasurementNumber(value: number, accuracy: MeasurementAccuracy, _step?: number) {
   let decimals = accuracy;
   while (decimals < 6 && value !== 0 && Math.abs(value) < 0.5 * 10 ** -decimals) {

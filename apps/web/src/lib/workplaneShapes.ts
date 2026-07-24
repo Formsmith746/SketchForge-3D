@@ -114,10 +114,12 @@ export function proportionalResizeScale(startWidth: number, startDepth: number, 
 }
 
 export function fallbackSolidColor(shape: WorkplaneShape) {
+  if (shape.sketchOperation === "revolve") return "#78b96b";
   if (shape.kind === "cylinder") return "#d97813";
   if (shape.kind === "sphere") return "#0098c7";
   if (shape.kind === "cone") return "#6e2786";
   if (shape.kind === "pyramid") return "#f2cf10";
+  if (shape.kind === "gear") return "#6f7f8d";
   return "#d41721";
 }
 
@@ -188,11 +190,23 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.segments === b.segments &&
     a.topRadius === b.topRadius &&
     a.baseRadius === b.baseRadius &&
+    a.teeth === b.teeth &&
+    a.toothSize === b.toothSize &&
+    a.toothWidth === b.toothWidth &&
+    a.centerHoleSize === b.centerHoleSize &&
+    a.gearType === b.gearType &&
+    a.helixAngle === b.helixAngle &&
+    a.helixQuality === b.helixQuality &&
     a.text === b.text &&
     a.font === b.font &&
     a.importedMesh === b.importedMesh &&
     a.imagePlate === b.imagePlate &&
     a.sketchProfile === b.sketchProfile &&
+    a.sketchFeature === b.sketchFeature &&
+    a.constructionPlane === b.constructionPlane &&
+    a.sketchPlane === b.sketchPlane &&
+    a.sketchOperation === b.sketchOperation &&
+    a.sketchRevolve === b.sketchRevolve &&
     a.edgeTreatments === b.edgeTreatments &&
     a.edgeTreatmentHistory === b.edgeTreatmentHistory &&
     a.cadDisplayEdges === b.cadDisplayEdges &&

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkplaneWorkspaceSettings } from "@/types/sketchforge";
-import { formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, normalizeScaleForUnits, scaleOptionsForUnits } from "@/lib/measurementUnits";
+import { formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits } from "@/lib/measurementUnits";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint, workspaceHydrationRequired, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
 
 describe("workplane settings helpers", () => {
@@ -77,6 +77,14 @@ describe("workplane settings helpers", () => {
     expect(formatMeasurementNumber(20, 1, 0.01)).toBe("20.0");
     expect(formatMeasurementNumber(20, 3, 0.01)).toBe("20.000");
     expect(formatMeasurementNumber(0.0004, 1, 0.001)).toBe("0.0004");
+  });
+
+  it("accepts dot and comma decimal measurement input", () => {
+    expect(parseMeasurementInput("12.5")).toBe(12.5);
+    expect(parseMeasurementInput("12,5")).toBe(12.5);
+    expect(parseMeasurementInput("1.234,5")).toBe(1234.5);
+    expect(parseMeasurementInput("1,234.5")).toBe(1234.5);
+    expect(parseMeasurementInput("not a measurement")).toBeNaN();
   });
 
   it("fingerprints workspace and snap settings together", () => {

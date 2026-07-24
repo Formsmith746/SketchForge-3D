@@ -1,5 +1,6 @@
 import { canonicalizeShape } from "@/lib/workplaneShapes";
 import { createLocalId } from "@/lib/localIds";
+import { DEFAULT_GEAR_CENTER_HOLE_SIZE, DEFAULT_GEAR_HELIX_ANGLE, DEFAULT_GEAR_HELIX_QUALITY, DEFAULT_GEAR_TEETH, DEFAULT_GEAR_TOOTH_SIZE, DEFAULT_GEAR_TYPE } from "@/lib/gearGeometry";
 import type { ShapeAsset, WorkplaneShape } from "@/types/sketchforge";
 
 export type ToolbarShapeAsset = ShapeAsset & { menuIcon: string };
@@ -16,6 +17,7 @@ export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "half-sphere", name: "Half Sphere", src: "assets/sketchforge/shape-icons-gray/half-sphere.png", menuIcon: "assets/sketchforge/shape-icons-gray/half-sphere.png", kind: "halfSphere", color: "#c9009a" },
   { id: "torus", name: "Torus", src: "assets/sketchforge/shape-icons-gray/torus.png", menuIcon: "assets/sketchforge/shape-icons-gray/torus.png", kind: "torus", color: "#0098c7" },
   { id: "tube", name: "Tube", src: "assets/sketchforge/shape-icons-gray/tube.png", menuIcon: "assets/sketchforge/shape-icons-gray/tube.png", kind: "tube", color: "#ce7013" },
+  { id: "gear", name: "Gear", src: "assets/sketchforge/gear-types/spur.png", menuIcon: "assets/sketchforge/gear-types/spur.png", kind: "gear", color: "#6f7f8d" },
 ];
 
 export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape, "name" | "kind" | "color">): WorkplaneShape {
@@ -45,10 +47,20 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     segments: shape.segments,
     topRadius: shape.topRadius,
     baseRadius: shape.baseRadius,
+    teeth: shape.teeth,
+    toothSize: shape.toothSize,
+    toothWidth: shape.toothWidth,
+    centerHoleSize: shape.centerHoleSize,
+    gearType: shape.gearType,
+    helixAngle: shape.helixAngle,
+    helixQuality: shape.helixQuality,
     text: shape.text,
     font: shape.font,
     importedMesh: shape.importedMesh,
     imagePlate: shape.imagePlate,
+    sketchProfile: shape.sketchProfile,
+    sketchOperation: shape.sketchOperation,
+    sketchRevolve: shape.sketchRevolve,
     groupedShapes: shape.groupedShapes,
     groupedBaseWidth: shape.groupedBaseWidth,
     groupedBaseDepth: shape.groupedBaseDepth,
@@ -61,9 +73,9 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
 
 export function makeShapeFromAsset(asset: ShapeAsset, point?: { x: number; z: number; elevation?: number }): WorkplaneShape {
   const roundProfile = asset.kind === "sphere" || asset.kind === "torus" || asset.kind === "ring" || asset.kind === "halfSphere";
-  const flatProfile = asset.kind === "torus" || asset.kind === "ring" || asset.kind === "text";
-  const size = roundProfile ? 22 : 20;
-  const height = asset.kind === "text" ? 10 : asset.kind === "roundRoof" ? 10 : asset.kind === "halfSphere" ? 11 : flatProfile ? 5 : 20;
+  const flatProfile = asset.kind === "torus" || asset.kind === "ring" || asset.kind === "text" || asset.kind === "gear";
+  const size = asset.kind === "gear" ? 30 : roundProfile ? 22 : 20;
+  const height = asset.kind === "gear" ? 6 : asset.kind === "text" ? 10 : asset.kind === "roundRoof" ? 10 : asset.kind === "halfSphere" ? 11 : flatProfile ? 5 : 20;
   const width = asset.kind === "text" ? 86 : size;
   const depth = asset.kind === "text" ? 28 : size;
 
@@ -92,6 +104,12 @@ export function makeShapeFromAsset(asset: ShapeAsset, point?: { x: number; z: nu
     segments: asset.kind === "cylinder" ? 1 : undefined,
     topRadius: asset.kind === "cone" ? 0 : undefined,
     baseRadius: asset.kind === "cone" ? size / 2 : undefined,
+    teeth: asset.kind === "gear" ? DEFAULT_GEAR_TEETH : undefined,
+    toothSize: asset.kind === "gear" ? DEFAULT_GEAR_TOOTH_SIZE : undefined,
+    centerHoleSize: asset.kind === "gear" ? DEFAULT_GEAR_CENTER_HOLE_SIZE : undefined,
+    gearType: asset.kind === "gear" ? DEFAULT_GEAR_TYPE : undefined,
+    helixAngle: asset.kind === "gear" ? DEFAULT_GEAR_HELIX_ANGLE : undefined,
+    helixQuality: asset.kind === "gear" ? DEFAULT_GEAR_HELIX_QUALITY : undefined,
     locked: false,
     hidden: false,
   };
