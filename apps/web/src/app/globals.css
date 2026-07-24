@@ -4213,6 +4213,41 @@ button {
   height: 100%;
 }
 
+.workplane-renderer-error {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 28px;
+  color: var(--foreground);
+  background: var(--background);
+  text-align: center;
+}
+
+.workplane-renderer-error strong {
+  font-size: 18px;
+}
+
+.workplane-renderer-error span {
+  max-width: 560px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.workplane-renderer-error button {
+  padding: 9px 15px;
+  color: #fff;
+  background: #087fae;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .selection-marquee {
   position: absolute;
   z-index: 3;

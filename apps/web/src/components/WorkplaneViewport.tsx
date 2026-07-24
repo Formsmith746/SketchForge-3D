@@ -1603,6 +1603,8 @@ export function WorkplaneViewport({
   const [rulerMoveMode, setRulerMoveMode] = useState(false);
   const [rulerToolsOpen, setRulerToolsOpen] = useState(false);
   const [cameraControlsCollapsed, setCameraControlsCollapsed] = useState(false);
+  const [rendererError, setRendererError] = useState<string | null>(null);
+  const [rendererRetry, setRendererRetry] = useState(0);
   const [rulerModel, setRulerModel] = useState<RulerModel>({ points: [], segments: [], startPointId: null, hover: null });
   const [rulerOverlay, setRulerOverlay] = useState<RulerOverlayState | null>(null);
   const interactiveSelectedIds = useMemo(
@@ -1938,7 +1940,14 @@ export function WorkplaneViewport({
       return;
     }
 
-    const state = createThreeScene(host);
+    let state: ThreeState;
+    try {
+      state = createThreeScene(host);
+      setRendererError(null);
+    } catch {
+      setRendererError("The 3D viewport needs WebGL. Enable browser hardware acceleration or use a browser/environment that permits WebGL, then retry.");
+      return;
+    }
     threeRef.current = state;
     rebuildWorkplane(state, workspaceRef.current);
     window.sketchforgeCaptureCanvas = () => {
@@ -2034,7 +2043,7 @@ export function WorkplaneViewport({
       }
       threeRef.current = null;
     };
-  }, []);
+  }, [rendererRetry]);
 
   useEffect(() => {
     window.sketchforgePerf = {
@@ -3726,6 +3735,13 @@ export function WorkplaneViewport({
             onPointerCancel={finishDrag}
             onPointerLeave={handlePointerLeave}
           />
+          {rendererError ? (
+            <div className="workplane-renderer-error" role="alert">
+              <strong>3D viewport unavailable</strong>
+              <span>{rendererError}</span>
+              <button type="button" onClick={() => setRendererRetry((value) => value + 1)}>Retry WebGL</button>
+            </div>
+          ) : null}
           {marqueeRect ? <div className="selection-marquee" style={marqueeRect} /> : null}
           {transformOverlay && !alignMode && !mirrorMode && !rulerMode && !rulerDeleteMode && !rulerMoveMode && !modifierActive ? (
             <TransformOverlay
@@ -3811,7 +3827,11 @@ export function WorkplaneViewport({
 }
 
 function createThreeScene(host: HTMLDivElement): ThreeState {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: shouldPreserveDrawingBufferForLocalAutomation() });
+  const canvas = document.createElement("canvas");
+  const preserveDrawingBuffer = shouldPreserveDrawingBufferForLocalAutomation();
+  const context = canvas.getContext("webgl2", { antialias: true, powerPreference: "high-performance", preserveDrawingBuffer });
+  if (!context) throw new Error("WebGL2 is unavailable");
+  const renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(host.clientWidth, host.clientHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
