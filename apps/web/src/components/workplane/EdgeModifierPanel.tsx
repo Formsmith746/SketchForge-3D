@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { Check, LoaderCircle, Minus, Plus, RotateCcw, X } from "lucide-react";
-import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay } from "@/lib/measurementUnits";
+import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import type { CadModifierKind, CadModifierQuality } from "@/lib/cadModifierTypes";
 import { CAD_MODIFIER_MAX_SHARP_ANGLE, edgeModifierSelectionStatus } from "@/lib/cadModifierRuntime";
 import type { WorkplaneWorkspaceSettings } from "@/types/sketchforge";
@@ -71,7 +71,7 @@ function EdgeModifierSlider({
   const toModelValue = (nextValue: number) => length ? displayToMillimeters(nextValue, workspace) : nextValue;
 
   const commitDraft = () => {
-    const next = Number(draft);
+    const next = parseMeasurementInput(draft);
     const finiteNext = Number.isFinite(next) ? next : controlValue;
     onChange(clamp(toModelValue(finiteNext), safeMin, safeMax));
     setEditing(false);
@@ -89,10 +89,7 @@ function EdgeModifierSlider({
         <span className="range-property-name">{label}</span>
         <span className="range-value-control">
           <input
-            type="number"
-            min={controlMin}
-            max={controlMax}
-            step={controlStep}
+            type="text"
             value={editing ? draft : formatSliderValue(controlValue, workspace.accuracy, controlStep)}
             inputMode="decimal"
             disabled={disabled}

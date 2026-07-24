@@ -6,7 +6,7 @@ import { SketchForgeEditor, importedShapeFromStl, importedShapeFromSvg } from "@
 import { hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { createLocalId } from "@/lib/localIds";
 import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
-import { importSkfProject } from "@/lib/skfProject";
+import { importSkfProject, SKF_CREATED_WITH_VERSION } from "@/lib/skfProject";
 import { importExtensionSupported } from "@/lib/stlImport";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import type { GridSize, ProjectAsset, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
@@ -1084,7 +1084,7 @@ function Dashboard({
               <span>Challenges</span>
             </button>
           </div>
-          <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label="Download settings" title="Download settings" onClick={onOpenSettings}>
+          <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
             <Settings size={20} />
             <span>Settings</span>
           </button>
@@ -1297,10 +1297,10 @@ function Dashboard({
       ) : null}
 
       {settingsOpen ? (
-        <section className="dashboard-settings-panel" role="dialog" aria-modal="true" aria-label="Download settings">
+        <section className="dashboard-settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
           <header>
-            <strong>Download settings</strong>
-            <button type="button" aria-label="Close download settings" onClick={onCloseSettings}>
+            <strong>Settings</strong>
+            <button type="button" aria-label="Close settings" onClick={onCloseSettings}>
               <X size={18} />
             </button>
           </header>
@@ -1323,6 +1323,10 @@ function Dashboard({
               placeholder="C:\\Users\\username\\Downloads"
             />
           </label>
+          <div className="dashboard-version-row">
+            <span>SketchForge version</span>
+            <strong>{SKF_CREATED_WITH_VERSION}</strong>
+          </div>
         </section>
       ) : null}
     </main>

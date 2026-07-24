@@ -17,8 +17,10 @@ import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
 import { ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
 import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettingsModal";
+import { createGearGeometry } from "@/lib/gearGeometry";
+import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint, workspaceHydrationRequired, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
-import { interiorWorkplaneGridCoordinates, workplaneGridPalette, WORKPLANE_LINE_ELEVATION } from "@/lib/workplaneGrid";
+import { interiorWorkplaneGridCoordinates, workplaneGridPalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, fallbackSolidColor, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { SketchForgeMcpViewFace } from "@/lib/sketchforgeMcpProtocol";
@@ -73,6 +75,7 @@ const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "halfSphere",
   "torus",
   "tube",
+  "gear",
   "ring",
   "wedge",
   "polygon",
@@ -574,6 +577,13 @@ function rulerShapeTopologyKey(shape: WorkplaneShape): string {
     segments: shape.segments,
     topRadius: shape.topRadius,
     baseRadius: shape.baseRadius,
+    teeth: shape.teeth,
+    toothSize: shape.toothSize,
+    toothWidth: shape.toothWidth,
+    centerHoleSize: shape.centerHoleSize,
+    gearType: shape.gearType,
+    helixAngle: shape.helixAngle,
+    helixQuality: shape.helixQuality,
     text: shape.text,
     font: shape.font,
     mesh: [positions.length, positionSample],
@@ -2778,7 +2788,7 @@ export function WorkplaneViewport({
       setEditingDimension(null);
       return;
     }
-    const value = Number.parseFloat(edit.value);
+    const value = parseMeasurementInput(edit.value);
     if (edit.axis === "elevation") {
       if (Number.isFinite(value)) {
         const frame = selectionFrameForShapes(shapesRef.current, selectedIdsRef.current);
@@ -2838,7 +2848,7 @@ export function WorkplaneViewport({
     if (!edit) {
       return;
     }
-    const value = Number.parseFloat(edit.value);
+    const value = parseMeasurementInput(edit.value);
     if (Number.isFinite(value)) {
       selectedIdsRef.current.forEach((id) => onUpdateShape(id, { ...rotationPatchForAxis(edit.axis, value), bakeTransform: true }));
     }
@@ -4037,14 +4047,13 @@ function createGridLines(width = WORKPLANE_WIDTH, depth = WORKPLANE_DEPTH, block
     points.push(...from, ...to);
   };
   const step = clamp(blockSize, MIN_GRID_BLOCK_SIZE, MAX_GRID_BLOCK_SIZE);
-  const majorEvery = 4;
   for (const { coordinate: centeredX, index } of interiorWorkplaneGridCoordinates(width, step)) {
-    const points = centeredX === 0 ? axisPoints : index % majorEvery === 0 ? majorPoints : minorPoints;
+    const points = centeredX === 0 ? axisPoints : index % WORKPLANE_MAJOR_GRID_INTERVAL === 0 ? majorPoints : minorPoints;
     pushLine(points, [centeredX, WORKPLANE_LINE_ELEVATION, -depth / 2], [centeredX, WORKPLANE_LINE_ELEVATION, depth / 2]);
   }
 
   for (const { coordinate: centeredZ, index } of interiorWorkplaneGridCoordinates(depth, step)) {
-    const points = centeredZ === 0 ? axisPoints : index % majorEvery === 0 ? majorPoints : minorPoints;
+    const points = centeredZ === 0 ? axisPoints : index % WORKPLANE_MAJOR_GRID_INTERVAL === 0 ? majorPoints : minorPoints;
     pushLine(points, [-width / 2, WORKPLANE_LINE_ELEVATION, centeredZ], [width / 2, WORKPLANE_LINE_ELEVATION, centeredZ]);
   }
 
@@ -5313,6 +5322,20 @@ function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureRe
     case "tube":
       addMesh(group, createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144), material, shape);
       break;
+    case "gear":
+      addMesh(group, createGearGeometry({
+        width,
+        depth,
+        height,
+        teeth: shape.teeth,
+        toothSize: shape.toothSize,
+        toothWidth: shape.toothWidth,
+        centerHoleSize: shape.centerHoleSize,
+        gearType: shape.gearType,
+        helixAngle: shape.helixAngle,
+        helixQuality: shape.helixQuality,
+      }), material, shape);
+      break;
     case "wedge":
       addMesh(group, createWedgeGeometry(width, height, depth), material, shape);
       break;
@@ -5423,7 +5446,7 @@ function addMesh(
   const complexEdges =
     shape.kind === "mesh" ||
     Boolean(shape.importedMesh) ||
-    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "wedge"].includes(shape.kind);
+    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "gear", "wedge"].includes(shape.kind);
   const importedTriangleCount = shape.importedMesh?.triangleCount ?? 0;
   const skipHeavyImportedEdges = Boolean(shape.importedMesh) && importedTriangleCount > IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT;
   if ((group.userData.showEdges || complexEdges) && !skipHeavyImportedEdges) {

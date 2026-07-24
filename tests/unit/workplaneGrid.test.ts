@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { interiorWorkplaneGridCoordinates, workplaneGridPalette, WORKPLANE_LINE_ELEVATION } from "@/lib/workplaneGrid";
+import { interiorWorkplaneGridCoordinates, workplaneGridPalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 
 describe("workplane grid geometry", () => {
   it("excludes both perimeter coordinates when spacing divides the workplane", () => {
@@ -20,6 +20,10 @@ describe("workplane grid geometry", () => {
 
   it("uses one elevation for grid and border lines", () => {
     expect(WORKPLANE_LINE_ELEVATION).toBe(0);
+  });
+
+  it("groups minor grid blocks into five-by-five major sections", () => {
+    expect(WORKPLANE_MAJOR_GRID_INTERVAL).toBe(5);
   });
 
   it("preserves the minor, major, and axis line hierarchy", () => {

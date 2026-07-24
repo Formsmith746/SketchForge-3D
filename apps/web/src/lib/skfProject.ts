@@ -5,12 +5,12 @@ import { canonicalizeShape } from "@/lib/workplaneShapes";
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { importedShapeFromSvg } from "@/lib/svgImport";
 import { normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
-import type { GridSize, ProjectAsset, ProjectAssetSourceFormat, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import type { GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation, SketchRevolveSettings, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 export const SKF_SCHEMA_ID = "com.sketchforge.project";
 export const SKF_FORMAT_VERSION = 1;
 export const SKF_MINIMUM_READER_VERSION = 1;
-export const SKF_CREATED_WITH_VERSION = "0.6.0";
+export const SKF_CREATED_WITH_VERSION = "0.7.0";
 export const SKF_MEDIA_TYPE = "application/vnd.sketchforge.project+zip";
 
 export const SKF_LIMITS = {
@@ -27,11 +27,11 @@ export const SKF_LIMITS = {
 
 const SHAPE_KINDS = new Set([
   "box", "cylinder", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "ring", "wedge", "polygon", "icosahedron", "constructionPlane", "mesh",
+  "halfSphere", "torus", "tube", "gear", "ring", "wedge", "polygon", "icosahedron", "constructionPlane", "mesh",
 ]);
 
 const FEATURE_TYPES = new Set([
-  "group", "boolean-subtraction", "boolean-intersection", "mirror", "sketch-extrusion", "fillet", "chamfer",
+  "group", "boolean-subtraction", "boolean-intersection", "mirror", "sketch-extrusion", "sketch-revolve", "fillet", "chamfer",
 ]);
 
 type SkfAssetKind = "source" | "derived-mesh" | "brep" | "image";
@@ -110,7 +110,7 @@ export type SkfProjectDocumentV1 = {
     entries: Array<{ stateId: string; selectedObjectIds: string[] }>;
     index: number;
   };
-  sketches: Array<{ id: string; nodeId: string; objectId: string; extrusionDepth: number }>;
+  sketches: Array<{ id: string; nodeId: string; objectId: string; operation?: SketchOperation; extrusionDepth: number; revolve?: SketchRevolveSettings }>;
   features: SkfFeatureV1[];
   groups: Array<{ id: string; nodeId: string; objectId: string; memberNodeIds: string[]; operation: string }>;
   workplanes: Array<{ id: string; kind: "base" | "offset"; elevation: number }>;
@@ -455,6 +455,8 @@ async function serializeShapeNode(
 
   const objectType = groupedShapeNodeIds.length
     ? "group"
+    : sketchProfile
+      ? "sketch"
     : importedReference
       ? "imported"
       : shape.kind === "sketch"
@@ -515,17 +517,28 @@ function activeProjectIndexes(state: SkfStateV1) {
     if (!node) return;
     (node.groupedShapeNodeIds ?? []).forEach(visit);
     let previous: string | undefined;
-    if (node.definition.sketchProfile && node.definition.kind === "sketch") {
-      const featureId = `feature/${safeNodeToken(node.nodeId)}/sketch-extrusion`;
+    if (node.definition.sketchProfile && (node.definition.sketchFeature as { kind?: unknown } | undefined)?.kind !== "sweep") {
+      const operation = node.definition.sketchOperation === "revolve" ? "revolve" : "extrude";
+      const featureType = operation === "revolve" ? "sketch-revolve" : "sketch-extrusion";
+      const featureId = `feature/${safeNodeToken(node.nodeId)}/${featureType}`;
       features.push({
         id: featureId,
-        type: "sketch-extrusion",
+        type: featureType,
         outputObjectId: node.objectId,
         inputObjectIds: [],
         dependsOnFeatureIds: [],
-        parameters: { depth: node.definition.height, direction: "positive-y", mode: "create" },
+        parameters: operation === "revolve"
+          ? { ...(node.definition.sketchRevolve as Record<string, unknown> | undefined), axis: "vertical-sketch-axis", mode: "create" }
+          : { depth: node.definition.height, direction: "positive-y", mode: "create" },
       });
-      sketches.push({ id: `sketch/${safeNodeToken(node.objectId)}`, nodeId: node.nodeId, objectId: node.objectId, extrusionDepth: Number(node.definition.height) });
+      sketches.push({
+        id: `sketch/${safeNodeToken(node.objectId)}`,
+        nodeId: node.nodeId,
+        objectId: node.objectId,
+        operation,
+        extrusionDepth: operation === "extrude" ? Number(node.definition.height) : 0,
+        ...(operation === "revolve" && node.definition.sketchRevolve ? { revolve: node.definition.sketchRevolve as SketchRevolveSettings } : {}),
+      });
       previous = featureId;
     }
     if (node.groupedShapeNodeIds?.length) {
@@ -871,6 +884,38 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
     stringValue(attachment.constructionPlaneId, `${label}.sketchPlane.constructionPlaneId`);
     validateConstructionPlanePose(attachment.pose, `${label}.sketchPlane.pose`);
     finiteTuple(attachment.localCenter, 3, `${label}.sketchPlane.localCenter`);
+  }
+  if (definition.sketchOperation !== undefined && definition.sketchOperation !== "extrude" && definition.sketchOperation !== "revolve") {
+    throw new Error(`${label}.sketchOperation is invalid`);
+  }
+  if (definition.sketchRevolve !== undefined) {
+    const settings = objectRecord(definition.sketchRevolve, `${label}.sketchRevolve`);
+    ["startAngle", "sweepAngle", "sides", "quality", "thickness"].forEach((field) => finiteNumber(settings[field], `${label}.sketchRevolve.${field}`));
+  }
+  if (kind === "gear") {
+    const teeth = finiteNumber(definition.teeth, `${label}.teeth`);
+    if (!Number.isInteger(teeth) || teeth < 6 || teeth > 64) throw new Error(`${label}.teeth is outside the supported range`);
+    const toothSize = finiteNumber(definition.toothSize, `${label}.toothSize`);
+    if (toothSize <= 0) throw new Error(`${label}.toothSize must be positive`);
+    if (definition.toothWidth !== undefined) {
+      const toothWidth = finiteNumber(definition.toothWidth, `${label}.toothWidth`);
+      if (toothWidth <= 0) throw new Error(`${label}.toothWidth must be positive`);
+    }
+    if (definition.centerHoleSize !== undefined) {
+      const centerHoleSize = finiteNumber(definition.centerHoleSize, `${label}.centerHoleSize`);
+      if (centerHoleSize < 0) throw new Error(`${label}.centerHoleSize cannot be negative`);
+    }
+    if (!["spur", "helical", "bevel"].includes(definition.gearType as string)) throw new Error(`${label}.gearType is invalid`);
+    if (definition.helixAngle !== undefined) {
+      const helixAngle = finiteNumber(definition.helixAngle, `${label}.helixAngle`);
+      if (helixAngle < -45 || helixAngle > 45) throw new Error(`${label}.helixAngle is outside the supported range`);
+    }
+    if (definition.helixQuality !== undefined) {
+      const helixQuality = finiteNumber(definition.helixQuality, `${label}.helixQuality`);
+      if (!Number.isInteger(helixQuality) || helixQuality < 4 || helixQuality > 32) {
+        throw new Error(`${label}.helixQuality is outside the supported range`);
+      }
+    }
   }
   return id;
 }

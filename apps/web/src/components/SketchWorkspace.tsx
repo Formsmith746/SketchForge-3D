@@ -3,6 +3,9 @@
 import { ChevronUp, CornerDownRight, Home, Link, Link2Off, LockKeyhole, LockKeyholeOpen, Minus, Plus, Split, Trash2, Waves } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { SnapGridControl } from "@/components/workplane/ShapeInspector";
+import { SketchRevolvePreview } from "@/components/SketchRevolvePreview";
+import { parseMeasurementInput } from "@/lib/measurementUnits";
+import { WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { mirrorSign, resizedImportedMeshPositions } from "@/lib/workplaneShapes";
 import { circleFromPoints } from "@/lib/sketchCircles";
 import { moveConstrainedSketchPoint } from "@/lib/sketchConstraints";
@@ -10,7 +13,7 @@ import { rectFromPoints } from "@/lib/sketchRectangles";
 import { polygonFromPoints } from "@/lib/sketchPolygons";
 import { dedupeSketchSnapCandidates, snapSketchPoint, type SketchSnapCandidate, type SketchSnapResult } from "@/lib/sketchSnapping";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
-import type { GridSize, SketchImage, SketchPoint, SketchProfile, SketchSegment, SketchText, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import type { GridSize, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, SketchText, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 export type SketchTool = "line" | "bezier" | "smooth" | "circle-center" | "circle-diameter" | "rect-corner" | "rect-center" | "poly-inscribed" | "poly-circumscribed" | "poly-edge" | "text" | "select" | "refine" | "erase" | "measure";
 export type SketchCircleDraft = {
@@ -41,6 +44,8 @@ export type SketchMeasurement = { start: SketchPoint; end: SketchPoint } | null;
 
 type SketchWorkspaceProps = {
   profile: SketchProfile;
+  operation?: SketchOperation;
+  revolvePreviewPositions?: number[] | null;
   referenceShapes: WorkplaneShape[];
   tool: SketchTool;
   activePointId: string | null;
@@ -430,6 +435,8 @@ function importedMeshFootprint(shape: WorkplaneShape): SketchReferenceFootprint 
 
 export function SketchWorkspace({
   profile,
+  operation = "extrude",
+  revolvePreviewPositions = null,
   referenceShapes,
   tool,
   activePointId,
@@ -835,7 +842,8 @@ export function SketchWorkspace({
 
   return (
     <main className="sketch-workspace-stage">
-      <div className="sketch-mode-badge">Sketch view - {planeName}</div>
+      <div className="sketch-mode-badge">{operation === "revolve" ? "Revolve sketch" : "Sketch view"} - {planeName}</div>
+      {operation === "revolve" ? <SketchRevolvePreview positions={revolvePreviewPositions} /> : null}
       <div className="camera-controls sketch-camera-controls" aria-label="Sketch view controls">
         <button aria-label="Reset sketch view" onClick={() => { setZoom(1); setPan({ x: 0, z: 0 }); }}><Home size={28} /></button>
         <button aria-label="Zoom in" onClick={() => setZoom((value) => clamp(value * 1.25, 0.75, 6))}><Plus size={33} /></button>
@@ -857,8 +865,15 @@ export function SketchWorkspace({
           <rect className="sketch-plate-background" x={-workspace.width / 2} y={-workspace.depth / 2} width={workspace.width} height={workspace.depth} />
           {workspace.showGrid ? (
             <g className="sketch-grid" pointerEvents="none">
-              {verticalLines.map((x, index) => <line className={Math.abs(x) < 0.0001 ? "axis" : index % 4 === 0 ? "major" : "minor"} key={`x-${x}`} x1={x} y1={-workspace.depth / 2} x2={x} y2={workspace.depth / 2} />)}
-              {horizontalLines.map((z, index) => <line className={Math.abs(z) < 0.0001 ? "axis" : index % 4 === 0 ? "major" : "minor"} key={`z-${z}`} x1={-workspace.width / 2} y1={z} x2={workspace.width / 2} y2={z} />)}
+              {verticalLines.map((x, index) => <line className={Math.abs(x) < 0.0001 ? "axis" : index % WORKPLANE_MAJOR_GRID_INTERVAL === 0 ? "major" : "minor"} key={`x-${x}`} x1={x} y1={-workspace.depth / 2} x2={x} y2={workspace.depth / 2} />)}
+              {horizontalLines.map((z, index) => <line className={Math.abs(z) < 0.0001 ? "axis" : index % WORKPLANE_MAJOR_GRID_INTERVAL === 0 ? "major" : "minor"} key={`z-${z}`} x1={-workspace.width / 2} y1={z} x2={workspace.width / 2} y2={z} />)}
+            </g>
+          ) : null}
+          {operation === "revolve" ? (
+            <g className="sketch-revolve-guide" pointerEvents="none">
+              <rect x={0} y={-workspace.depth / 2} width={workspace.width / 2} height={workspace.depth} />
+              <line x1={0} y1={-workspace.depth / 2} x2={0} y2={workspace.depth / 2} />
+              <text x={-5 * screenUnit} y={-workspace.depth / 2 + 18 * screenUnit} fontSize={12 * screenUnit}>REVOLVE AXIS</text>
             </g>
           ) : null}
           <g className="sketch-reference-images">
@@ -1523,14 +1538,8 @@ function SketchImageInspector({
           <SketchImageRange label="Width" value={image.width} min={0.5} max={200} accuracy={accuracy} onChange={updateWidth} />
           <SketchImageRange label="Height" value={image.depth} min={0.5} max={200} accuracy={accuracy} onChange={updateDepth} />
           <SketchImageRange label="Opacity" value={(image.opacity ?? 0.55) * 100} min={5} max={100} accuracy={1} suffix="%" onChange={(opacity) => onUpdate({ opacity: opacity / 100 }, "Sketch image opacity updated")} />
-          <label className="sketch-image-position-field">
-            <span>Position X</span>
-            <input type="number" step="0.1" value={Number(image.x.toFixed(accuracy))} onChange={(event) => onUpdate({ x: Number(event.currentTarget.value) || 0 }, "Sketch image moved")} />
-          </label>
-          <label className="sketch-image-position-field">
-            <span>Position Y</span>
-            <input type="number" step="0.1" value={Number(image.z.toFixed(accuracy))} onChange={(event) => onUpdate({ z: Number(event.currentTarget.value) || 0 }, "Sketch image moved")} />
-          </label>
+          <SketchImagePositionField label="Position X" value={image.x} accuracy={accuracy} onChange={(x) => onUpdate({ x }, "Sketch image moved")} />
+          <SketchImagePositionField label="Position Y" value={image.z} accuracy={accuracy} onChange={(z) => onUpdate({ z }, "Sketch image moved")} />
           <button className={`sketch-image-aspect-toggle ${image.lockAspect !== false ? "active" : ""}`} type="button" onClick={() => onUpdate({ lockAspect: image.lockAspect === false }, "Image aspect ratio setting updated")}>
             {image.lockAspect !== false ? <Link size={17} /> : <Link2Off size={17} />}
             <span>{image.lockAspect !== false ? "Aspect ratio locked" : "Aspect ratio unlocked"}</span>
@@ -1562,7 +1571,7 @@ function SketchImageRange({
   const [draft, setDraft] = useState(formatDimension(safeValue, accuracy));
   useEffect(() => setDraft(formatDimension(safeValue, accuracy)), [accuracy, safeValue]);
   const commit = () => {
-    const parsed = Number(draft);
+    const parsed = parseMeasurementInput(draft);
     onChange(clamp(Number.isFinite(parsed) ? parsed : safeValue, min, max));
   };
   const position = ((safeValue - min) / Math.max(0.001, max - min)) * 100;
@@ -1572,10 +1581,8 @@ function SketchImageRange({
       <div className="sketch-image-range-row">
         <input
           className="sketch-image-number-input"
-          type="number"
-          min={min}
-          max={max}
-          step={accuracy === 1 ? 0.1 : 0.01}
+          type="text"
+          inputMode="decimal"
           value={draft}
           onChange={(event) => setDraft(event.currentTarget.value)}
           onBlur={commit}
@@ -1584,6 +1591,42 @@ function SketchImageRange({
         <span>{suffix}</span>
       </div>
       <input type="range" min={min} max={max} step={accuracy === 1 ? 0.1 : 0.01} value={safeValue} onChange={(event) => onChange(Number(event.currentTarget.value))} />
+    </label>
+  );
+}
+
+function SketchImagePositionField({
+  label,
+  value,
+  accuracy,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  accuracy: 1 | 2 | 3;
+  onChange: (value: number) => void;
+}) {
+  const formatted = formatDimension(value, accuracy);
+  const [draft, setDraft] = useState(formatted);
+  useEffect(() => setDraft(formatted), [formatted]);
+  const commit = () => {
+    const parsed = parseMeasurementInput(draft);
+    const next = Number.isFinite(parsed) ? parsed : value;
+    onChange(next);
+    setDraft(formatDimension(next, accuracy));
+  };
+
+  return (
+    <label className="sketch-image-position-field">
+      <span>{label}</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(event) => setDraft(event.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+      />
     </label>
   );
 }

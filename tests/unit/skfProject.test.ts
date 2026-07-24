@@ -74,7 +74,7 @@ describe("SketchForge .skf project packages", () => {
   it("round-trips every supported native shape kind and editable properties", async () => {
     const nativeKinds: ShapeKind[] = [
       "box", "cylinder", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-      "halfSphere", "torus", "tube", "ring", "wedge", "polygon", "icosahedron",
+      "halfSphere", "torus", "tube", "gear", "ring", "wedge", "polygon", "icosahedron",
     ];
     const shapes = nativeKinds.map((kind, index) => shape(kind, `${kind}-${index}`, {
       hole: index === 2,
@@ -82,6 +82,13 @@ describe("SketchForge .skf project packages", () => {
       hidden: index === 4,
       mirrorX: index === 5,
       sides: index + 3,
+      teeth: kind === "gear" ? 18 : undefined,
+      toothSize: kind === "gear" ? 3.25 : undefined,
+      toothWidth: kind === "gear" ? 2.75 : undefined,
+      centerHoleSize: kind === "gear" ? 7.5 : undefined,
+      gearType: kind === "gear" ? "helical" : undefined,
+      helixAngle: kind === "gear" ? -30 : undefined,
+      helixQuality: kind === "gear" ? 24 : undefined,
       text: kind === "text" ? "Editable" : undefined,
       sketchProfile: kind === "sketch" ? {
         points: [
@@ -150,6 +157,36 @@ describe("SketchForge .skf project packages", () => {
     expect(restored.shapes).toEqual([canonicalizeShape(plane), canonicalizeShape(sketch)]);
     expect(restored.shapes[0].constructionPlane?.kind).toBe("principal");
     expect(restored.shapes[1].sketchPlane?.constructionPlaneId).toBe("plane-1");
+  });
+
+  it("preserves editable revolve sketch settings and generated geometry", async () => {
+    const revolve = shape("mesh", "revolve-sketch", {
+      name: "Sketch revolve",
+      sketchOperation: "revolve",
+      sketchRevolve: { startAngle: 25, sweepAngle: -220, sides: 48, quality: 8, thickness: 1.5 },
+      sketchProfile: {
+        points: [{ id: "p1", x: -4, z: 0 }, { id: "p2", x: -8, z: 0 }, { id: "p3", x: -8, z: 16 }, { id: "p4", x: -4, z: 16 }],
+        segments: [
+          { id: "s1", startId: "p1", endId: "p2", kind: "line" },
+          { id: "s2", startId: "p2", endId: "p3", kind: "line" },
+          { id: "s3", startId: "p3", endId: "p4", kind: "line" },
+          { id: "s4", startId: "p4", endId: "p1", kind: "line" },
+        ],
+      },
+      importedMesh: {
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        baseWidth: 16,
+        baseDepth: 16,
+        baseHeight: 16,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+    });
+    const restored = await importSkfProject(await exportSkfProject(input([revolve])));
+    expect(restored.shapes[0].sketchOperation).toBe("revolve");
+    expect(restored.shapes[0].sketchRevolve).toEqual(revolve.sketchRevolve);
+    expect(restored.shapes[0].sketchProfile).toEqual(revolve.sketchProfile);
+    expect(restored.shapes[0].importedMesh?.positions).toEqual(revolve.importedMesh?.positions);
   });
 
   it("preserves nested groups, holes, intersection metadata, edge history, B-Rep, and undo/redo", async () => {
