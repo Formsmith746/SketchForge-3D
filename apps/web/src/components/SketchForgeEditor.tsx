@@ -9483,8 +9483,8 @@ export function SketchForgeEditor({
             rectDraft={sketchRectDraft}
             polygonDraft={sketchPolygonDraft}
             textDraft={sketchTextDraft}
-            initialSnap={initialSnap}
-            initialWorkspace={initialWorkspace}
+            initialSnap={snapGrid}
+            initialWorkspace={workspaceSettings}
             planeName={sketchConstructionPlaneId === BASE_CONSTRUCTION_PLANE_ID ? "Base XZ plane" : constructionPlanes.find((plane) => plane.id === sketchConstructionPlaneId)?.name ?? "Construction plane"}
             onPlanePoint={addSketchPlanePoint}
             onPointPress={pressSketchPoint}
@@ -9575,8 +9575,8 @@ export function SketchForgeEditor({
           mirrorReferenceShapes={shapes}
           placementElevation={placementElevation}
           workplaneMode={workplaneMode}
-          initialSnap={initialSnap}
-          initialWorkspace={initialWorkspace}
+          initialSnap={snapGrid}
+          initialWorkspace={workspaceSettings}
           workspaceSettingsKey={projectId ?? "local-workplane"}
           onAddShape={addShape}
           onAlignAnchorChange={chooseAlignAnchor}

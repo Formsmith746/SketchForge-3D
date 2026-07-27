@@ -606,7 +606,11 @@ function activeProjectIndexes(state: SkfStateV1) {
 
 function zipAsync(files: AsyncZippable) {
   return new Promise<Uint8Array>((resolve, reject) => {
-    zip(files, { level: 6, mtime: new Date("1980-01-02T00:00:00.000Z") }, (error, data) => {
+    // fflate encodes the ZIP entry mtime as a DOS date using local-time getters and
+    // rejects years outside 1980-2099. A UTC-pinned "1980-01-01T00:00:00Z" rolls back
+    // to 1979 in any timezone west of UTC, so build the epoch from local components to
+    // keep the year at exactly 1980 everywhere.
+    zip(files, { level: 6, mtime: new Date(1980, 0, 1) }, (error, data) => {
       if (error) reject(error);
       else resolve(data);
     });

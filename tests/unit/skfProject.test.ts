@@ -374,6 +374,23 @@ describe("SketchForge .skf project packages", () => {
     expect(restored.shapes[1].importedMesh?.positions).toEqual(mesh.positions);
   });
 
+  it("exports in a far-western timezone without underflowing the ZIP 1980 date floor", async () => {
+    // ZIP stores entry mtimes as DOS dates, and fflate encodes them with local-time
+    // getters, rejecting years outside 1980-2099 with "date not in range 1980-2099".
+    // A UTC-pinned epoch rolls back to 1979 west of UTC, so exercise the fix under the
+    // most extreme western offset. Node re-reads process.env.TZ per Date operation.
+    const originalTz = process.env.TZ;
+    process.env.TZ = "Etc/GMT+12";
+    try {
+      const exported = await exportSkfProject(input([shape("box")]));
+      const restored = await importSkfProject(exported);
+      expect(restored.shapes[0].kind).toBe("box");
+    } finally {
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  });
+
   it("migrates the documented v0 JSON project without changing IDs", async () => {
     const box = shape("box", "legacy-box");
     const legacy = strToU8(JSON.stringify({
