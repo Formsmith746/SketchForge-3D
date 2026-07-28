@@ -110,7 +110,8 @@ describe("SketchForge .skf project packages", () => {
       } : undefined,
     }));
 
-    const exported = await exportSkfProject(input(shapes));
+    const customWorkspace = { ...DEFAULT_WORKPLANE_WORKSPACE, gridColor: "#a34fd1" };
+    const exported = await exportSkfProject(input(shapes, { workspace: customWorkspace }));
     const { document } = packageDocument(exported);
     const summary = await inspectSkfProjectPackage(exported);
     const restored = await importSkfProject(exported);
@@ -118,7 +119,7 @@ describe("SketchForge .skf project packages", () => {
     expect(restored.projectName).toBe("Round trip");
     expect(restored.sourceProjectId).toBe("project-original");
     expect(JSON.stringify(restored.shapes)).toBe(JSON.stringify(shapes.map(canonicalizeShape)));
-    expect(restored.workspace).toEqual(DEFAULT_WORKPLANE_WORKSPACE);
+    expect(restored.workspace).toEqual(customWorkspace);
     expect(restored.snapGrid).toBe(DEFAULT_SNAP_GRID);
     expect(restored.placementElevation).toBe(12.5);
     expect(summary).toEqual({
@@ -233,6 +234,30 @@ describe("SketchForge .skf project packages", () => {
     expect(restored.shapes[0].groupOperation).toBe("intersection");
     expect(restored.shapes[0].cadBrep).toBe("BREP exact payload");
     expect(restored.shapes[0].edgeTreatmentHistory?.[0].before.kind).toBe("box");
+  });
+
+  it("preserves every silently packaged undo and redo action", async () => {
+    const created = shape("box", "history-box", { width: 20, depth: 20, x: 0 });
+    const resized = { ...created, width: 30 };
+    const moved = { ...resized, x: 18 };
+    const history = [
+      editorHistoryEntry([created], ["history-box"]),
+      editorHistoryEntry([resized], ["history-box"]),
+      editorHistoryEntry([moved], ["history-box"]),
+    ];
+
+    const restored = await importSkfProject(await exportSkfProject(input([resized], {
+      history,
+      historyIndex: 1,
+      compressionLevel: 1,
+    })));
+
+    expect(restored.history).toHaveLength(3);
+    expect(restored.historyIndex).toBe(1);
+    expect(restored.history[0].shapes[0]).toMatchObject({ width: 20, x: 0 });
+    expect(restored.history[1].shapes[0]).toMatchObject({ width: 30, x: 0 });
+    expect(restored.history[2].shapes[0]).toMatchObject({ width: 30, x: 18 });
+    expect(restored.shapes[0]).toMatchObject({ width: 30, x: 0 });
   });
 
   it("stores one original source asset for repeated imported instances and regenerates it once", async () => {

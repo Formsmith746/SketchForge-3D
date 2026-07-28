@@ -54,17 +54,17 @@ function groupedShape(): WorkplaneShape {
 }
 
 describe("Snap to Grid", () => {
-  it("translates a group footprint to the visible grid without resizing it or changing child offsets", () => {
+  it("snaps the nearest footprint corner to the visible grid without resizing or changing child offsets", () => {
     const group = groupedShape();
     const snapped = snapShapeFootprintToVisibleGrid(
       group,
-      { minX: -17.3, minZ: -11.4 },
+      { minX: -17.3, maxX: 26.2, minZ: -11.4, maxZ: 8.4 },
       { ...DEFAULT_WORKPLANE_WORKSPACE, gridBlockSize: 5 },
     );
 
-    expect(snapped.x).toBe(5.5);
+    expect(snapped.x).toBe(2);
     expect(snapped.z).toBe(-0.3);
-    expect(-17.3 + snapped.x - group.x).toBeCloseTo(-15, 6);
+    expect(26.2 + snapped.x - group.x).toBeCloseTo(25, 6);
     expect(-11.4 + snapped.z - group.z).toBeCloseTo(-10, 6);
     expect(snapped).toMatchObject({
       elevation: 2.4,
@@ -80,11 +80,13 @@ describe("Snap to Grid", () => {
     const group = groupedShape();
     const snapped = snapShapeFootprintToVisibleGrid(
       group,
-      { minX: -18, minZ: -13 },
+      { minX: -18, maxX: 25.5, minZ: -13, maxZ: 6.8 },
       { ...DEFAULT_WORKPLANE_WORKSPACE, width: 203, depth: 187, gridBlockSize: 10 },
     );
 
-    expect(-18 + snapped.x - group.x).toBeCloseTo(-21.5, 6);
-    expect(-13 + snapped.z - group.z).toBeCloseTo(-13.5, 6);
+    expect(snapped.x).toBeCloseTo(6.2, 6);
+    expect(snapped.z).toBeCloseTo(-2, 6);
+    expect(25.5 + snapped.x - group.x).toBeCloseTo(28.5, 6);
+    expect(6.8 + snapped.z - group.z).toBeCloseTo(6.5, 6);
   });
 });

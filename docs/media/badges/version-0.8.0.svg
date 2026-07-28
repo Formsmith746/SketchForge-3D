@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="91" height="20" role="img" aria-label="version: 0.8.0">
+  <title>Version 0.8.0</title>
+  <linearGradient id="badge-shadow" x2="0" y2="100%">
+    <stop offset="0" stop-color="#fff" stop-opacity=".12"/>
+    <stop offset="1" stop-opacity=".12"/>
+  </linearGradient>
+  <clipPath id="badge-shape">
+    <rect width="91" height="20" rx="3"/>
+  </clipPath>
+  <g clip-path="url(#badge-shape)">
+    <rect width="51" height="20" fill="#555"/>
+    <rect x="51" width="40" height="20" fill="#2563eb"/>
+    <rect width="91" height="20" fill="url(#badge-shadow)"/>
+  </g>
+  <g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle">
+    <text x="25.5" y="15" fill="#010101" fill-opacity=".3">version</text>
+    <text x="25.5" y="14">version</text>
+    <text x="71" y="15" fill="#010101" fill-opacity=".3">0.8.0</text>
+    <text x="71" y="14">0.8.0</text>
+  </g>
+</svg>

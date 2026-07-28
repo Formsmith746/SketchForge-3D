@@ -1,9 +1,8 @@
 import type { WorkplaneShape } from "@/types/sketchforge";
-import { canonicalizeShape, serializeShapesForSync } from "@/lib/workplaneShapes";
+import { canonicalizeShape } from "@/lib/workplaneShapes";
 
 export const MAX_EDITOR_HISTORY_ENTRIES = 5000;
-export const MAX_EDITOR_HISTORY_BYTES = 64 * 1024 * 1024;
-export type EditorHistoryExportLimit = "unlimited" | 100 | 50 | 30;
+export type EditorHistoryExportLimit = "unlimited" | number;
 
 export type EditorHistoryEntry = {
   shapes: WorkplaneShape[];
@@ -17,8 +16,24 @@ export type EditorHistoryState = {
   index: number;
 };
 
-export function serializedSceneSignature(shapes: WorkplaneShape[]) {
-  const serialized = serializeShapesForSync(shapes);
+type ResourceSignature = {
+  fingerprint: string;
+  estimatedBytes: number;
+};
+
+const resourceSignatureCache = new WeakMap<object, ResourceSignature>();
+const stringSignatureCache = new Map<string, ResourceSignature>();
+const MAX_CACHED_STRING_SIGNATURES = 64;
+const COMPACT_RESOURCE_KEYS = new Set([
+  "cadDisplayEdges",
+  "edgeTreatmentHistory",
+  "imagePlate",
+  "importedMesh",
+  "sketchProfile",
+]);
+const COMPACT_STRING_KEYS = new Set(["cadBrep"]);
+
+function signatureFromSerialized(serialized: string): ResourceSignature {
   let hashA = 2166136261;
   let hashB = 5381;
   for (let index = 0; index < serialized.length; index += 1) {
@@ -29,6 +44,65 @@ export function serializedSceneSignature(shapes: WorkplaneShape[]) {
   return {
     fingerprint: `${serialized.length}:${hashA >>> 0}:${hashB >>> 0}`,
     estimatedBytes: serialized.length * 2,
+  };
+}
+
+function objectResourceSignature(resource: object) {
+  const cached = resourceSignatureCache.get(resource);
+  if (cached) return cached;
+  const signature = signatureFromSerialized(JSON.stringify(resource));
+  resourceSignatureCache.set(resource, signature);
+  return signature;
+}
+
+export function immutableResourceFingerprint(resource: object) {
+  return objectResourceSignature(resource).fingerprint;
+}
+
+function stringResourceSignature(resource: string) {
+  const cached = stringSignatureCache.get(resource);
+  if (cached) {
+    stringSignatureCache.delete(resource);
+    stringSignatureCache.set(resource, cached);
+    return cached;
+  }
+  const signature = signatureFromSerialized(resource);
+  stringSignatureCache.set(resource, signature);
+  while (stringSignatureCache.size > MAX_CACHED_STRING_SIGNATURES) {
+    const oldest = stringSignatureCache.keys().next().value;
+    if (oldest === undefined) break;
+    stringSignatureCache.delete(oldest);
+  }
+  return signature;
+}
+
+export function serializedSceneSignature(shapes: WorkplaneShape[]) {
+  const countedObjects = new Set<object>();
+  const countedStrings = new Set<string>();
+  let resourceBytes = 0;
+  const serialized = JSON.stringify(shapes.map(canonicalizeShape), (key, value: unknown) => {
+    if (COMPACT_RESOURCE_KEYS.has(key) && value !== null && typeof value === "object") {
+      const signature = objectResourceSignature(value);
+      if (!countedObjects.has(value)) {
+        countedObjects.add(value);
+        resourceBytes += signature.estimatedBytes;
+      }
+      return { $resource: key, fingerprint: signature.fingerprint };
+    }
+    if (COMPACT_STRING_KEYS.has(key) && typeof value === "string" && value.length > 0) {
+      const signature = stringResourceSignature(value);
+      if (!countedStrings.has(value)) {
+        countedStrings.add(value);
+        resourceBytes += signature.estimatedBytes;
+      }
+      return { $resource: key, fingerprint: signature.fingerprint };
+    }
+    return value;
+  });
+  const signature = signatureFromSerialized(serialized);
+  return {
+    fingerprint: signature.fingerprint,
+    estimatedBytes: signature.estimatedBytes + resourceBytes,
   };
 }
 
@@ -46,17 +120,35 @@ export function editorHistoryEntry(shapes: WorkplaneShape[], selectedIds: string
   };
 }
 
-export function boundedEditorHistory(entries: EditorHistoryEntry[]) {
-  const bounded = entries.slice(-MAX_EDITOR_HISTORY_ENTRIES);
-  let totalBytes = bounded.reduce((total, entry) => total + entry.estimatedBytes, 0);
-  while (bounded.length > 2 && totalBytes > MAX_EDITOR_HISTORY_BYTES) {
-    const removed = bounded.shift();
-    totalBytes -= removed?.estimatedBytes ?? 0;
-  }
-  return bounded;
+export function boundedEditorHistory(entries: EditorHistoryEntry[], limit: EditorHistoryExportLimit = "unlimited") {
+  return boundedEditorHistoryState(entries, entries.length - 1, limit).entries;
 }
 
-export function appendEditorHistorySnapshot(entries: EditorHistoryEntry[], requestedIndex: number, entry: EditorHistoryEntry) {
+export function boundedEditorHistoryState(
+  entries: EditorHistoryEntry[],
+  requestedIndex: number,
+  limit: EditorHistoryExportLimit = "unlimited",
+): EditorHistoryState {
+  if (entries.length === 0) return { entries: [], index: 0 };
+  const index = Math.min(Math.max(0, requestedIndex), entries.length - 1);
+  const retainedActions = limit === "unlimited"
+    ? MAX_EDITOR_HISTORY_ENTRIES - 1
+    : Math.min(MAX_EDITOR_HISTORY_ENTRIES - 1, Math.max(1, Math.round(limit)));
+  const maxEntries = retainedActions + 1;
+  if (entries.length <= maxEntries) return { entries, index };
+  let start = Math.max(0, index - retainedActions);
+  const end = Math.min(entries.length, start + maxEntries);
+  if (end - start < maxEntries) start = Math.max(0, end - maxEntries);
+  const bounded = entries.slice(start, end);
+  return { entries: bounded, index: index - start };
+}
+
+export function appendEditorHistorySnapshot(
+  entries: EditorHistoryEntry[],
+  requestedIndex: number,
+  entry: EditorHistoryEntry,
+  limit: EditorHistoryExportLimit = "unlimited",
+) {
   const index = Math.min(Math.max(0, requestedIndex), Math.max(0, entries.length - 1));
   const current = entries[index];
   if (current?.fingerprint === entry.fingerprint) {
@@ -68,7 +160,7 @@ export function appendEditorHistorySnapshot(entries: EditorHistoryEntry[], reque
     };
   }
 
-  const nextEntries = boundedEditorHistory([...entries.slice(0, index + 1), entry]);
+  const nextEntries = boundedEditorHistory([...entries.slice(0, index + 1), entry], limit);
   return { entries: nextEntries, index: nextEntries.length - 1, changed: true };
 }
 
@@ -76,6 +168,7 @@ export function hydrateEditorHistoryState(
   currentShapes: WorkplaneShape[],
   storedEntries: EditorHistoryEntry[] | undefined,
   requestedIndex: number | undefined,
+  limit: EditorHistoryExportLimit = "unlimited",
 ): EditorHistoryState {
   const fallback = editorHistoryEntry(currentShapes, []);
   if (!Array.isArray(storedEntries) || storedEntries.length === 0) {
@@ -96,12 +189,7 @@ export function hydrateEditorHistoryState(
       return { entries: [fallback], index: 0 };
     }
 
-    const entries = boundedEditorHistory(normalized);
-    const boundedIndex = index - (normalized.length - entries.length);
-    if (boundedIndex < 0 || boundedIndex >= entries.length) {
-      return { entries: [fallback], index: 0 };
-    }
-    return { entries, index: boundedIndex };
+    return boundedEditorHistoryState(normalized, index, limit);
   } catch {
     return { entries: [fallback], index: 0 };
   }

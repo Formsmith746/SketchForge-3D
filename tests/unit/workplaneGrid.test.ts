@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { interiorWorkplaneGridCoordinates, workplaneGridPalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
+import { interiorWorkplaneGridCoordinates, workplaneGridPalette, workplaneThemePalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 
 describe("workplane grid geometry", () => {
   it("excludes both perimeter coordinates when spacing divides the workplane", () => {
@@ -32,5 +32,27 @@ describe("workplane grid geometry", () => {
     expect(palette.minor.opacity).toBeLessThan(palette.major.opacity);
     expect(palette.major.opacity).toBeLessThan(palette.axis.opacity);
     expect(palette.minor.color).not.toBe(palette.major.color);
+  });
+
+  it("uses a complete dark viewport palette without changing the configured project background", () => {
+    const configuredBackground = "#f8fbfc";
+    const dark = workplaneThemePalette("dark", configuredBackground);
+    const light = workplaneThemePalette("light", configuredBackground);
+
+    expect(dark.sceneBackground).not.toBe(configuredBackground);
+    expect(dark.surface.color).not.toBe(light.surface.color);
+    expect(dark.grid.minor.color).not.toBe(light.grid.minor.color);
+    expect(light.sceneBackground).toBe(configuredBackground);
+  });
+
+  it("applies a custom project grid color while retaining line hierarchy", () => {
+    const customColor = "#c23b72";
+    const palette = workplaneGridPalette("light", customColor);
+
+    expect(palette.minor.color).toBe(customColor);
+    expect(palette.major.color).toBe(customColor);
+    expect(palette.axis.color).toBe(customColor);
+    expect(palette.minor.opacity).toBeLessThan(palette.major.opacity);
+    expect(palette.major.opacity).toBeLessThan(palette.axis.opacity);
   });
 });

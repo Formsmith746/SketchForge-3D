@@ -1,14 +1,17 @@
 "use client";
 
-import { Grid3X3, Palette, Ruler, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronDown, Grid3X3, History, Palette, RotateCcw, Ruler, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { HexColorInput, HexColorPicker } from "react-colorful";
+import { APP_THEME_OPTIONS, type AppThemePreference } from "@/lib/appTheme";
 import { normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
 import { customThemeWithDefaults } from "@/lib/themes";
 import type { GridSize, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
-type WorkspaceSettingsSection = "appearance" | "measurement" | "workplane";
+type WorkspaceSettingsSection = "appearance" | "measurement" | "workplane" | "history";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
 const BACKGROUND_PRESETS = ["#ffffff", "#f8fbfc", "#e8e4e0", "#eaf7fb", "#9aa5b0", "#3a3f47", "#1e2028"];
@@ -25,6 +28,8 @@ const WORKSPACE_SIZE_PRESETS = [
   { label: "Custom", width: 200, depth: 200 },
 ];
 const GRID_BLOCK_PRESETS = ["1 mm", "2.5 mm", "5 mm", "10 mm", "20 mm", "50 mm", "100 mm", "Custom"] as const;
+const HISTORY_LIMIT_OPTIONS = [30, 50, 100, "unlimited", "custom"] as const;
+const HISTORY_CUSTOM_DEFAULT = 250;
 
 export const isHexColor = (v: string) => /^#[0-9a-fA-F]{3,8}$/.test(v);
 
@@ -80,18 +85,26 @@ function gridBlockSizeForPreset(preset: string, fallback: number) {
   return clamp(Number.parseFloat(preset) || DEFAULT_WORKPLANE_WORKSPACE.gridBlockSize, MIN_GRID_BLOCK_SIZE, MAX_GRID_BLOCK_SIZE);
 }
 
+function isHistoryLimitPreset(value: unknown): value is 30 | 50 | 100 {
+  return value === 30 || value === 50 || value === 100;
+}
+
 export function WorkspaceSettingsModal({
   workspace,
   snap,
+  themePreference,
   onWorkspaceChange,
   onSnapChange,
+  onThemePreferenceChange,
   onMakeDefault,
   onClose,
 }: {
   workspace: WorkspaceSettings;
   snap: GridSize;
+  themePreference: AppThemePreference;
   onWorkspaceChange: (next: WorkspaceSettings) => void;
   onSnapChange: (next: GridSize) => void;
+  onThemePreferenceChange?: (preference: AppThemePreference) => void;
   onMakeDefault: () => void;
   onClose: () => void;
 }) {
@@ -102,9 +115,21 @@ export function WorkspaceSettingsModal({
     depth: workspace.depth.toFixed(workspace.accuracy),
   }));
   const [gridBlockSizeDraft, setGridBlockSizeDraft] = useState(() => workspace.gridBlockSize.toFixed(workspace.accuracy));
+  const [customHistoryDraft, setCustomHistoryDraft] = useState(() =>
+    typeof workspace.historyLimit === "number" && !isHistoryLimitPreset(workspace.historyLimit)
+      ? String(workspace.historyLimit)
+      : String(HISTORY_CUSTOM_DEFAULT),
+  );
+  const historyLimitMode: (typeof HISTORY_LIMIT_OPTIONS)[number] = workspace.historyLimit === "unlimited" || isHistoryLimitPreset(workspace.historyLimit)
+    ? workspace.historyLimit
+    : "custom";
+  const historyLimitIndex = HISTORY_LIMIT_OPTIONS.indexOf(historyLimitMode);
   const scaleOptions = scaleOptionsForUnits(workspace.units);
   const scaleValue = normalizeScaleForUnits(workspace.units, workspace.scale);
   const customTheme = customThemeWithDefaults(workspace.customTheme);
+  const gridColor = /^#[0-9a-f]{6}$/i.test(workspace.gridColor)
+    ? workspace.gridColor
+    : DEFAULT_WORKPLANE_WORKSPACE.gridColor;
   useEffect(() => {
     setDimensionDrafts({
       width: workspace.width.toFixed(workspace.accuracy),
@@ -114,6 +139,11 @@ export function WorkspaceSettingsModal({
   useEffect(() => {
     setGridBlockSizeDraft(workspace.gridBlockSize.toFixed(workspace.accuracy));
   }, [workspace.accuracy, workspace.gridBlockSize]);
+  useEffect(() => {
+    if (typeof workspace.historyLimit === "number" && !isHistoryLimitPreset(workspace.historyLimit)) {
+      setCustomHistoryDraft(String(workspace.historyLimit));
+    }
+  }, [workspace.historyLimit]);
   const patchWorkspace = (patch: Partial<WorkspaceSettings>) => {
     setDefaultSaved(false);
     const next = { ...workspace, ...patch };
@@ -142,6 +172,20 @@ export function WorkspaceSettingsModal({
     setGridBlockSizeDraft(next.toFixed(workspace.accuracy));
     patchWorkspace({ gridBlockPreset: "Custom", gridBlockSize: next });
   };
+  const setHistoryLimitMode = (mode: (typeof HISTORY_LIMIT_OPTIONS)[number]) => {
+    if (mode === "custom") {
+      const parsed = Number.parseInt(customHistoryDraft, 10);
+      patchWorkspace({ historyLimit: Number.isFinite(parsed) ? clamp(parsed, 1, 5000) : HISTORY_CUSTOM_DEFAULT });
+      return;
+    }
+    patchWorkspace({ historyLimit: mode });
+  };
+  const setCustomHistoryLimit = (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    const next = Number.isFinite(parsed) ? Math.round(clamp(parsed, 1, 5000)) : HISTORY_CUSTOM_DEFAULT;
+    setCustomHistoryDraft(String(next));
+    patchWorkspace({ historyLimit: next });
+  };
 
   return (
     <div className="workspace-modal" role="dialog" aria-modal="true" aria-label="Workspace settings">
@@ -166,6 +210,10 @@ export function WorkspaceSettingsModal({
             <button className={activeSection === "workplane" ? "active" : ""} aria-current={activeSection === "workplane" ? "page" : undefined} onClick={() => setActiveSection("workplane")}>
               <Grid3X3 size={18} />
               <span>Workplane</span>
+            </button>
+            <button className={activeSection === "history" ? "active" : ""} aria-current={activeSection === "history" ? "page" : undefined} onClick={() => setActiveSection("history")}>
+              <History size={18} />
+              <span>History</span>
             </button>
           </nav>
 
@@ -262,8 +310,21 @@ export function WorkspaceSettingsModal({
                       </label>
                     </div>
                   </div>
+                  <label className="workspace-select">
+                    <span>Theme</span>
+                    <select
+                      value={themePreference}
+                      onChange={(event) => onThemePreferenceChange?.(event.currentTarget.value as AppThemePreference)}
+                    >
+                      {APP_THEME_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="workspace-global-note">Theme applies across SketchForge and all projects.</p>
                   <WorkspaceToggle label="Show shadows" checked={workspace.showShadows} onChange={(showShadows) => patchWorkspace({ showShadows })} />
-                  <WorkspaceToggle label="Show grid" checked={workspace.showGrid} onChange={(showGrid) => patchWorkspace({ showGrid })} />
                   <WorkspaceToggle
                     label="Cruise when adding new shapes"
                     checked={workspace.cruiseShapes}
@@ -369,6 +430,7 @@ export function WorkspaceSettingsModal({
                     </label>
                   </div>
                   <WorkspaceSelect label="Grid block size" value={workspace.gridBlockPreset} options={GRID_BLOCK_PRESETS} onChange={setGridBlockPreset} />
+                  <GridColorControl color={gridColor} onChange={(nextGridColor) => patchWorkspace({ gridColor: nextGridColor })} />
                   {workspace.gridBlockPreset === "Custom" ? (
                     <div className="workspace-dimensions workspace-grid-dimensions">
                       <label>
@@ -386,6 +448,59 @@ export function WorkspaceSettingsModal({
                       </label>
                     </div>
                   ) : null}
+                </>
+              ) : null}
+
+              {activeSection === "history" ? (
+                <>
+                  <div className="workspace-section-heading">
+                    <strong>Saved history</strong>
+                    <span>Choose how many completed actions remain available after saving or reopening this project.</span>
+                  </div>
+                  <div className="workspace-history-setting">
+                    <div
+                      className="workspace-history-range-control"
+                      data-limit={String(historyLimitMode)}
+                    >
+                      <input
+                        type="range"
+                        min={0}
+                        max={HISTORY_LIMIT_OPTIONS.length - 1}
+                        step={1}
+                        value={historyLimitIndex}
+                        aria-label="Saved history actions"
+                        aria-valuetext={historyLimitMode === "unlimited" ? "Unlimited" : historyLimitMode === "custom" ? `${workspace.historyLimit} actions` : `${historyLimitMode} actions`}
+                        onChange={(event) => setHistoryLimitMode(HISTORY_LIMIT_OPTIONS[Number(event.currentTarget.value)] ?? "unlimited")}
+                      />
+                    </div>
+                    <div className="workspace-history-labels" aria-hidden="true">
+                      {HISTORY_LIMIT_OPTIONS.map((option) => (
+                        <span key={option} className={historyLimitMode === option ? "active" : undefined}>
+                          {option === "unlimited" ? "Unlimited" : option === "custom" ? "Custom" : option}
+                        </span>
+                      ))}
+                    </div>
+                    {historyLimitMode === "custom" ? (
+                      <label className="workspace-history-custom">
+                        <span>Actions to retain</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={5000}
+                          step={1}
+                          value={customHistoryDraft}
+                          onChange={(event) => setCustomHistoryDraft(event.currentTarget.value)}
+                          onBlur={(event) => setCustomHistoryLimit(event.currentTarget.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") event.currentTarget.blur();
+                          }}
+                        />
+                      </label>
+                    ) : null}
+                    <p className="workspace-history-note">
+                      Unlimited is the default. Lower limits permanently discard older Undo states from this project.
+                    </p>
+                  </div>
                 </>
               ) : null}
             </div>
@@ -406,6 +521,216 @@ export function WorkspaceSettingsModal({
         </div>
       </div>
       <button className="workspace-modal-backdrop" aria-label="Close settings" onClick={onClose} />
+    </div>
+  );
+}
+
+const GRID_COLOR_PRESETS = [
+  DEFAULT_WORKPLANE_WORKSPACE.gridColor,
+  "#0e69f1",
+  "#23a66f",
+  "#e0842f",
+  "#dc5252",
+  "#945bd4",
+  "#718695",
+] as const;
+
+function GridColorControl({ color, onChange }: { color: string; onChange: (color: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [draftColor, setDraftColor] = useState(color);
+  const draftColorRef = useRef(color);
+  const pickerCommitAbortRef = useRef<AbortController | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  const previewColor = (nextColor: string) => {
+    draftColorRef.current = nextColor;
+    setDraftColor(nextColor);
+  };
+
+  const commitDraftColor = () => {
+    onChange(draftColorRef.current);
+  };
+
+  const armPickerCommit = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    pickerCommitAbortRef.current?.abort();
+    const controller = new AbortController();
+    pickerCommitAbortRef.current = controller;
+    const finish = () => {
+      commitDraftColor();
+      controller.abort();
+      if (pickerCommitAbortRef.current === controller) {
+        pickerCommitAbortRef.current = null;
+      }
+    };
+    window.addEventListener("pointerup", finish, { once: true, signal: controller.signal });
+    window.addEventListener("pointercancel", finish, { once: true, signal: controller.signal });
+  };
+
+  useEffect(() => () => pickerCommitAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!open) {
+      previewColor(color);
+    }
+  }, [color, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !popoverRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    const updatePopoverPosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const triggerRect = trigger.getBoundingClientRect();
+      const viewportPadding = 12;
+      const gap = 8;
+      const width = Math.min(286, Math.max(220, window.innerWidth - viewportPadding * 2));
+      const measuredHeight = popoverRef.current?.offsetHeight ?? 320;
+      const roomBelow = window.innerHeight - triggerRect.bottom - viewportPadding;
+      const roomAbove = triggerRect.top - viewportPadding;
+      const openAbove = roomBelow < measuredHeight + gap && roomAbove > roomBelow;
+      const preferredTop = openAbove
+        ? triggerRect.top - measuredHeight - gap
+        : triggerRect.bottom + gap;
+      const top = Math.min(
+        Math.max(viewportPadding, preferredTop),
+        Math.max(viewportPadding, window.innerHeight - measuredHeight - viewportPadding),
+      );
+      const left = Math.min(
+        Math.max(viewportPadding, triggerRect.right - width),
+        Math.max(viewportPadding, window.innerWidth - width - viewportPadding),
+      );
+      const popover = popoverRef.current;
+      if (!popover) return;
+      popover.style.top = `${top}px`;
+      popover.style.left = `${left}px`;
+      popover.style.width = `${width}px`;
+      popover.style.visibility = "visible";
+    };
+
+    updatePopoverPosition();
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+    };
+  }, [open]);
+
+  const popover = open && typeof document !== "undefined"
+    ? createPortal(
+      <div
+        ref={popoverRef}
+        className="workspace-color-popover"
+        role="group"
+        aria-label="Grid color picker"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setOpen(false);
+            triggerRef.current?.focus();
+          }
+        }}
+      >
+        <div onPointerDownCapture={armPickerCommit}>
+          <HexColorPicker
+            className="workspace-hex-color-picker"
+            color={draftColor}
+            onChange={previewColor}
+            onChangeEnd={(nextColor) => {
+              previewColor(nextColor);
+              onChange(nextColor);
+            }}
+          />
+        </div>
+        <div className="workspace-color-presets" aria-label="Grid color presets">
+          {GRID_COLOR_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              className={preset.toLowerCase() === draftColor.toLowerCase() ? "selected" : ""}
+              type="button"
+              aria-label={`Use grid color ${preset}`}
+              aria-pressed={preset.toLowerCase() === draftColor.toLowerCase()}
+              style={{ backgroundColor: preset }}
+              onClick={() => {
+                previewColor(preset);
+                onChange(preset);
+              }}
+            />
+          ))}
+        </div>
+        <div className="workspace-color-popover-footer">
+          <label>
+            <span>HEX</span>
+            <HexColorInput
+              color={draftColor}
+              onChange={previewColor}
+              onBlur={commitDraftColor}
+              prefixed
+              aria-label="Grid color hexadecimal value"
+            />
+          </label>
+          <button
+            className="workspace-color-reset"
+            type="button"
+            title="Reset grid color"
+            aria-label="Reset grid color"
+            onClick={() => {
+              previewColor(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
+              onChange(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
+            }}
+          >
+            <RotateCcw size={15} />
+          </button>
+        </div>
+      </div>,
+      document.body,
+    )
+    : null;
+
+  return (
+    <div className="workspace-row workspace-grid-color-row">
+      <span>Grid color</span>
+      <div
+        className="workspace-color-control"
+        ref={rootRef}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setOpen(false);
+        }}
+      >
+        <button
+          ref={triggerRef}
+          className="workspace-color-trigger"
+          type="button"
+          aria-label={`Grid color ${color}`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => {
+            if (!open) {
+              previewColor(color);
+            }
+            setOpen((current) => !current);
+          }}
+        >
+          <span className="workspace-color-swatch" style={{ backgroundColor: color }} aria-hidden="true" />
+          <span>{color.toUpperCase()}</span>
+          <ChevronDown className={open ? "open" : ""} size={15} aria-hidden="true" />
+        </button>
+        {popover}
+      </div>
     </div>
   );
 }

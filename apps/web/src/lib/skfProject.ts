@@ -135,6 +135,7 @@ export type SkfProjectExportInput = {
   workspace: WorkplaneWorkspaceSettings;
   snapGrid: GridSize;
   placementElevation: number;
+  compressionLevel?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 };
 
 export type SkfRestoredProject = {
@@ -292,6 +293,7 @@ class SkfArchiveBuilder {
   readonly assets: SkfAssetRecordV1[] = [];
   readonly sourceIdMap = new Map<string, string>();
   private readonly recordByKindAndHash = new Map<string, SkfAssetRecordV1>();
+  private readonly derivedMeshByResource = new WeakMap<object, Promise<SkfAssetRecordV1>>();
 
   async addAsset(
     kind: SkfAssetKind,
@@ -335,6 +337,14 @@ class SkfArchiveBuilder {
       });
       this.sourceIdMap.set(asset.id, record.id);
     }
+  }
+
+  addDerivedMesh(mesh: NonNullable<WorkplaneShape["importedMesh"]>) {
+    const cached = this.derivedMeshByResource.get(mesh);
+    if (cached) return cached;
+    const pending = this.addAsset("derived-mesh", encodeMeshCache(mesh), "application/vnd.sketchforge.mesh");
+    this.derivedMeshByResource.set(mesh, pending);
+    return pending;
   }
 }
 
@@ -414,7 +424,7 @@ async function serializeShapeNode(
     let meshAssetId: string | undefined;
     let brepStepAssetId: string | undefined;
     if (!canRegenerate) {
-      meshAssetId = (await builder.addAsset("derived-mesh", encodeMeshCache(importedMesh), "application/vnd.sketchforge.mesh")).id;
+      meshAssetId = (await builder.addDerivedMesh(importedMesh)).id;
       if (importedMesh.brepStep) {
         brepStepAssetId = (await builder.addAsset("brep", strToU8(importedMesh.brepStep), "application/step")).id;
       }
@@ -604,13 +614,13 @@ function activeProjectIndexes(state: SkfStateV1) {
   return { features, groups, sketches, exactCad };
 }
 
-function zipAsync(files: AsyncZippable) {
+function zipAsync(files: AsyncZippable, level: NonNullable<SkfProjectExportInput["compressionLevel"]> = 6) {
   return new Promise<Uint8Array>((resolve, reject) => {
     // fflate encodes the ZIP entry mtime as a DOS date using local-time getters and
     // rejects years outside 1980-2099. A UTC-pinned "1980-01-01T00:00:00Z" rolls back
     // to 1979 in any timezone west of UTC, so build the epoch from local components to
     // keep the year at exactly 1980 everywhere.
-    zip(files, { level: 6, mtime: new Date(1980, 0, 1) }, (error, data) => {
+    zip(files, { level, mtime: new Date(1980, 0, 1) }, (error, data) => {
       if (error) reject(error);
       else resolve(data);
     });
@@ -686,7 +696,7 @@ export async function exportSkfProject(input: SkfProjectExportInput) {
     },
   };
   builder.files["project.json"] = strToU8(`${JSON.stringify(document, null, 2)}\n`);
-  return zipAsync(Object.fromEntries(Object.entries(builder.files).sort(([a], [b]) => a.localeCompare(b))));
+  return zipAsync(Object.fromEntries(Object.entries(builder.files).sort(([a], [b]) => a.localeCompare(b))), input.compressionLevel);
 }
 
 function inspectZipBeforeExpansion(bytes: Uint8Array) {

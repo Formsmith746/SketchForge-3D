@@ -15,6 +15,7 @@ import droidSerifBoldFontJson from "three/examples/fonts/droid/droid_serif_bold.
 import gentilisBoldFontJson from "three/examples/fonts/gentilis_bold.typeface.json";
 import helvetikerBoldFontJson from "three/examples/fonts/helvetiker_bold.typeface.json";
 import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json";
+import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
 import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
 import { sphereTessellation } from "@/lib/sphereTessellation";
@@ -73,10 +74,12 @@ import {
   CAD_MODIFIER_REQUEST_TIMEOUT_MS,
   cadModifierTimeoutMessage,
   cadModifierWorkerFailureMessage,
+  defaultCadModifierTangentChain,
+  selectableCadModifierEdge,
   type CadModifierRequestPhase,
 } from "@/lib/cadModifierRuntime";
 import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatmentAppliedFrame, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
-import { appendEditorHistorySnapshot, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
+import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { createLocalId } from "@/lib/localIds";
 import { circleFromPoints, circleSketchGeometry } from "@/lib/sketchCircles";
@@ -108,7 +111,7 @@ import { makeShapeFromAsset, sceneShape, toolbarShapeAssets, type ToolbarShapeAs
 import { importedShapeFromStl, importExtensionSupported } from "@/lib/stlImport";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
-import { normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
+import { normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import {
   SKETCHFORGE_MCP_POLL_MS,
   SKETCHFORGE_MCP_ROUTE,
@@ -217,6 +220,7 @@ declare global {
     __sketchforgeBooleanTest?: BooleanAutomationResult;
     __sketchforgeBooleanTestImage?: string;
     sketchforgeCaptureCanvas?: () => string;
+    sketchforgeCaptureCanvasAsync?: () => Promise<string>;
     sketchforgeCaptureView?: (face?: SketchForgeMcpViewFace) => Promise<string> | string;
   }
 }
@@ -1692,10 +1696,6 @@ function tangentCadEdgeChain(edges: CadModifierEdge[], startId: number, allowedI
     });
   }
   return [...selected];
-}
-
-function selectableCadModifierEdge(edge: CadModifierEdge, sharpAngle: number) {
-  return edge.display && edge.selectable && edge.manifold && !edge.boundary && edge.angle + 1e-3 >= sharpAngle;
 }
 
 function cadDisplayEdgesAfterTreatment(shape: WorkplaneShape, session: EdgeModifierSession) {
@@ -5597,6 +5597,9 @@ export function SketchForgeEditor({
   projectModifiedAt = Date.now(),
   projectRevision = 0,
   sharedProjectsEnabled = false,
+  themePreference = "system",
+  resolvedTheme = "light",
+  onThemePreferenceChange,
 }: {
   initialAssets?: ProjectAsset[];
   initialShapes?: WorkplaneShape[];
@@ -5614,6 +5617,11 @@ export function SketchForgeEditor({
     history: EditorHistoryEntry[];
     historyIndex: number;
     assets: ProjectAsset[];
+    projectName: string;
+    projectCreatedAt: number;
+    workspace: WorkplaneWorkspaceSettings;
+    snapGrid: GridSize;
+    placementElevation: number;
   }) => void;
   onProjectSnapshot?: (snapshot: { image: string; projectId: string; shapes: number }) => void;
   onProjectWorkspaceChange?: (snapshot: { projectId: string; workspace: WorkplaneWorkspaceSettings; snap: GridSize; placementElevation?: number }) => void;
@@ -5623,6 +5631,9 @@ export function SketchForgeEditor({
   projectModifiedAt?: number;
   projectRevision?: number;
   sharedProjectsEnabled?: boolean;
+  themePreference?: AppThemePreference;
+  resolvedTheme?: ResolvedAppTheme;
+  onThemePreferenceChange?: (preference: AppThemePreference) => void;
 } = {}) {
   const initialSceneRef = useRef<WorkplaneShape[] | null>(null);
   if (initialSceneRef.current === null) {
@@ -5630,7 +5641,12 @@ export function SketchForgeEditor({
   }
   const initialHistoryStateRef = useRef<EditorHistoryState | null>(null);
   if (initialHistoryStateRef.current === null) {
-    initialHistoryStateRef.current = hydrateEditorHistoryState(initialSceneRef.current, initialHistory, initialHistoryIndex);
+    initialHistoryStateRef.current = hydrateEditorHistoryState(
+      initialSceneRef.current,
+      initialHistory,
+      initialHistoryIndex,
+      normalizeWorkspaceSettings(initialWorkspace).historyLimit,
+    );
   }
   const [shapes, setShapes] = useState<WorkplaneShape[]>(() => initialSceneRef.current as WorkplaneShape[]);
   const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>(() => dedupeProjectAssets(initialAssets));
@@ -5702,10 +5718,13 @@ export function SketchForgeEditor({
   const projectAssetsRef = useRef(projectAssets);
   const selectedIdsRef = useRef(selectedIds);
   const workspaceSettingsRef = useRef(workspaceSettings);
+  const snapGridRef = useRef(snapGrid);
+  const placementElevationRef = useRef(placementElevation);
   const noticeRef = useRef(notice);
-  const projectInfoRef = useRef({ projectId: projectId ?? null, projectName });
+  const projectInfoRef = useRef({ projectId: projectId ?? null, projectName, projectCreatedAt });
   const historyIndexRef = useRef(historyIndex);
   const historyRef = useRef(history);
+  const historyLimitRef = useRef(workspaceSettings.historyLimit);
   const interactionHistoryStartRef = useRef("");
   const interactionHistoryChangedRef = useRef(false);
   const interactionHistoryTimerRef = useRef<number | null>(null);
@@ -6001,12 +6020,20 @@ export function SketchForgeEditor({
   }, [workspaceSettings]);
 
   useEffect(() => {
+    snapGridRef.current = snapGrid;
+  }, [snapGrid]);
+
+  useEffect(() => {
+    placementElevationRef.current = placementElevation;
+  }, [placementElevation]);
+
+  useEffect(() => {
     noticeRef.current = notice;
   }, [notice]);
 
   useEffect(() => {
-    projectInfoRef.current = { projectId: projectId ?? null, projectName };
-  }, [projectId, projectName]);
+    projectInfoRef.current = { projectId: projectId ?? null, projectName, projectCreatedAt };
+  }, [projectCreatedAt, projectId, projectName]);
 
   useEffect(() => {
     historyIndexRef.current = historyIndex;
@@ -6049,11 +6076,19 @@ export function SketchForgeEditor({
   }, [sketchActive, sketchOperation, sketchProfile, sketchRevolveSettings]);
 
   useEffect(() => {
-    setWorkspaceSettings(normalizeWorkspaceSettings(initialWorkspace));
+    const nextWorkspace = normalizeWorkspaceSettings(initialWorkspace);
+    workspaceSettingsRef.current = nextWorkspace;
+    setWorkspaceSettings((current) => (
+      workplaneSettingsFingerprint(current, snapGridRef.current) === workplaneSettingsFingerprint(nextWorkspace, snapGridRef.current)
+        ? current
+        : nextWorkspace
+    ));
   }, [initialWorkspace]);
 
   useEffect(() => {
-    setSnapGrid(normalizeSnapGrid(initialSnap));
+    const nextSnap = normalizeSnapGrid(initialSnap);
+    snapGridRef.current = nextSnap;
+    setSnapGrid((current) => (current === nextSnap ? current : nextSnap));
   }, [initialSnap]);
 
   const selectedShapes = useMemo(() => shapes.filter((shape) => selectedIds.includes(shape.id)), [selectedIds, shapes]);
@@ -6141,21 +6176,43 @@ export function SketchForgeEditor({
 
     const runId = projectSnapshotRunRef.current + 1;
     projectSnapshotRunRef.current = runId;
-    const capture = () => {
+    const capture = async () => {
       if (projectSnapshotRunRef.current !== runId) {
-        return;
+        return true;
       }
-      const image = window.sketchforgeCaptureCanvas?.();
+      const image = window.sketchforgeCaptureCanvasAsync
+        ? await window.sketchforgeCaptureCanvasAsync()
+        : window.sketchforgeCaptureCanvas?.() ?? "";
+      if (projectSnapshotRunRef.current !== runId) {
+        return true;
+      }
       if (image && image.length > 100) {
         onProjectSnapshot({ image, projectId, shapes: shapes.length });
+        return true;
       }
+      return false;
     };
 
-    const firstTimer = window.setTimeout(capture, 850);
-    const secondTimer = window.setTimeout(capture, 1500);
+    let idleId: number | null = null;
+    let retryTimer: number | null = null;
+    const runCapture = () => {
+      void capture().then((captured) => {
+        if (!captured) {
+          retryTimer = window.setTimeout(() => void capture(), 650);
+        }
+      });
+    };
+    const captureTimer = window.setTimeout(() => {
+      if ("requestIdleCallback" in window) {
+        idleId = window.requestIdleCallback(runCapture, { timeout: 1200 });
+      } else {
+        runCapture();
+      }
+    }, 850);
     return () => {
-      window.clearTimeout(firstTimer);
-      window.clearTimeout(secondTimer);
+      window.clearTimeout(captureTimer);
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      if (idleId !== null && "cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
     };
   }, [onProjectSnapshot, projectId, projectInteractionActive, shapes]);
 
@@ -6176,7 +6233,7 @@ export function SketchForgeEditor({
   }, [alignAnchorId, selectedIds, selectedShapes.length]);
 
   const syncProjectShapes = useCallback(
-    (nextShapes: WorkplaneShape[]) => {
+    (nextShapes: WorkplaneShape[], force = false) => {
       if (!projectId || !onProjectShapesChange) {
         return;
       }
@@ -6190,7 +6247,7 @@ export function SketchForgeEditor({
       }
       const canonicalNext = nextShapes.map(canonicalizeShape);
       const serialized = projectShapesFingerprint(canonicalNext);
-      if (lastProjectShapesSyncRef.current === serialized) {
+      if (!force && lastProjectShapesSyncRef.current === serialized) {
         return;
       }
       if (projectSyncTimerRef.current !== null) {
@@ -6205,6 +6262,11 @@ export function SketchForgeEditor({
           history: historyRef.current,
           historyIndex: historyIndexRef.current,
           assets: projectAssetsRef.current,
+          projectName: projectInfoRef.current.projectName,
+          projectCreatedAt: projectInfoRef.current.projectCreatedAt,
+          workspace: workspaceSettingsRef.current,
+          snapGrid: snapGridRef.current,
+          placementElevation: placementElevationRef.current,
         });
         projectSyncTimerRef.current = null;
       }, 120);
@@ -6212,9 +6274,30 @@ export function SketchForgeEditor({
     [onProjectShapesChange, projectId],
   );
 
-  const appendHistorySnapshot = useCallback((nextShapes: WorkplaneShape[], nextSelection: string[]) => {
-    const entry = editorHistoryEntry(nextShapes, nextSelection);
-    const result = appendEditorHistorySnapshot(historyRef.current, historyIndexRef.current, entry);
+  useEffect(() => {
+    const limitChanged = historyLimitRef.current !== workspaceSettings.historyLimit;
+    historyLimitRef.current = workspaceSettings.historyLimit;
+    const bounded = boundedEditorHistoryState(
+      historyRef.current,
+      historyIndexRef.current,
+      workspaceSettings.historyLimit,
+    );
+    if (bounded.entries !== historyRef.current || bounded.index !== historyIndexRef.current) {
+      historyRef.current = bounded.entries;
+      historyIndexRef.current = bounded.index;
+      setHistory(bounded.entries);
+      setHistoryIndex(bounded.index);
+    }
+    if (limitChanged) syncProjectShapes(shapesRef.current, true);
+  }, [syncProjectShapes, workspaceSettings.historyLimit]);
+
+  const appendHistoryEntry = useCallback((entry: EditorHistoryEntry) => {
+    const result = appendEditorHistorySnapshot(
+      historyRef.current,
+      historyIndexRef.current,
+      entry,
+      workspaceSettingsRef.current.historyLimit,
+    );
     if (result.entries !== historyRef.current) {
       historyRef.current = result.entries;
       setHistory(result.entries);
@@ -6223,6 +6306,12 @@ export function SketchForgeEditor({
     setHistoryIndex(result.index);
     return result.changed;
   }, []);
+
+  const appendHistorySnapshot = useCallback(
+    (nextShapes: WorkplaneShape[], nextSelection: string[]) =>
+      appendHistoryEntry(editorHistoryEntry(nextShapes, nextSelection)),
+    [appendHistoryEntry],
+  );
 
   const finalizeInteractionHistory = useCallback(() => {
     const startFingerprint = interactionHistoryStartRef.current;
@@ -6233,22 +6322,20 @@ export function SketchForgeEditor({
       return;
     }
 
-    const canonicalNext = shapesRef.current.map(canonicalizeShape);
-    const nextFingerprint = projectShapesFingerprint(canonicalNext);
-    if (!startFingerprint || startFingerprint === nextFingerprint) {
+    const entry = editorHistoryEntry(shapesRef.current, selectedIdsRef.current);
+    if (!startFingerprint || startFingerprint === entry.fingerprint) {
       return;
     }
 
-    appendHistorySnapshot(canonicalNext, selectedIdsRef.current);
-  }, [appendHistorySnapshot]);
+    appendHistoryEntry(entry);
+  }, [appendHistoryEntry]);
 
   useEffect(() => {
     if (projectInteractionActive || !pendingProjectShapesRef.current) {
       return;
     }
-    const pendingShapes = pendingProjectShapesRef.current;
     pendingProjectShapesRef.current = null;
-    const timer = window.setTimeout(() => syncProjectShapes(pendingShapes), 180);
+    const timer = window.setTimeout(() => syncProjectShapes(shapesRef.current), 180);
     return () => window.clearTimeout(timer);
   }, [projectInteractionActive, syncProjectShapes]);
 
@@ -6284,12 +6371,19 @@ export function SketchForgeEditor({
 
   const updateProjectWorkspaceSettings = useCallback(
     (settings: { workspace: WorkplaneWorkspaceSettings; snap: GridSize }) => {
-      setWorkspaceSettings(settings.workspace);
+      const nextWorkspace = normalizeWorkspaceSettings(settings.workspace);
+      workspaceSettingsRef.current = nextWorkspace;
+      snapGridRef.current = settings.snap;
+      setWorkspaceSettings((current) => (
+        workplaneSettingsFingerprint(current, settings.snap) === workplaneSettingsFingerprint(nextWorkspace, settings.snap)
+          ? current
+          : nextWorkspace
+      ));
       setSnapGrid(settings.snap);
       if (!projectId || !onProjectWorkspaceChange) {
         return;
       }
-      onProjectWorkspaceChange({ projectId, ...settings, placementElevation });
+      onProjectWorkspaceChange({ projectId, workspace: nextWorkspace, snap: settings.snap, placementElevation });
     },
     [onProjectWorkspaceChange, placementElevation, projectId],
   );
@@ -7303,7 +7397,12 @@ export function SketchForgeEditor({
     if (!projectChanged && incomingSerialized === projectShapesFingerprint(shapes)) {
       return;
     }
-    const hydratedHistory = hydrateEditorHistoryState(incoming, initialHistory, initialHistoryIndex);
+    const hydratedHistory = hydrateEditorHistoryState(
+      incoming,
+      initialHistory,
+      initialHistoryIndex,
+      normalizeWorkspaceSettings(initialWorkspace).historyLimit,
+    );
     projectHydratingRef.current = true;
     shapesRef.current = incoming;
     selectedIdsRef.current = [];
@@ -7313,8 +7412,8 @@ export function SketchForgeEditor({
     setSelectedIds([]);
     setHistory(hydratedHistory.entries);
     setHistoryIndex(hydratedHistory.index);
-    setNotice(incoming.length ? "Project synced" : "Ready");
-  }, [initialAssets, initialHistory, initialHistoryIndex, initialPlacementElevation, initialShapes, projectId, projectInteractionActive, projectRevision]);
+    setNotice("Ready");
+  }, [initialAssets, initialHistory, initialHistoryIndex, initialPlacementElevation, initialShapes, projectId, projectRevision]);
 
   useEffect(() => {
     if (!projectId || !onProjectShapesChange) {
@@ -7776,7 +7875,7 @@ export function SketchForgeEditor({
       sharpAngle: 25,
       chamferAngle: 45,
       quality: "standard",
-      tangentChain: true,
+      tangentChain: defaultCadModifierTangentChain(appliedEdgeTreatmentCount),
       preserveEdgeSize: selectedShape.edgeResizeMode === "preserve",
       busy: true,
       prepared: false,
@@ -9601,6 +9700,9 @@ export function SketchForgeEditor({
           modifierEdges={edgeModifier?.edges.filter((edge) => modifierAvailableEdgeIds.includes(edge.id)) ?? []}
           selectedModifierEdgeIds={edgeModifier?.selectedEdgeIds ?? []}
           onModifierEdgeToggle={toggleModifierEdge}
+          themePreference={themePreference}
+          resolvedTheme={resolvedTheme}
+          onThemePreferenceChange={onThemePreferenceChange}
           />
         )}
         {toolbarMode === "geometry" && constructionPlanePanelOpen ? (

@@ -133,6 +133,39 @@ export function cadModifierPrimitiveForBakedShape(shape: WorkplaneShape): CadMod
   };
 }
 
+export function bakedBoxSelectionFrame(shape: WorkplaneShape) {
+  const primitive = cadModifierPrimitiveForBakedShape(shape);
+  if (!primitive || primitive.kind !== "box") {
+    return null;
+  }
+  const matrix = cadTransformToMatrix(primitive.transform);
+  const xVector = new THREE.Vector3(primitive.width, 0, 0).applyMatrix3(new THREE.Matrix3().setFromMatrix4(matrix));
+  const yVector = new THREE.Vector3(0, primitive.height, 0).applyMatrix3(new THREE.Matrix3().setFromMatrix4(matrix));
+  const zVector = new THREE.Vector3(0, 0, primitive.depth).applyMatrix3(new THREE.Matrix3().setFromMatrix4(matrix));
+  const width = xVector.length();
+  const height = yVector.length();
+  const depth = zVector.length();
+  if (![width, height, depth].every((value) => Number.isFinite(value) && value > 0.001)) {
+    return null;
+  }
+
+  const xAxis = xVector.normalize();
+  const yAxis = yVector.normalize();
+  const zAxis = zVector.normalize();
+  const center = new THREE.Vector3(0, primitive.height / 2, 0).applyMatrix4(matrix);
+  const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+  return {
+    center,
+    quaternion: new THREE.Quaternion().setFromRotationMatrix(basis),
+    xAxis,
+    yAxis,
+    zAxis,
+    width,
+    height,
+    depth,
+  };
+}
+
 export function cadBrepTransformForShape(shape: WorkplaneShape) {
   const frame = shape.cadBrepFrame;
   if (!frame) return undefined;

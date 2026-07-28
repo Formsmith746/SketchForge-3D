@@ -28,6 +28,7 @@ describe("workplane settings helpers", () => {
           sizePreset: "",
           gridBlockSize: 2.5,
           gridBlockPreset: "Custom",
+          gridColor: "#a34fd1",
           background: "#123456",
           showShadows: false,
           showGrid: false,
@@ -44,6 +45,7 @@ describe("workplane settings helpers", () => {
       width: 500,
       gridBlockSize: 2.5,
       gridBlockPreset: "Custom",
+      gridColor: "#a34fd1",
       background: "#123456",
       showShadows: false,
       showGrid: false,
@@ -54,6 +56,10 @@ describe("workplane settings helpers", () => {
     });
 
     expect(normalizeWorkspaceSettings({ accuracy: 9 }, fallback).accuracy).toBe(fallback.accuracy);
+    expect(normalizeWorkspaceSettings({ historyLimit: 73 }).historyLimit).toBe(73);
+    expect(normalizeWorkspaceSettings({ historyLimit: 9000 }).historyLimit).toBe(5000);
+    expect(normalizeWorkspaceSettings({ historyLimit: "invalid" }).historyLimit).toBe("unlimited");
+    expect(normalizeWorkspaceSettings({ gridColor: "not-a-color" }).gridColor).toBe(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
   });
 
   it("keeps scale options in the selected unit family", () => {

@@ -1,6 +1,7 @@
-import type { GridSize, MeasurementAccuracy, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import type { GridSize, HistoryRetentionLimit, MeasurementAccuracy, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 import { normalizeScaleForUnits } from "@/lib/measurementUnits";
 import type { AppTheme } from "@/lib/themes";
+import { DEFAULT_WORKPLANE_GRID_COLOR } from "@/lib/workplaneGrid";
 
 export const DEFAULT_SNAP_GRID: GridSize = "1.0 mm";
 
@@ -10,6 +11,7 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   sizePreset: "200 x 200 mm",
   gridBlockSize: 5,
   gridBlockPreset: "5 mm",
+  gridColor: DEFAULT_WORKPLANE_GRID_COLOR,
   background: "#f8fbfc",
   themeId: "light",
   showShadows: true,
@@ -19,6 +21,7 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   units: "Metric (Default)",
   scale: "1:1 (millimeters)",
   accuracy: 2,
+  historyLimit: "unlimited",
 };
 
 const snapGridOptions: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
@@ -31,12 +34,22 @@ function stringOrDefault(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
+function colorOrDefault(value: unknown, fallback: string) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value.trim()) ? value : fallback;
+}
+
 function booleanOrDefault(value: unknown, fallback: boolean) {
   return typeof value === "boolean" ? value : fallback;
 }
 
 function accuracyOrDefault(value: unknown, fallback: MeasurementAccuracy) {
   return value === 1 || value === 2 || value === 3 ? value : fallback;
+}
+
+function historyLimitOrDefault(value: unknown, fallback: HistoryRetentionLimit): HistoryRetentionLimit {
+  if (value === "unlimited") return value;
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(5000, Math.max(1, Math.round(value)));
 }
 
 export function normalizeSnapGrid(value: unknown, fallback: GridSize = DEFAULT_SNAP_GRID): GridSize {
@@ -65,6 +78,7 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     sizePreset: stringOrDefault(candidate.sizePreset, fallback.sizePreset),
     gridBlockSize: numberOrDefault(candidate.gridBlockSize, fallback.gridBlockSize),
     gridBlockPreset: stringOrDefault(candidate.gridBlockPreset, fallback.gridBlockPreset),
+    gridColor: colorOrDefault(candidate.gridColor, fallback.gridColor),
     background: stringOrDefault(candidate.background, fallback.background),
     themeId,
     ...(customTheme ? { customTheme } : {}),
@@ -75,6 +89,7 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     units,
     scale: normalizeScaleForUnits(units, stringOrDefault(candidate.scale, fallback.scale)),
     accuracy: accuracyOrDefault(candidate.accuracy, fallback.accuracy),
+    historyLimit: historyLimitOrDefault(candidate.historyLimit, fallback.historyLimit),
   };
 }
 

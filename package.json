@@ -35,11 +35,13 @@
     "next": "^15.3.2",
     "occt-wasm": "^3.6.1",
     "react": "^19.1.0",
+    "react-colorful": "^5.8.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.3.0",
     "tailwindcss": "^4.1.8",
     "three": "^0.184.0",
-    "three-bvh-csg": "^0.0.18"
+    "three-bvh-csg": "^0.0.18",
+    "three-mesh-bvh": "^0.9.13"
   },
   "devDependencies": {
     "@types/node": "^22.15.18",

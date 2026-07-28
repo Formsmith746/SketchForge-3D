@@ -61,17 +61,52 @@ describe("editor history snapshots", () => {
     expect(projectShapesFingerprint([changed])).not.toBe(projectShapesFingerprint([shape]));
   });
 
-  it("bounds entry count and estimated memory while retaining undo depth", () => {
+  it("reuses an immutable mesh signature for transform-only history snapshots", () => {
+    let coordinateReads = 0;
+    const positions = new Proxy([0, 0, 0, 1, 0, 0, 0, 1, 0], {
+      get(target, property, receiver) {
+        if (typeof property === "string" && /^\d+$/.test(property)) coordinateReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const shape = box({
+      kind: "mesh",
+      importedMesh: {
+        positions,
+        baseWidth: 1,
+        baseDepth: 1,
+        baseHeight: 1,
+        triangleCount: 1,
+        sourceFormat: "stl",
+      },
+    });
+
+    const baseline = projectShapesFingerprint([shape]);
+    expect(coordinateReads).toBeGreaterThan(0);
+    coordinateReads = 0;
+
+    expect(projectShapesFingerprint([{ ...shape, x: 25 }])).not.toBe(baseline);
+    expect(coordinateReads).toBe(0);
+    expect(projectShapesFingerprint([{
+      ...shape,
+      importedMesh: { ...shape.importedMesh!, positions: [...positions] },
+    }])).toBe(baseline);
+  });
+
+  it("keeps unlimited history and applies preset or custom action limits", () => {
     const entries = Array.from({ length: 140 }, (_, index) => ({
       ...editorHistoryEntry([box({ id: `box-${index}`, x: index })], []),
       estimatedBytes: 2 * 1024 * 1024,
     }));
-    const bounded = boundedEditorHistory(entries);
+    const unlimited = boundedEditorHistory(entries);
+    const lastThirty = boundedEditorHistory(entries, 30);
+    const custom = boundedEditorHistory(entries, 7);
 
-    expect(bounded.length).toBeLessThanOrEqual(100);
-    expect(bounded.length).toBeGreaterThanOrEqual(2);
-    expect(bounded.reduce((total, entry) => total + entry.estimatedBytes, 0)).toBeLessThanOrEqual(64 * 1024 * 1024);
-    expect(bounded.at(-1)?.shapes[0].id).toBe("box-139");
+    expect(unlimited).toHaveLength(140);
+    expect(lastThirty).toHaveLength(31);
+    expect(lastThirty[0].shapes[0].id).toBe("box-109");
+    expect(custom).toHaveLength(8);
+    expect(custom.at(-1)?.shapes[0].id).toBe("box-139");
   });
 
   it("trims redo only for a real new edit and preserves it for a no-op", () => {
@@ -97,6 +132,16 @@ describe("editor history snapshots", () => {
     expect(restored.entries[restored.index].shapes[0].x).toBe(5);
     expect(restored.entries[0].shapes[0].x).toBe(0);
     expect(restored.entries[2].shapes[0].x).toBe(10);
+  });
+
+  it("restores only the configured number of saved actions without losing the active state", () => {
+    const entries = Array.from({ length: 80 }, (_, x) => editorHistoryEntry([box({ x })], []));
+    const restored = hydrateEditorHistoryState([box({ x: 60 })], entries, 60, 30);
+
+    expect(restored.entries).toHaveLength(31);
+    expect(restored.index).toBe(30);
+    expect(restored.entries[0].shapes[0].x).toBe(30);
+    expect(restored.entries[restored.index].shapes[0].x).toBe(60);
   });
 
   it("falls back to the loaded scene when persisted history is stale", () => {
