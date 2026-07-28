@@ -2,7 +2,7 @@
 
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
-import { CAD_MODIFIER_RUNTIME_BASE, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
+import { CAD_MODIFIER_RUNTIME_BASE, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
 import { closedCadSolidComponents } from "@/lib/cadModifierGroups";
 
 const HASH_UPPER_BOUND = 2_147_483_647;
@@ -153,6 +153,9 @@ function isIdentityCadTransform(transform: number[]) {
 
 function applyCadTransform(cad: OcctKernel, shape: ShapeHandle, transform: number[] | undefined) {
   if (!isCadTransform(transform) || isIdentityCadTransform(transform)) return shape;
+  if (cadTransformRequiresGeneralTransform(transform)) {
+    return cad.generalTransform(shape, transform);
+  }
   try {
     return cad.transform(shape, transform);
   } catch {
@@ -277,10 +280,6 @@ function isModifierDisplayCadEdge(edge: CollectedCadEdgeGeometry, treatmentAreaL
   return isDisplayCadEdge(edge) && !touchesTreatmentDetailFace(edge, treatmentAreaLimit);
 }
 
-function isSelectableModifierEdge(edge: CollectedCadEdgeGeometry) {
-  return edge.manifold && !edge.boundary && edge.points.length >= 6;
-}
-
 function releaseHandles(cad: OcctKernel, handles: ShapeHandle[]) {
   handles.forEach((handle) => {
     try {
@@ -348,7 +347,7 @@ function collectEdges(cad: OcctKernel, shape: ShapeHandle, sharpAngle: number, s
       return {
         ...edge,
         display,
-        selectable: isSelectableModifierEdge(edge) && (treatmentAreaLimit <= 0 || display),
+        selectable: cadModifierTopologyEdgeIsSelectable(edge),
       };
     });
     const selectableEdgeIds = edges.filter((edge) => edge.selectable && edge.angle + 1e-3 >= sharpAngle).map((edge) => edge.id);

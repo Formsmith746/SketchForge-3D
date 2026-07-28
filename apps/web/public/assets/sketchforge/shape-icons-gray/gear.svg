@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="gear-face" x1="20" y1="12" x2="74" y2="83" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0f3f5"/>
+      <stop offset="1" stop-color="#9aa5ad"/>
+    </linearGradient>
+    <filter id="gear-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#34434d" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <path fill="url(#gear-face)" stroke="#66747e" stroke-width="2.5" stroke-linejoin="round" filter="url(#gear-shadow)" d="M43 8h10l2 10c3 1 6 2 9 4l9-6 7 7-6 9c2 3 3 6 4 9l10 2v10l-10 2c-1 3-2 6-4 9l6 9-7 7-9-6c-3 2-6 3-9 4l-2 10H43l-2-10c-3-1-6-2-9-4l-9 6-7-7 6-9c-2-3-3-6-4-9L8 53V43l10-2c1-3 2-6 4-9l-6-9 7-7 9 6c3-2 6-3 9-4z"/>
+  <circle cx="48" cy="48" r="21" fill="#d7dde1" stroke="#7a8790" stroke-width="2"/>
+  <circle cx="48" cy="48" r="9" fill="#f8fafb" stroke="#65737d" stroke-width="3"/>
+</svg>

@@ -5,6 +5,7 @@ import {
   cadModifierPrimitiveForAnalyticBox,
   cadModifierPrimitiveForBakedShape,
 } from "@/lib/cadBakeMetadata";
+import { cadTransformRequiresGeneralTransform } from "@/lib/cadModifierRuntime";
 import type { WorkplaneShape } from "@/types/sketchforge";
 
 function expectTransformClose(actual: number[] | undefined, expected: number[]) {
@@ -184,5 +185,53 @@ describe("SketchForge transform baking", () => {
       height: 16,
     });
     expectTransformClose(restoredPrimitive?.transform, directPrimitive?.transform ?? []);
+  });
+
+  it("uses a general CAD transform after resizing a baked rotated box", () => {
+    const shape = boxShape({
+      x: 0,
+      z: 0,
+      elevation: 0,
+      width: 20,
+      depth: 20,
+      height: 20,
+      rotation: 45,
+      rotationX: 0,
+      rotationZ: 0,
+    });
+    const diagonal = Math.sqrt(20 ** 2 + 20 ** 2);
+    const baked = bakeCadMetadataForShapeTransform(shape, {
+      centerX: 0,
+      minY: 0,
+      centerZ: 0,
+      width: diagonal,
+      depth: diagonal,
+      height: 20,
+      yawDegrees: 45,
+    });
+    const resizedBakedShape: WorkplaneShape = {
+      ...shape,
+      ...baked,
+      kind: "mesh",
+      width: diagonal * 1.8,
+      depth: diagonal * 0.75,
+      height: 26,
+      size: diagonal * 1.8,
+      rotation: 0,
+      rotationX: 0,
+      rotationZ: 0,
+      importedMesh: {
+        positions: [-10, 0, -10, 10, 0, -10, 10, 20, 10],
+        baseWidth: diagonal,
+        baseDepth: diagonal,
+        baseHeight: 20,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+    };
+
+    const restoredPrimitive = cadModifierPrimitiveForBakedShape(resizedBakedShape);
+    expect(restoredPrimitive?.transform).toBeDefined();
+    expect(cadTransformRequiresGeneralTransform(restoredPrimitive?.transform ?? [])).toBe(true);
   });
 });

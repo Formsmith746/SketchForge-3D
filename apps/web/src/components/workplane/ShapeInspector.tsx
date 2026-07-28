@@ -363,8 +363,24 @@ export function ShapeInspector({
   const [gearHelixOpen, setGearHelixOpen] = useState(true);
   const [colorOpen, setColorOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
+  const customColorInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => () => onInteractionActiveChange?.(false), [onInteractionActiveChange]);
+  useEffect(() => {
+    const input = customColorInputRef.current;
+    if (!colorOpen || !input) {
+      return;
+    }
+
+    // React's color-input onChange follows the native input event and fires for
+    // every movement in the picker. Commit only the native change event, which
+    // fires after the user finishes choosing, so dragging stays responsive.
+    const commitCustomColor = () => {
+      onUpdate({ color: input.value, hole: false });
+    };
+    input.addEventListener("change", commitCustomColor);
+    return () => input.removeEventListener("change", commitCustomColor);
+  }, [colorOpen, onUpdate]);
   useLayoutEffect(() => {
     inspectorRef.current?.scrollTo({ top: 0, left: 0 });
   }, [isSketchRevolve, shape.id]);
@@ -446,15 +462,13 @@ export function ShapeInspector({
             ))}
             <label className={locked ? "custom-color disabled" : "custom-color"} title="Custom color">
               <input
+                key={`${shape.id}-${solidColor}`}
+                ref={customColorInputRef}
                 type="color"
-                value={solidColor}
+                defaultValue={solidColor}
                 disabled={locked}
                 onFocus={() => onInteractionActiveChange?.(true)}
                 onBlur={() => onInteractionActiveChange?.(false)}
-                onChange={(event) => {
-                  onUpdate({ color: event.target.value, hole: false });
-                  setColorOpen(false);
-                }}
               />
               <span>Custom</span>
             </label>

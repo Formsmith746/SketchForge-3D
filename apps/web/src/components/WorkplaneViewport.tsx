@@ -1,9 +1,10 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Home, Minus, MousePointer2, Plus, Ruler, X } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
 import * as THREE from "three";
 import { Brush, Evaluator, HOLLOW_INTERSECTION } from "three-bvh-csg";
+import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from "three-mesh-bvh";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
@@ -17,10 +18,11 @@ import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
 import { ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
 import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettingsModal";
+import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
 import { createGearGeometry } from "@/lib/gearGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint, workspaceHydrationRequired, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
-import { interiorWorkplaneGridCoordinates, workplaneGridPalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
+import { interiorWorkplaneGridCoordinates, workplaneThemePalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, fallbackSolidColor, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { SketchForgeMcpViewFace } from "@/lib/sketchforgeMcpProtocol";
@@ -61,6 +63,13 @@ const MIN_ELEVATION = -180;
 const MAX_ELEVATION = 220;
 const CAMERA_MIN_TARGET_Y = -70;
 const CAMERA_MAX_TARGET_Y = 120;
+const ROTATION_PROTRACTOR_OUTER_RADIUS = 94;
+const RENDER_LAYER_WORKPLANE = 0;
+const RENDER_LAYER_SHAPES = 1;
+const RENDER_LAYER_HELPERS = 2;
+const RENDER_LAYER_MODIFIERS = 3;
+const RENDER_LAYER_PREVIEWS = 4;
+const BVH_PICKING_TRIANGLE_THRESHOLD = 512;
 const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "box",
   "cylinder",
@@ -97,6 +106,14 @@ const importedGeometryCache = new WeakMap<
   { geometry: THREE.BufferGeometry; edges: Map<number, THREE.EdgesGeometry> }
 >();
 const preservedImportedGeometryCache = new WeakMap<WorkplaneShape, THREE.BufferGeometry>();
+const MAX_SHARED_SHAPE_GEOMETRIES = 192;
+const MAX_SHARED_SHAPE_MATERIALS = 128;
+const sharedShapeGeometryCache = new Map<string, { geometry: THREE.BufferGeometry; users: number }>();
+const sharedEdgesGeometryCache = new WeakMap<THREE.BufferGeometry, Map<number, THREE.EdgesGeometry>>();
+const sharedShapeMaterialCache = new Map<string, { material: THREE.MeshStandardMaterial; users: number }>();
+const sharedLineMaterialCache = new Map<string, THREE.LineBasicMaterial>();
+const shapeResourceIds = new WeakMap<object, number>();
+let nextShapeResourceId = 1;
 const imageTextureLoader = new THREE.TextureLoader();
 const IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT = 40000;
 const NORMAL_IMPORTED_SELECTION_EDGE_ANGLE = 60;
@@ -171,6 +188,9 @@ type WorkplaneViewportProps = {
   modifierEdges?: CadModifierEdge[];
   selectedModifierEdgeIds?: number[];
   onModifierEdgeToggle?: (id: number, singleEdge: boolean) => void;
+  themePreference?: AppThemePreference;
+  resolvedTheme?: ResolvedAppTheme;
+  onThemePreferenceChange?: (preference: AppThemePreference) => void;
 };
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
@@ -197,6 +217,15 @@ function readSavedWorkspaceDefault(key: string | null) {
   }
 }
 
+type ShapeRenderRecord = {
+  object: THREE.Group;
+  shape: WorkplaneShape;
+  transformSignature: string;
+  materialSignature: string;
+  geometrySignature: string;
+  selected: boolean;
+};
+
 type ThreeState = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
@@ -206,6 +235,8 @@ type ThreeState = {
   shapeLayer: THREE.Group;
   helperLayer: THREE.Group;
   modifierLayer: THREE.Group;
+  shapeRecords: Map<string, ShapeRenderRecord>;
+  officialShapeLayerActive: boolean;
   raycaster: THREE.Raycaster;
   pointer: THREE.Vector2;
   dragPlane: THREE.Plane;
@@ -236,6 +267,7 @@ declare global {
       get: () => ViewportPerfStats;
     };
     sketchforgeCaptureCanvas?: () => string;
+    sketchforgeCaptureCanvasAsync?: () => Promise<string>;
     sketchforgeCaptureView?: (face?: SketchForgeMcpViewFace) => Promise<string> | string;
   }
 }
@@ -352,6 +384,7 @@ type TransformDragState = {
   rotationAxisVector?: THREE.Vector3;
   rotationPivot?: THREE.Vector3;
   rotationPlaneCenter?: THREE.Vector3;
+  rotationPlaneView?: RotationPlaneView;
   rotationStartVector?: THREE.Vector3;
   rotationScreenCenter?: { x: number; y: number };
   rotationScreenSign?: number;
@@ -409,6 +442,10 @@ function previewShapesForDrag(shapes: WorkplaneShape[], drag: DragState | null) 
   });
 }
 
+function shouldBuildCutPreviews(transform: TransformDragState | null, drag: DragState | null) {
+  return !drag && (!transform || transform.kind === "scale" || transform.kind === "height");
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -462,6 +499,40 @@ function projectedScreenYPerWorldUnitAt(state: ThreeState, x: number, z: number,
 
 function screenAngle(clientX: number, clientY: number, center: { x: number; y: number }) {
   return Math.atan2(clientY - center.y, clientX - center.x);
+}
+
+function rotationPlanePointerLocal(
+  plane: RotationPlaneView | undefined,
+  screenX: number,
+  screenY: number,
+) {
+  if (!plane) {
+    return null;
+  }
+  const planeX = screenX - plane.x;
+  const planeY = screenY - plane.y;
+  const determinant = plane.a * plane.d - plane.b * plane.c;
+  if (Math.abs(determinant) < 0.000001) {
+    return null;
+  }
+  return {
+    x: (plane.d * planeX - plane.c * planeY) / determinant,
+    y: (-plane.b * planeX + plane.a * planeY) / determinant,
+  };
+}
+
+function rotationPlanePointerAngle(
+  plane: RotationPlaneView | undefined,
+  screenX: number,
+  screenY: number,
+  fallbackCenter: { x: number; y: number },
+) {
+  const local = rotationPlanePointerLocal(plane, screenX, screenY);
+  return THREE.MathUtils.radToDeg(
+    local
+      ? Math.atan2(local.y, local.x)
+      : Math.atan2(screenY - fallbackCenter.y, screenX - fallbackCenter.x),
+  );
 }
 
 function unwrapRadians(value: number) {
@@ -539,6 +610,21 @@ function shouldPreserveDrawingBufferForLocalAutomation() {
   return typeof window !== "undefined";
 }
 
+function canvasPngDataUrl(canvas: HTMLCanvasElement) {
+  return new Promise<string>((resolve) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        resolve("");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(blob);
+    }, "image/png");
+  });
+}
+
 function rotationScreenSign(axisVector: THREE.Vector3, camera: THREE.Camera) {
   const cameraForward = camera.getWorldDirection(new THREE.Vector3());
   return axisVector.dot(cameraForward) >= 0 ? 1 : -1;
@@ -590,6 +676,117 @@ function rulerShapeTopologyKey(shape: WorkplaneShape): string {
     brep: [brep.length, brepSample],
     treatments: shape.edgeTreatments,
     children: shape.groupedShapes?.map((child) => [child.id, rulerShapeTopologyKey(child)]),
+  });
+}
+
+function shapeResourceId(value: object | null | undefined) {
+  if (!value) return 0;
+  const existing = shapeResourceIds.get(value);
+  if (existing) return existing;
+  const next = nextShapeResourceId;
+  nextShapeResourceId += 1;
+  shapeResourceIds.set(value, next);
+  return next;
+}
+
+function shapeTransformSignature(shape: WorkplaneShape) {
+  return [
+    shape.x,
+    shape.z,
+    shape.elevation ?? 0,
+    shape.rotation,
+    shape.rotationX ?? 0,
+    shape.rotationZ ?? 0,
+    Boolean(shape.mirrorX),
+    Boolean(shape.mirrorY),
+    Boolean(shape.mirrorZ),
+  ].join("|");
+}
+
+function shapeMaterialSignature(shape: WorkplaneShape): string {
+  return JSON.stringify({
+    color: shape.color,
+    hole: Boolean(shape.hole),
+    theme: {
+      hole: activeThemeRef.viewport.hole,
+      handleDefault: activeThemeRef.viewport.handleDefault,
+      holeEdge: activeThemeRef.viewport.holeEdge,
+      complexEdge: activeThemeRef.viewport.complexEdge,
+    },
+    imagePlate: shapeResourceId(shape.imagePlate),
+    imageData: shape.imagePlate?.dataUrl ?? "",
+    sourceFormat: shape.importedMesh?.sourceFormat ?? "",
+    mirrored: mirroredAxisCount(shape) % 2,
+    cadEdges: shapeResourceId(shape.cadDisplayEdges),
+    cadEdgesVersion: shape.cadDisplayEdgesVersion ?? 0,
+    cadEdgeDimensions: shape.cadDisplayEdges?.length ? [shapeWidth(shape), shapeDepth(shape), shape.height] : null,
+    groupedMaterials: shape.groupedShapes?.map((child) => [child.id, child.hidden, shapeMaterialSignature(shape.hole ? { ...child, hole: true, color: activeThemeRef.viewport.hole } : child)]),
+  });
+}
+
+function shapeGeometrySignature(shape: WorkplaneShape): string {
+  if (shape.groupedShapes?.length && !shape.importedMesh) {
+    return JSON.stringify({
+      kind: "group",
+      width: shapeWidth(shape),
+      depth: shapeDepth(shape),
+      height: shape.height,
+      children: shape.groupedShapes.map((child) => [
+        child.id,
+        child.hidden,
+        shapeWidth(child),
+        shapeDepth(child),
+        child.height,
+        shapeTransformSignature(child),
+        shapeGeometrySignature(child),
+      ]),
+    });
+  }
+
+  if (shape.importedMesh) {
+    return JSON.stringify({
+      kind: "mesh",
+      mesh: shapeResourceId(shape.importedMesh),
+      preserve: preservesEdgeTreatmentSize(shape)
+        ? [shapeWidth(shape), shapeDepth(shape), shape.height, shape.edgeTreatments]
+        : false,
+    });
+  }
+
+  if (shape.kind === "box" && !(shape.radius && shape.radius > 0)) {
+    return JSON.stringify({ kind: "box" });
+  }
+  if (shape.kind === "cylinder") {
+    return JSON.stringify({ kind: "cylinder", sides: shape.sides, segments: shape.segments });
+  }
+  if (shape.kind === "sphere") {
+    return JSON.stringify({ kind: "sphere", steps: shape.steps });
+  }
+  if (shape.kind === "polygon") {
+    return JSON.stringify({ kind: "polygon" });
+  }
+
+  return JSON.stringify({
+    kind: shape.kind,
+    width: shapeWidth(shape),
+    depth: shapeDepth(shape),
+    height: shape.height,
+    radius: shape.radius,
+    steps: shape.steps,
+    sides: shape.sides,
+    bevel: shape.bevel,
+    segments: shape.segments,
+    topRadius: shape.topRadius,
+    baseRadius: shape.baseRadius,
+    teeth: shape.teeth,
+    toothSize: shape.toothSize,
+    toothWidth: shape.toothWidth,
+    centerHoleSize: shape.centerHoleSize,
+    gearType: shape.gearType,
+    helixAngle: shape.helixAngle,
+    helixQuality: shape.helixQuality,
+    text: shape.text,
+    font: shape.font,
   });
 }
 
@@ -883,6 +1080,7 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
   state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
   state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
   state.raycaster.setFromCamera(state.pointer, state.camera);
+  state.raycaster.layers.set(RENDER_LAYER_SHAPES);
   const surfaceHit = state.raycaster.intersectObjects(targets, true).find((entry) => entry.object instanceof THREE.Mesh);
   if (!surfaceHit) return null;
   const shapeId = surfaceHit.object.userData.shapeId as string;
@@ -1580,6 +1778,9 @@ export function WorkplaneViewport({
   modifierEdges = [],
   selectedModifierEdgeIds = [],
   onModifierEdgeToggle,
+  themePreference = "system",
+  resolvedTheme = "light",
+  onThemePreferenceChange,
 }: WorkplaneViewportProps) {
   const [snapOpen, setSnapOpen] = useState(false);
   const [snap, setSnap] = useState<GridSize>(() => normalizeSnapGrid(initialSnap, DEFAULT_SNAP_GRID));
@@ -1592,6 +1793,7 @@ export function WorkplaneViewport({
   const [hoverMeasureKey, setHoverMeasureKey] = useState<string | null>(null);
   const [pinnedMeasureKey, setPinnedMeasureKey] = useState<string | null>(null);
   const [rotationReadout, setRotationReadout] = useState<RotationReadout>(null);
+  const suppressNextRotationEditRef = useRef(false);
   const [activeRotationWheel, setActiveRotationWheel] = useState(false);
   const [activeTransformKind, setActiveTransformKind] = useState<TransformHandleKind | null>(null);
   const [rotationWheelAxis, setRotationWheelAxis] = useState<RotationAxis>("y");
@@ -1661,10 +1863,16 @@ export function WorkplaneViewport({
     [],
   );
 
-  // Keep module-level theme reference in sync with prop
   useEffect(() => {
     activeThemeRef = theme;
-  }, [theme]);
+    rebuildShapes(
+      threeRef.current,
+      shapesRef.current,
+      renderSelectionIds(),
+      shouldBuildCutPreviews(transformRef.current, dragRef.current),
+      modifierActiveRef.current,
+    );
+  }, [renderSelectionIds, theme]);
 
   // When the active theme's viewport background changes (theme switch or custom
   // theme edit), sync workspace.background so rebuildWorkplane applies the correct
@@ -1679,10 +1887,12 @@ export function WorkplaneViewport({
   useEffect(() => {
     modifierEdgesRef.current = modifierEdges;
     rebuildModifierEdges(threeRef.current, modifierEdges, selectedModifierEdgeIds, modifierPreviewActive, hoverModifierEdgeId);
-  }, [hoverModifierEdgeId, modifierEdges, modifierPreviewActive, selectedModifierEdgeIds]);
+  }, [hoverModifierEdgeId, modifierEdges, modifierPreviewActive, selectedModifierEdgeIds, theme]);
 
   const placementElevationRef = useRef(placementElevation);
   const workplaneModeRef = useRef(workplaneMode);
+  const resolvedThemeRef = useRef(resolvedTheme);
+  resolvedThemeRef.current = resolvedTheme;
 
   const rememberResizeAnchor = useCallback((shapeId: string, kind: TransformHandleKind, handleKey: string) => {
     if (kind === "scale") {
@@ -1726,7 +1936,7 @@ export function WorkplaneViewport({
     snapRef.current = nextSnap;
     workspaceRef.current = nextWorkspace;
     if (threeRef.current) {
-      rebuildWorkplane(threeRef.current, nextWorkspace);
+      rebuildWorkplane(threeRef.current, nextWorkspace, resolvedThemeRef.current);
       constrainCamera(threeRef.current, nextWorkspace);
       threeRef.current.needsRender = true;
     }
@@ -1777,7 +1987,13 @@ export function WorkplaneViewport({
 
   useEffect(() => {
     shapesRef.current = shapes;
-    rebuildShapes(threeRef.current, shapes, renderSelectionIds(), !transformRef.current && !dragRef.current);
+    rebuildShapes(
+      threeRef.current,
+      shapes,
+      renderSelectionIds(),
+      shouldBuildCutPreviews(transformRef.current, dragRef.current),
+      modifierActiveRef.current,
+    );
     refreshDragPreviewObjects(threeRef.current, dragRef.current);
     if (threeRef.current) {
       syncTransformOverlay(
@@ -1825,7 +2041,13 @@ export function WorkplaneViewport({
       setActiveTransformKind(null);
     }
     selectedIdsRef.current = interactiveSelectedIds;
-    rebuildShapes(threeRef.current, shapesRef.current, renderSelectionIds(interactiveSelectedIds), !transformRef.current && !dragRef.current);
+    rebuildShapes(
+      threeRef.current,
+      shapesRef.current,
+      renderSelectionIds(interactiveSelectedIds),
+      shouldBuildCutPreviews(transformRef.current, dragRef.current),
+      modifierActiveRef.current,
+    );
     refreshDragPreviewObjects(threeRef.current, dragRef.current);
     if (threeRef.current) {
       syncTransformOverlay(
@@ -1846,13 +2068,25 @@ export function WorkplaneViewport({
   useEffect(() => {
     modifierActiveRef.current = modifierActive;
     if (!modifierActive) setHoverModifierEdgeId(null);
-    rebuildShapes(threeRef.current, shapesRef.current, renderSelectionIds(), !transformRef.current && !dragRef.current);
+    rebuildShapes(
+      threeRef.current,
+      shapesRef.current,
+      renderSelectionIds(),
+      !transformRef.current && !dragRef.current,
+      modifierActive,
+    );
     if (threeRef.current) threeRef.current.needsRender = true;
   }, [modifierActive, renderSelectionIds]);
 
   useEffect(() => {
     modifierPreviewActiveRef.current = modifierPreviewActive;
-    rebuildShapes(threeRef.current, shapesRef.current, renderSelectionIds(), !transformRef.current && !dragRef.current);
+    rebuildShapes(
+      threeRef.current,
+      shapesRef.current,
+      renderSelectionIds(),
+      !transformRef.current && !dragRef.current,
+      modifierActiveRef.current,
+    );
     if (threeRef.current) threeRef.current.needsRender = true;
   }, [modifierPreviewActive, renderSelectionIds]);
 
@@ -1914,7 +2148,7 @@ export function WorkplaneViewport({
 
   useEffect(() => {
     workspaceRef.current = workspace;
-    rebuildWorkplane(threeRef.current, workspace);
+    rebuildWorkplane(threeRef.current, workspace, resolvedTheme);
     if (threeRef.current) {
       syncTransformOverlay(
         threeRef.current,
@@ -1928,7 +2162,7 @@ export function WorkplaneViewport({
       syncRulerOverlay(threeRef.current, rulerModelRef.current, rulerOverlayRef, setRulerOverlay, workspace.accuracy);
       threeRef.current.needsRender = true;
     }
-  }, [workspace]);
+  }, [resolvedTheme, workspace]);
 
   useEffect(() => {
     setSelectionHelpersVisible(threeRef.current, activeTransformKind !== "rotate");
@@ -1949,11 +2183,16 @@ export function WorkplaneViewport({
       return;
     }
     threeRef.current = state;
-    rebuildWorkplane(state, workspaceRef.current);
+    rebuildWorkplane(state, workspaceRef.current, resolvedThemeRef.current);
     window.sketchforgeCaptureCanvas = () => {
       state.camera.updateMatrixWorld();
       state.renderer.render(state.scene, state.camera);
       return state.renderer.domElement.toDataURL("image/png");
+    };
+    window.sketchforgeCaptureCanvasAsync = () => {
+      state.camera.updateMatrixWorld();
+      state.renderer.render(state.scene, state.camera);
+      return canvasPngDataUrl(state.renderer.domElement);
     };
     window.sketchforgeCaptureView = (face = "current") => {
       if (face === "home") {
@@ -2031,12 +2270,16 @@ export function WorkplaneViewport({
       state.controls.dispose();
       disposeChildren(state.workplaneLayer);
       disposeChildren(state.shapeLayer);
+      state.shapeRecords.clear();
       disposeChildren(state.helperLayer);
       disposeChildren(state.modifierLayer);
       state.renderer.dispose();
       host.replaceChildren();
       if (window.sketchforgeCaptureCanvas) {
         delete window.sketchforgeCaptureCanvas;
+      }
+      if (window.sketchforgeCaptureCanvasAsync) {
+        delete window.sketchforgeCaptureCanvasAsync;
       }
       if (window.sketchforgeCaptureView) {
         delete window.sketchforgeCaptureView;
@@ -2405,7 +2648,7 @@ export function WorkplaneViewport({
 
   const beginTransform = useCallback(
     (kind: TransformHandleKind, handleKey: string, event: ReactPointerEvent<Element>) => {
-      if (kind === "rotate" && event.button !== 0) {
+      if (event.button !== 0) {
         return;
       }
       const ids = selectedIdsRef.current;
@@ -2496,6 +2739,7 @@ export function WorkplaneViewport({
         rotationAxisVector: kind === "rotate" ? axisVector : undefined,
         rotationPivot: kind === "rotate" ? pivot : undefined,
         rotationPlaneCenter: kind === "rotate" ? rotationPlaneCenter : undefined,
+        rotationPlaneView: kind === "rotate" ? rotationPlane : undefined,
         rotationStartVector: kind === "rotate" ? rotationStartVector : undefined,
         rotationScreenCenter: rotationCenter,
         rotationScreenSign: kind === "rotate" && state ? rotationScreenSign(axisVector, state.camera) : 1,
@@ -2509,6 +2753,7 @@ export function WorkplaneViewport({
           y: event.clientY - renderRect.top - 18,
           text: `${Math.round(rotationValueForAxis(shape, rotationAxis))}°`,
           angle: 0,
+          pointerAngle: rotationPlanePointerAngle(rotationPlane, localClientX, localClientY, rotationCenter ?? { x: localClientX, y: localClientY }),
         });
       } else if (kind === "lift" && state) {
         const renderRect = state.renderer.domElement.getBoundingClientRect();
@@ -2521,7 +2766,9 @@ export function WorkplaneViewport({
         setRotationReadout(null);
       }
       if (state) {
-        clearCutPreviewOverlays(state);
+        if (kind !== "scale" && kind !== "height") {
+          clearCutPreviewOverlays(state);
+        }
         state.needsRender = true;
         state.controls.enabled = false;
       }
@@ -2531,7 +2778,7 @@ export function WorkplaneViewport({
   );
 
   const beginCameraDragFromOverlay = useCallback((event: ReactPointerEvent<Element>) => {
-    if (event.button !== 2) {
+    if (event.button !== 1 && event.button !== 2) {
       return;
     }
 
@@ -2556,6 +2803,38 @@ export function WorkplaneViewport({
         isPrimary: source.isPrimary,
         button: source.button,
         buttons: source.buttons,
+        clientX: source.clientX,
+        clientY: source.clientY,
+        screenX: source.screenX,
+        screenY: source.screenY,
+        ctrlKey: source.ctrlKey,
+        shiftKey: source.shiftKey,
+        altKey: source.altKey,
+        metaKey: source.metaKey,
+      }),
+    );
+  }, []);
+
+  const forwardCameraWheelFromOverlay = useCallback((event: ReactWheelEvent<Element>) => {
+    const state = threeRef.current;
+    const canvas = state?.renderer.domElement;
+    const WheelEventConstructor = canvas?.ownerDocument.defaultView?.WheelEvent;
+    if (!canvas || !WheelEventConstructor) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    const source = event.nativeEvent;
+    canvas.dispatchEvent(
+      new WheelEventConstructor("wheel", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        deltaX: source.deltaX,
+        deltaY: source.deltaY,
+        deltaZ: source.deltaZ,
+        deltaMode: source.deltaMode,
         clientX: source.clientX,
         clientY: source.clientY,
         screenX: source.screenX,
@@ -2680,11 +2959,17 @@ export function WorkplaneViewport({
         currentPoint && transform.rotationStartVector && transform.rotationStartVector.lengthSq() > 0.000001
           ? THREE.MathUtils.radToDeg(signedAngleAroundAxis(transform.rotationStartVector, currentPoint.sub(planeCenter), axisVector))
           : THREE.MathUtils.radToDeg(unwrapRadians(screenAngle(localClientX, localClientY, rotationCenter) - transform.startScreenAngle)) * (transform.rotationScreenSign ?? 1);
-      const distance = transform.wheelCenter ? Math.hypot(localClientX - transform.wheelCenter.x, localClientY - transform.wheelCenter.y) : Number.POSITIVE_INFINITY;
+      const localRotationPointer = rotationPlanePointerLocal(transform.rotationPlaneView, localClientX, localClientY);
+      const insideSnapWheel = localRotationPointer
+        ? Math.hypot(localRotationPointer.x, localRotationPointer.y) <= ROTATION_PROTRACTOR_OUTER_RADIUS
+        : Boolean(
+          transform.wheelCenter
+          && Math.hypot(localClientX - transform.wheelCenter.x, localClientY - transform.wheelCenter.y) <= transform.wheelCenter.radius
+        );
       let delta: number;
       if (shiftKey) {
         delta = Math.round(rawDelta / 45) * 45;
-      } else if (transform.wheelCenter && distance <= transform.wheelCenter.radius) {
+      } else if (insideSnapWheel) {
         delta = Math.round(rawDelta / 22.5) * 22.5;
       } else {
         delta = Math.round(rawDelta);
@@ -2698,6 +2983,7 @@ export function WorkplaneViewport({
           y: transform.wheelCenter ? transform.wheelCenter.y - 92 : localClientY - 18,
           text: `${Number(delta.toFixed(1))}°`,
           angle: delta,
+          pointerAngle: rotationPlanePointerAngle(transform.rotationPlaneView, localClientX, localClientY, rotationCenter),
         });
       }
       transform.items.forEach((item) => {
@@ -2737,6 +3023,12 @@ export function WorkplaneViewport({
     }
     if (transform.kind === "lift" && transform.hasMoved) {
       suppressLiftEditAfterDrag();
+    }
+    if (transform.kind === "rotate" && transform.hasMoved) {
+      suppressNextRotationEditRef.current = true;
+      window.setTimeout(() => {
+        suppressNextRotationEditRef.current = false;
+      }, 250);
     }
     transformRef.current = null;
     setActiveRotationWheel(false);
@@ -2836,6 +3128,10 @@ export function WorkplaneViewport({
   }, []);
 
   const beginRotationEdit = useCallback((handleKey: string, x: number, y: number) => {
+    if (suppressNextRotationEditRef.current) {
+      suppressNextRotationEditRef.current = false;
+      return;
+    }
     const axis = rotationAxisForHandle(handleKey);
     const shape = selectedIdsRef.current.length === 1 ? shapesRef.current.find((entry) => entry.id === selectedIdsRef.current[0]) : null;
     const currentValue = shape ? rotationValueForAxis(shape, axis) : 0;
@@ -2880,6 +3176,7 @@ export function WorkplaneViewport({
     state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     state.raycaster.setFromCamera(state.pointer, state.camera);
+    state.raycaster.layers.set(RENDER_LAYER_SHAPES);
 
     const intersections = state.raycaster.intersectObjects(state.shapeLayer.children, true);
     const hit = intersections.find((entry) => typeof entry.object.userData.shapeId === "string");
@@ -2953,6 +3250,7 @@ export function WorkplaneViewport({
     state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     state.raycaster.setFromCamera(state.pointer, state.camera);
+    state.raycaster.layers.set(RENDER_LAYER_HELPERS);
 
     const intersections = state.raycaster.intersectObjects(state.helperLayer.children, true);
     const hit = intersections.find((entry) => typeof entry.object.userData.transformHandle === "string");
@@ -3101,6 +3399,7 @@ export function WorkplaneViewport({
           rotationAxisVector: handle.kind === "rotate" ? axisVector : undefined,
           rotationPivot: handle.kind === "rotate" ? pivot : undefined,
           rotationPlaneCenter: handle.kind === "rotate" ? rotationPlaneCenter : undefined,
+          rotationPlaneView: handle.kind === "rotate" ? rotationPlane : undefined,
           rotationStartVector: handle.kind === "rotate" ? rotationStartVector : undefined,
           rotationScreenCenter: rotationCenter,
           rotationScreenSign: handle.kind === "rotate" ? rotationScreenSign(axisVector, state.camera) : 1,
@@ -3113,6 +3412,7 @@ export function WorkplaneViewport({
             y: event.clientY - rect.top - 18,
             text: `${Math.round(rotationValueForAxis(shape, rotationAxis))}°`,
             angle: 0,
+            pointerAngle: rotationPlanePointerAngle(rotationPlane, localClientX, localClientY, rotationCenter ?? { x: localClientX, y: localClientY }),
           });
         } else if (handle.kind === "lift") {
           setRotationReadout({
@@ -3123,7 +3423,9 @@ export function WorkplaneViewport({
         } else {
           setRotationReadout(null);
         }
-        clearCutPreviewOverlays(state);
+        if (handle.kind !== "scale" && handle.kind !== "height") {
+          clearCutPreviewOverlays(state);
+        }
         state.needsRender = true;
         state.controls.enabled = false;
         onInteractionActiveChange?.(true);
@@ -3180,7 +3482,7 @@ export function WorkplaneViewport({
       event.currentTarget.setPointerCapture(event.pointerId);
       const dragIds = alreadySelected && selectedIdsSnapshot.length > 1 ? selectedIdsSnapshot : [id];
       const items = dragIds
-        .map((dragId) => {
+        .map<DragItem | null>((dragId) => {
           const dragShape = shapesRef.current.find((entry) => entry.id === dragId);
           if (!dragShape || dragShape.locked) {
             return null;
@@ -3212,7 +3514,6 @@ export function WorkplaneViewport({
         primaryStartZ: shape.z,
         items,
       };
-      clearCutPreviewOverlays(state);
       state.needsRender = true;
       state.controls.enabled = false;
       onInteractionActiveChange?.(true);
@@ -3305,6 +3606,7 @@ export function WorkplaneViewport({
           workspaceRef.current.accuracy,
           true,
         );
+        syncCutPreviewOverlays(threeRef.current, previewShapes);
         threeRef.current.lastOverlaySync = performance.now();
         threeRef.current.needsRender = true;
       }
@@ -3752,10 +4054,11 @@ export function WorkplaneViewport({
               rotationReadout={rotationReadout}
               showRotationWheel={activeRotationWheel}
               hideSelectionChrome={activeTransformKind === "rotate"}
-              hideDimensionMarks={activeTransformKind === "scale"}
+              hideDimensionMarks={false}
               rotationWheelAxis={rotationWheelAxis}
               pinnedRotationWheelView={pinnedRotationWheelView}
               onBeginCameraDrag={beginCameraDragFromOverlay}
+              onCameraWheel={forwardCameraWheelFromOverlay}
               onBeginTransform={beginTransform}
               onMoveTransform={updateTransform}
               onFinishTransform={finishTransform}
@@ -3816,8 +4119,10 @@ export function WorkplaneViewport({
         <WorkspaceSettingsModal
           workspace={workspace}
           snap={snap}
+          themePreference={themePreference}
           onWorkspaceChange={setWorkspace}
           onSnapChange={setSnap}
+          onThemePreferenceChange={onThemePreferenceChange}
           onMakeDefault={makeWorkspaceDefault}
           onClose={() => setSettingsOpen(false)}
         />
@@ -3843,6 +4148,10 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
   scene.background = new THREE.Color(activeThemeRef.viewport.background);
 
   const camera = new THREE.PerspectiveCamera(38, host.clientWidth / Math.max(1, host.clientHeight), 0.1, 6000);
+  camera.layers.enable(RENDER_LAYER_SHAPES);
+  camera.layers.enable(RENDER_LAYER_HELPERS);
+  camera.layers.enable(RENDER_LAYER_MODIFIERS);
+  camera.layers.enable(RENDER_LAYER_PREVIEWS);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
@@ -3883,16 +4192,21 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
 
   const workplaneLayer = new THREE.Group();
   workplaneLayer.name = "Workplane";
+  workplaneLayer.layers.set(RENDER_LAYER_WORKPLANE);
   const shapeLayer = new THREE.Group();
   shapeLayer.name = "Shapes";
+  shapeLayer.layers.set(RENDER_LAYER_SHAPES);
   const helperLayer = new THREE.Group();
   helperLayer.name = "SelectionHelpers";
+  helperLayer.layers.set(RENDER_LAYER_HELPERS);
   const modifierLayer = new THREE.Group();
   modifierLayer.name = "EdgeModifier";
+  modifierLayer.layers.set(RENDER_LAYER_MODIFIERS);
   scene.add(workplaneLayer, shapeLayer, helperLayer, modifierLayer);
 
   const raycaster = new THREE.Raycaster();
   raycaster.params.Line = { threshold: 1.15 };
+  (raycaster as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true;
   const pointer = new THREE.Vector2();
   const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
@@ -3914,6 +4228,8 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
     shapeLayer,
     helperLayer,
     modifierLayer,
+    shapeRecords: new Map<string, ShapeRenderRecord>(),
+    officialShapeLayerActive: false,
     raycaster,
     pointer,
     dragPlane,
@@ -4018,22 +4334,44 @@ function syncViewCube(state: ThreeState, cube: HTMLDivElement | null) {
   cube.style.transform = `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
 }
 
-function rebuildWorkplane(state: ThreeState | null, workspace: WorkspaceSettings) {
+function setObjectRenderLayer(object: THREE.Object3D, layer: number) {
+  object.traverse((child) => child.layers.set(layer));
+}
+
+function freezeStaticObjectMatrices(object: THREE.Object3D) {
+  object.traverse((child) => {
+    child.updateMatrix();
+    child.matrixAutoUpdate = false;
+  });
+  object.updateMatrixWorld(true);
+}
+
+function refreshFrozenObjectMatrix(object: THREE.Object3D) {
+  object.updateMatrix();
+  object.updateMatrixWorld(true);
+}
+
+function rebuildWorkplane(
+  state: ThreeState | null,
+  workspace: WorkspaceSettings,
+  theme: ResolvedAppTheme = "light",
+) {
   if (!state) {
     return;
   }
 
+  const palette = workplaneThemePalette(theme, workspace.background, workspace.gridColor);
   disposeChildren(state.workplaneLayer);
-  state.scene.background = new THREE.Color(workspace.background);
+  state.scene.background = new THREE.Color(palette.sceneBackground);
   state.renderer.shadowMap.enabled = workspace.showShadows;
   state.controls.zoomSpeed = 0.28 + workspace.zoomSpeed * 0.09;
 
   const base = new THREE.Mesh(
     new THREE.PlaneGeometry(workspace.width, workspace.depth),
     new THREE.MeshStandardMaterial({
-      color: "#ddf8ff",
+      color: palette.surface.color,
       transparent: true,
-      opacity: 0.68,
+      opacity: palette.surface.opacity,
       roughness: 0.92,
       side: THREE.FrontSide,
       polygonOffset: true,
@@ -4047,15 +4385,23 @@ function rebuildWorkplane(state: ThreeState | null, workspace: WorkspaceSettings
   state.workplaneLayer.add(base);
 
   if (workspace.showGrid) {
-    const grid = createGridLines(workspace.width, workspace.depth, workspace.gridBlockSize);
+    const grid = createGridLines(workspace.width, workspace.depth, workspace.gridBlockSize, theme, workspace.gridColor);
     grid.name = "GridLines";
     state.workplaneLayer.add(grid);
   }
+  setObjectRenderLayer(state.workplaneLayer, RENDER_LAYER_WORKPLANE);
+  freezeStaticObjectMatrices(state.workplaneLayer);
 }
 
-function createGridLines(width = WORKPLANE_WIDTH, depth = WORKPLANE_DEPTH, blockSize = DEFAULT_WORKSPACE.gridBlockSize) {
+function createGridLines(
+  width = WORKPLANE_WIDTH,
+  depth = WORKPLANE_DEPTH,
+  blockSize = DEFAULT_WORKSPACE.gridBlockSize,
+  theme: ResolvedAppTheme = "light",
+  gridColor = DEFAULT_WORKSPACE.gridColor,
+) {
   const group = new THREE.Group();
-  const palette = workplaneGridPalette();
+  const palette = workplaneThemePalette(theme, DEFAULT_WORKSPACE.background, gridColor).grid;
   const minor = new THREE.LineBasicMaterial({ ...palette.minor, transparent: true, depthWrite: false });
   const major = new THREE.LineBasicMaterial({ ...palette.major, transparent: true, depthWrite: false });
   const axis = new THREE.LineBasicMaterial({ ...palette.axis, transparent: true, depthWrite: false });
@@ -4270,6 +4616,8 @@ function addCutPreviewOverlays(state: ThreeState, holeFrame: CutPreviewShapeFram
     preview.renderOrder = 18;
     preview.userData.cutPreview = true;
     preview.raycast = () => undefined;
+    setObjectRenderLayer(preview, RENDER_LAYER_PREVIEWS);
+    freezeStaticObjectMatrices(preview);
     state.shapeLayer.add(preview);
   });
 }
@@ -4311,27 +4659,213 @@ function syncCutPreviewOverlays(state: ThreeState, shapes: WorkplaneShape[]) {
   });
 }
 
-function rebuildShapes(state: ThreeState | null, shapes: WorkplaneShape[], selectedIds: string[], showCutPreviews = true) {
+function updateShapeObjectTransform(object: THREE.Group, shape: WorkplaneShape) {
+  object.name = shape.name;
+  object.userData.shapeId = shape.id;
+  object.userData.rulerDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
+  object.userData.rulerTopologyKey = rulerShapeTopologyKey(shape);
+  object.position.set(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z);
+  object.rotation.set(
+    THREE.MathUtils.degToRad(shape.rotationX ?? 0),
+    THREE.MathUtils.degToRad(shape.rotation),
+    THREE.MathUtils.degToRad(shape.rotationZ ?? 0),
+  );
+  object.scale.set(mirrorSign(shape.mirrorX), mirrorSign(shape.mirrorY), mirrorSign(shape.mirrorZ));
+  refreshFrozenObjectMatrix(object);
+}
+
+function syncShapeObjectDimensions(object: THREE.Group, shape: WorkplaneShape) {
+  object.userData.rulerDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
+  object.userData.rulerTopologyKey = rulerShapeTopologyKey(shape);
+  const surface = object.children.find((child): child is THREE.Mesh => child instanceof THREE.Mesh && Boolean(child.userData.shapeSurface));
+  if (!surface) return;
+  const width = shapeWidth(shape);
+  const depth = shapeDepth(shape);
+  let scale: THREE.Vector3 | null = null;
+  if (shape.importedMesh && !preservesEdgeTreatmentSize(shape)) {
+    scale = new THREE.Vector3(
+      width / Math.max(0.001, shape.importedMesh.baseWidth),
+      shape.height / Math.max(0.001, shape.importedMesh.baseHeight),
+      depth / Math.max(0.001, shape.importedMesh.baseDepth),
+    );
+  } else if (shape.kind === "box" && !(shape.radius && shape.radius > 0)) {
+    scale = new THREE.Vector3(width, shape.height, depth);
+  } else if (shape.kind === "cylinder" || shape.kind === "polygon") {
+    scale = new THREE.Vector3(width / 2, shape.height, depth / 2);
+  } else if (shape.kind === "sphere") {
+    scale = new THREE.Vector3(width / 2, shape.height / 2, depth / 2);
+  }
+  if (!scale) return;
+
+  object.position.y = (shape.elevation ?? 0) + shape.height / 2;
+  object.updateMatrix();
+  surface.scale.copy(scale);
+  surface.position.y = -shape.height / 2;
+  surface.updateMatrix();
+  object.children.forEach((child) => {
+    if (!child.userData.shapeEdge) return;
+    child.position.copy(surface.position);
+    child.rotation.copy(surface.rotation);
+    child.scale.copy(surface.scale);
+    child.updateMatrix();
+  });
+  object.updateMatrixWorld(true);
+}
+
+function removeShapeDecorations(object: THREE.Group) {
+  object.children
+    .filter((child) => Boolean(child.userData.shapeDecoration))
+    .forEach((child) => {
+      object.remove(child);
+      disposeObject(child);
+    });
+}
+
+function syncShapeObjectAppearance(object: THREE.Group, shape: WorkplaneShape, selected: boolean, updateSurfaceMaterial: boolean, onTextureReady?: () => void) {
+  object.userData.showEdges = selected;
+  const groupedContent = object.children.find((child): child is THREE.Group => child instanceof THREE.Group && Boolean(child.userData.groupedShapeContent));
+  if (groupedContent && shape.groupedShapes?.length && !shape.importedMesh) {
+    shape.groupedShapes
+      .filter((child) => !child.hidden)
+      .forEach((child) => {
+        const childObject = groupedContent.children.find((entry): entry is THREE.Group => entry instanceof THREE.Group && entry.userData.groupChildId === child.id);
+        if (!childObject) return;
+        const childShape = shape.hole ? { ...child, hole: true, color: activeThemeRef.viewport.hole } : child;
+        syncShapeObjectAppearance(childObject, childShape, selected, updateSurfaceMaterial, onTextureReady);
+      });
+    object.traverse((child) => {
+      child.userData.shapeId = shape.id;
+    });
+    setObjectRenderLayer(object, RENDER_LAYER_SHAPES);
+    freezeStaticObjectMatrices(object);
+    return;
+  }
+
+  const surface = object.children.find((child): child is THREE.Mesh => child instanceof THREE.Mesh && Boolean(child.userData.shapeSurface));
+  if (!surface) return;
+  if (updateSurfaceMaterial) {
+    const material = sharedShapeMaterial(shape);
+    const nextMaterial = shape.kind === "box" && shape.imagePlate && !shape.hole
+      ? createImagePlateMaterials(shape, material, onTextureReady)
+      : material;
+    const currentMaterials = Array.isArray(surface.material) ? surface.material : null;
+    const sameMaterial = Array.isArray(nextMaterial)
+      ? Boolean(currentMaterials && nextMaterial.every((entry, index) => currentMaterials[index] === entry))
+      : surface.material === nextMaterial;
+    if (!sameMaterial) {
+      replaceObjectMaterials(surface, nextMaterial);
+    }
+  }
+  removeShapeDecorations(object);
+  addShapeEdgeDecorations(object, surface, surface.geometry, shape);
+  object.traverse((child) => {
+    child.userData.shapeId = shape.id;
+  });
+  setObjectRenderLayer(object, RENDER_LAYER_SHAPES);
+  freezeStaticObjectMatrices(object);
+}
+
+function rebuildShapes(
+  state: ThreeState | null,
+  shapes: WorkplaneShape[],
+  selectedIds: string[],
+  showCutPreviews = true,
+  useOfficialModifierRendering = false,
+) {
   if (!state) {
     return;
   }
 
-  disposeChildren(state.shapeLayer);
-
+  clearCutPreviewOverlays(state);
   const selected = new Set(selectedIds);
   const visibleShapes = shapes.filter((shape) => !shape.hidden);
-  visibleShapes.forEach((shape) => {
-    const object = createShapeObject(shape, selected.has(shape.id), () => {
-      state.needsRender = true;
-    });
-    state.shapeLayer.add(object);
 
+  if (useOfficialModifierRendering) {
+    disposeChildren(state.shapeLayer);
+    state.shapeRecords.clear();
+    state.officialShapeLayerActive = true;
+    visibleShapes.forEach((shape) => {
+      const object = createShapeObject(shape, selected.has(shape.id), () => {
+        state.needsRender = true;
+      }, false);
+      state.shapeLayer.add(object);
+    });
+    if (showCutPreviews) {
+      syncCutPreviewOverlays(state, visibleShapes);
+    }
+    rebuildSelectionHelpers(state, shapes, selectedIds);
+    state.needsRender = true;
+    return;
+  }
+
+  if (state.officialShapeLayerActive) {
+    disposeChildren(state.shapeLayer);
+    state.shapeRecords.clear();
+    state.officialShapeLayerActive = false;
+  }
+
+  const visibleIds = new Set(visibleShapes.map((shape) => shape.id));
+  state.shapeRecords.forEach((record, id) => {
+    if (visibleIds.has(id)) return;
+    state.shapeLayer.remove(record.object);
+    disposeObject(record.object);
+    state.shapeRecords.delete(id);
   });
+
+  visibleShapes.forEach((shape) => {
+    const selectedShape = selected.has(shape.id);
+    const transformSignature = shapeTransformSignature(shape);
+    const materialSignature = shapeMaterialSignature(shape);
+    const geometrySignature = shapeGeometrySignature(shape);
+    let record = state.shapeRecords.get(shape.id);
+    if (record && record.geometrySignature !== geometrySignature) {
+      state.shapeLayer.remove(record.object);
+      disposeObject(record.object);
+      state.shapeRecords.delete(shape.id);
+      record = undefined;
+    }
+
+    if (!record) {
+      const object = createShapeObject(shape, selectedShape, () => {
+        state.needsRender = true;
+      });
+      state.shapeLayer.add(object);
+      record = {
+        object,
+        shape,
+        transformSignature,
+        materialSignature,
+        geometrySignature,
+        selected: selectedShape,
+      };
+      state.shapeRecords.set(shape.id, record);
+      return;
+    }
+
+    if (record.transformSignature !== transformSignature) {
+      updateShapeObjectTransform(record.object, shape);
+    }
+    record.object.name = shape.name;
+    syncShapeObjectDimensions(record.object, shape);
+    const materialChanged = record.materialSignature !== materialSignature;
+    if (materialChanged || record.selected !== selectedShape) {
+      syncShapeObjectAppearance(record.object, shape, selectedShape, materialChanged, () => {
+        state.needsRender = true;
+      });
+    }
+    record.shape = shape;
+    record.transformSignature = transformSignature;
+    record.materialSignature = materialSignature;
+    record.geometrySignature = geometrySignature;
+    record.selected = selectedShape;
+  });
+
   if (showCutPreviews) {
     syncCutPreviewOverlays(state, visibleShapes);
   }
 
   rebuildSelectionHelpers(state, shapes, selectedIds);
+  state.needsRender = true;
 }
 
 function modifierEdgeMaterialStyle(active: boolean, hovered: boolean, previewActive: boolean) {
@@ -4365,6 +4899,8 @@ function rebuildModifierEdges(state: ThreeState | null, edges: CadModifierEdge[]
     const line = new THREE.Line(geometry, material);
     line.userData.modifierEdgeId = edge.id;
     line.renderOrder = hovered ? 1003 : active ? 1002 : 1001;
+    setObjectRenderLayer(line, RENDER_LAYER_MODIFIERS);
+    freezeStaticObjectMatrices(line);
     state.modifierLayer.add(line);
   });
   state.needsRender = true;
@@ -4383,6 +4919,8 @@ function rebuildSelectionHelpers(state: ThreeState | null, shapes: WorkplaneShap
     }
     const shadow = createSelectedGroundFootprint(shape);
     if (shadow) {
+      setObjectRenderLayer(shadow, RENDER_LAYER_HELPERS);
+      freezeStaticObjectMatrices(shadow);
       state.helperLayer.add(shadow);
     }
   });
@@ -4980,7 +5518,7 @@ function syncMirrorOverlay(
 }
 
 function findShapeObject(state: ThreeState, id: string) {
-  return state.shapeLayer.children.find((child) => child.userData.shapeId === id) ?? null;
+  return state.shapeRecords.get(id)?.object ?? null;
 }
 
 function findSelectionHelper(state: ThreeState, id: string) {
@@ -5008,13 +5546,13 @@ function applyDragItemPreview(state: ThreeState, item: DragItem) {
     }
     item.visual.position.x = item.nextX;
     item.visual.position.z = item.nextZ;
-    item.visual.updateMatrixWorld(true);
+    refreshFrozenObjectMatrix(item.visual);
   }
 
   if (item.helper && item.helperBox) {
     item.helper.box.copy(item.helperBox);
     item.helper.box.translate(new THREE.Vector3(item.nextX - item.startX, 0, item.nextZ - item.startZ));
-    item.helper.updateMatrixWorld(true);
+    refreshFrozenObjectMatrix(item.helper);
   }
 }
 
@@ -5033,7 +5571,7 @@ function updateSelectedGroundFootprintPreviews(state: ThreeState, drag: DragStat
     }
     footprint.position.x = item.nextX - item.startX;
     footprint.position.z = item.nextZ - item.startZ;
-    footprint.updateMatrixWorld(true);
+    refreshFrozenObjectMatrix(footprint);
   });
 }
 
@@ -5209,11 +5747,172 @@ function createRotateArc(center: THREE.Vector3, radius: number, start: number, e
   return new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material);
 }
 
-function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureReady?: () => void) {
+function sharedShapeGeometry(key: string, create: () => THREE.BufferGeometry) {
+  const cached = sharedShapeGeometryCache.get(key);
+  if (cached) {
+    sharedShapeGeometryCache.delete(key);
+    sharedShapeGeometryCache.set(key, cached);
+    return cached.geometry;
+  }
+  const geometry = putGeometryOnBase(create());
+  geometry.userData.cached = true;
+  geometry.userData.sharedShapeGeometryKey = key;
+  sharedShapeGeometryCache.set(key, { geometry, users: 0 });
+  return geometry;
+}
+
+function disposeSharedShapeGeometry(geometry: THREE.BufferGeometry) {
+  const edges = sharedEdgesGeometryCache.get(geometry);
+  edges?.forEach((entry) => entry.dispose());
+  if ((geometry as THREE.BufferGeometry & { boundsTree?: unknown }).boundsTree) {
+    disposeBoundsTree.call(geometry);
+  }
+  geometry.dispose();
+}
+
+function trimSharedShapeGeometryCache() {
+  while (sharedShapeGeometryCache.size > MAX_SHARED_SHAPE_GEOMETRIES) {
+    const removable = [...sharedShapeGeometryCache.entries()].find(([, entry]) => entry.users === 0);
+    if (!removable) return;
+    const [key, entry] = removable;
+    sharedShapeGeometryCache.delete(key);
+    disposeSharedShapeGeometry(entry.geometry);
+  }
+}
+
+function retainSharedShapeGeometry(mesh: THREE.Mesh, geometry: THREE.BufferGeometry) {
+  const key = geometry.userData.sharedShapeGeometryKey as string | undefined;
+  if (!key) return;
+  const entry = sharedShapeGeometryCache.get(key);
+  if (!entry || entry.geometry !== geometry) return;
+  entry.users += 1;
+  mesh.userData.sharedShapeGeometryKey = key;
+  trimSharedShapeGeometryCache();
+}
+
+function releaseSharedShapeGeometry(mesh: THREE.Mesh | THREE.LineSegments) {
+  const key = mesh.userData.sharedShapeGeometryKey as string | undefined;
+  if (!key) return;
+  mesh.userData.sharedShapeGeometryKey = undefined;
+  const entry = sharedShapeGeometryCache.get(key);
+  if (entry && entry.geometry === mesh.geometry) {
+    entry.users = Math.max(0, entry.users - 1);
+  }
+  trimSharedShapeGeometryCache();
+}
+
+function sharedShapeMaterial(shape: WorkplaneShape) {
+  const color = shape.hole ? activeThemeRef.viewport.hole : shape.color;
+  const key = JSON.stringify({
+    color,
+    transparent: Boolean(shape.hole),
+    opacity: shape.hole ? (shape.importedMesh ? 0.34 : 0.52) : 1,
+    roughness: shape.hole ? 0.88 : 0.57,
+    side: shape.importedMesh?.sourceFormat === "json" || mirroredAxisCount(shape) % 2 === 1 ? "double" : "front",
+  });
+  const cached = sharedShapeMaterialCache.get(key);
+  if (cached) {
+    sharedShapeMaterialCache.delete(key);
+    sharedShapeMaterialCache.set(key, cached);
+    return cached.material;
+  }
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    transparent: Boolean(shape.hole),
+    opacity: shape.hole ? (shape.importedMesh ? 0.34 : 0.52) : 1,
+    roughness: shape.hole ? 0.88 : 0.57,
+    metalness: 0.02,
+    side: shape.importedMesh?.sourceFormat === "json" || mirroredAxisCount(shape) % 2 === 1 ? THREE.DoubleSide : THREE.FrontSide,
+  });
+  material.userData.cached = true;
+  material.userData.sharedShapeMaterialKey = key;
+  sharedShapeMaterialCache.set(key, { material, users: 0 });
+  return material;
+}
+
+function trimSharedShapeMaterialCache() {
+  while (sharedShapeMaterialCache.size > MAX_SHARED_SHAPE_MATERIALS) {
+    const removable = [...sharedShapeMaterialCache.entries()].find(([, entry]) => entry.users === 0);
+    if (!removable) return;
+    const [key, entry] = removable;
+    sharedShapeMaterialCache.delete(key);
+    entry.material.dispose();
+  }
+}
+
+function retainSharedShapeMaterials(mesh: THREE.Mesh, materials: THREE.Material | THREE.Material[]) {
+  const retained: string[] = [];
+  (Array.isArray(materials) ? materials : [materials]).forEach((material) => {
+    const key = material.userData.sharedShapeMaterialKey as string | undefined;
+    if (!key || retained.includes(key)) return;
+    const entry = sharedShapeMaterialCache.get(key);
+    if (!entry || entry.material !== material) return;
+    entry.users += 1;
+    retained.push(key);
+  });
+  mesh.userData.sharedShapeMaterialKeys = retained;
+  trimSharedShapeMaterialCache();
+}
+
+function releaseSharedShapeMaterials(mesh: THREE.Mesh | THREE.LineSegments) {
+  const keys = mesh.userData.sharedShapeMaterialKeys as string[] | undefined;
+  if (!keys?.length) return;
+  mesh.userData.sharedShapeMaterialKeys = [];
+  keys.forEach((key) => {
+    const entry = sharedShapeMaterialCache.get(key);
+    if (entry) entry.users = Math.max(0, entry.users - 1);
+  });
+}
+
+function sharedLineMaterial(color: string, opacity: number, depthWrite = true) {
+  const key = `${color}|${opacity}|${depthWrite}`;
+  const cached = sharedLineMaterialCache.get(key);
+  if (cached) return cached;
+  const material = new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity, depthWrite });
+  material.userData.cached = true;
+  sharedLineMaterialCache.set(key, material);
+  return material;
+}
+
+function disposeMaterialResource(material: THREE.Material) {
+  if (material.userData.cached) return;
+  const map = "map" in material ? (material.map as THREE.Texture | null) : null;
+  if (map) map.dispose();
+  material.dispose();
+}
+
+function replaceObjectMaterials(object: THREE.Mesh, materials: THREE.Material | THREE.Material[]) {
+  const previous = Array.isArray(object.material) ? object.material : [object.material];
+  releaseSharedShapeMaterials(object);
+  object.material = materials;
+  retainSharedShapeMaterials(object, materials);
+  previous.forEach(disposeMaterialResource);
+  trimSharedShapeMaterialCache();
+}
+
+function enableAcceleratedMeshPicking(mesh: THREE.Mesh, geometry: THREE.BufferGeometry, force = false) {
+  const position = geometry.getAttribute("position");
+  const triangles = geometry.getIndex()?.count
+    ? Math.floor((geometry.getIndex()?.count ?? 0) / 3)
+    : Math.floor((position?.count ?? 0) / 3);
+  mesh.raycast = acceleratedRaycast;
+  const bvhGeometry = geometry as THREE.BufferGeometry & { boundsTree?: unknown };
+  if ((force || triangles >= BVH_PICKING_TRIANGLE_THRESHOLD) && !bvhGeometry.boundsTree) {
+    computeBoundsTree.call(geometry, { maxLeafSize: 12 });
+  }
+}
+
+function createShapeObject(
+  shape: WorkplaneShape,
+  showEdges = false,
+  onTextureReady?: () => void,
+  acceleratedPicking = true,
+) {
   const group = new THREE.Group();
   group.name = shape.name;
   group.userData.shapeId = shape.id;
   group.userData.showEdges = showEdges;
+  group.userData.acceleratedPicking = acceleratedPicking;
   group.userData.rulerDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
   group.userData.rulerTopologyKey = rulerShapeTopologyKey(shape);
   group.position.set(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z);
@@ -5255,11 +5954,13 @@ function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureRe
 
   if (shape.groupedShapes?.length && !shape.importedMesh) {
     const content = new THREE.Group();
+    content.userData.groupedShapeContent = true;
     shape.groupedShapes
       .filter((child) => !child.hidden)
       .forEach((child) => {
         const childShape = shape.hole ? { ...child, hole: true, color: activeThemeRef.viewport.hole } : child;
-        const childObject = createShapeObject(childShape, showEdges, onTextureReady);
+        const childObject = createShapeObject(childShape, showEdges, onTextureReady, acceleratedPicking);
+        childObject.userData.groupChildId = child.id;
         content.add(childObject);
       });
     const contentBox = new THREE.Box3().setFromObject(content);
@@ -5274,46 +5975,48 @@ function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureRe
     group.traverse((child) => {
       child.userData.shapeId = shape.id;
     });
+    setObjectRenderLayer(group, RENDER_LAYER_SHAPES);
+    freezeStaticObjectMatrices(group);
     return group;
   }
 
-  const material = new THREE.MeshStandardMaterial({
-    color: shape.hole ? activeThemeRef.viewport.hole : shape.color,
-    transparent: Boolean(shape.hole),
-    opacity: shape.hole ? (shape.importedMesh ? 0.34 : 0.52) : 1,
-    roughness: shape.hole ? 0.88 : 0.57,
-    metalness: 0.02,
-    side: shape.importedMesh?.sourceFormat === "json" || mirroredAxisCount(shape) % 2 === 1 ? THREE.DoubleSide : THREE.FrontSide,
-  });
+  const material = sharedShapeMaterial(shape);
 
   const width = shapeWidth(shape);
   const depth = shapeDepth(shape);
   const size = Math.min(width, depth);
   const height = shape.height;
+  const geometryCacheKey = shapeGeometrySignature(shape);
 
   switch (shape.kind) {
     case "box":
       addMesh(
         group,
-        shape.radius && shape.radius > 0
-          ? new RoundedBoxGeometry(width, height, depth, Math.max(1, shape.steps ?? 10), shape.radius)
-          : new THREE.BoxGeometry(width, height, depth),
+        sharedShapeGeometry(
+          geometryCacheKey,
+          () => shape.radius && shape.radius > 0
+            ? new RoundedBoxGeometry(width, height, depth, Math.max(1, shape.steps ?? 10), shape.radius)
+            : new THREE.BoxGeometry(1, 1, 1),
+        ),
         shape.imagePlate && !shape.hole ? createImagePlateMaterials(shape, material, onTextureReady) : material,
         shape,
+        undefined,
+        undefined,
+        shape.radius && shape.radius > 0 ? undefined : new THREE.Vector3(width, height, depth),
       );
       break;
     case "cylinder":
-      addMesh(group, new THREE.CylinderGeometry(1, 1, height, shape.sides ?? 96, shape.segments ?? 1), material, shape, undefined, undefined, new THREE.Vector3(width / 2, 1, depth / 2));
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.CylinderGeometry(1, 1, 1, shape.sides ?? 96, shape.segments ?? 1)), material, shape, undefined, undefined, new THREE.Vector3(width / 2, height, depth / 2));
       break;
     case "sphere": {
       const { widthSegments, heightSegments } = sphereTessellation(shape.steps);
-      addMesh(group, new THREE.SphereGeometry(1, widthSegments, heightSegments), material, shape, undefined, undefined, new THREE.Vector3(width / 2, height / 2, depth / 2));
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.SphereGeometry(1, widthSegments, heightSegments)), material, shape, undefined, undefined, new THREE.Vector3(width / 2, height / 2, depth / 2));
       break;
     }
     case "cone":
       addMesh(
         group,
-        new THREE.CylinderGeometry(shape.topRadius ?? 0, shape.baseRadius ?? width / 2, height, shape.sides ?? 96),
+        sharedShapeGeometry(geometryCacheKey, () => new THREE.CylinderGeometry(shape.topRadius ?? 0, shape.baseRadius ?? width / 2, height, shape.sides ?? 96)),
         material,
         shape,
         undefined,
@@ -5322,28 +6025,28 @@ function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureRe
       );
       break;
     case "pyramid":
-      addMesh(group, createPyramidGeometry(width, height, depth, shape.sides ?? 4), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createPyramidGeometry(width, height, depth, shape.sides ?? 4)), material, shape);
       break;
     case "roof":
-      addMesh(group, createRoofGeometry(width, height, depth), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createRoofGeometry(width, height, depth)), material, shape);
       break;
     case "roundRoof":
-      addMesh(group, createRoundRoofGeometry(width, height, depth, shape.sides ?? 64), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createRoundRoofGeometry(width, height, depth, shape.sides ?? 64)), material, shape);
       break;
     case "halfSphere":
-      addMesh(group, createHalfSphereGeometry(width, height, depth, shape.steps ?? 32), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHalfSphereGeometry(width, height, depth, shape.steps ?? 32)), material, shape);
       break;
     case "torus":
-      addMesh(group, createTorusGeometry(width, height, depth), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createTorusGeometry(width, height, depth)), material, shape);
       break;
     case "ring":
-      addMesh(group, createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144)), material, shape);
       break;
     case "tube":
-      addMesh(group, createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144)), material, shape);
       break;
     case "gear":
-      addMesh(group, createGearGeometry({
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createGearGeometry({
         width,
         depth,
         height,
@@ -5354,19 +6057,19 @@ function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureRe
         gearType: shape.gearType,
         helixAngle: shape.helixAngle,
         helixQuality: shape.helixQuality,
-      }), material, shape);
+      })), material, shape);
       break;
     case "wedge":
-      addMesh(group, createWedgeGeometry(width, height, depth), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createWedgeGeometry(width, height, depth)), material, shape);
       break;
     case "polygon":
-      addMesh(group, new THREE.CylinderGeometry(1, 1, height, 6), material, shape, undefined, undefined, new THREE.Vector3(width / 2, 1, depth / 2));
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.CylinderGeometry(1, 1, 1, 6)), material, shape, undefined, undefined, new THREE.Vector3(width / 2, height, depth / 2));
       break;
     case "icosahedron":
-      addMesh(group, new THREE.IcosahedronGeometry(size / 2, 1), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.IcosahedronGeometry(size / 2, 1)), material, shape);
       break;
     case "text":
-      addTextShape(group, material, shape);
+      addTextShape(group, material, shape, geometryCacheKey);
       break;
     case "mesh":
       if (shape.importedMesh) {
@@ -5385,21 +6088,23 @@ function createShapeObject(shape: WorkplaneShape, showEdges = false, onTextureRe
           ),
         );
       } else {
-        addMesh(group, new THREE.BoxGeometry(size, Math.max(3, height * 0.35), size * 0.72), material, shape);
+        addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.BoxGeometry(size, Math.max(3, height * 0.35), size * 0.72)), material, shape);
       }
       break;
     case "scribble":
-      addMesh(group, new THREE.TorusKnotGeometry(size * 0.22, size * 0.055, 120, 12), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.TorusKnotGeometry(size * 0.22, size * 0.055, 120, 12)), material, shape);
       break;
     case "sketch":
     default:
-      addMesh(group, new THREE.BoxGeometry(size, Math.max(3, height * 0.35), size * 0.72), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.BoxGeometry(size, Math.max(3, height * 0.35), size * 0.72)), material, shape);
       break;
   }
 
   group.traverse((child) => {
     child.userData.shapeId = shape.id;
   });
+  setObjectRenderLayer(group, RENDER_LAYER_SHAPES);
+  freezeStaticObjectMatrices(group);
 
   return group;
 }
@@ -5449,6 +6154,12 @@ function addMesh(
 ) {
   const prepared = geometry.userData.cached ? geometry : putGeometryOnBase(geometry);
   const mesh = new THREE.Mesh(prepared, material);
+  mesh.userData.shapeSurface = true;
+  retainSharedShapeGeometry(mesh, prepared);
+  retainSharedShapeMaterials(mesh, material);
+  if (group.userData.acceleratedPicking !== false && !shape.edgeTreatments?.length) {
+    enableAcceleratedMeshPicking(mesh, prepared, Boolean(shape.importedMesh));
+  }
   mesh.castShadow = true;
   mesh.receiveShadow = false;
   if (position) {
@@ -5462,7 +6173,10 @@ function addMesh(
     mesh.scale.copy(scale);
   }
   group.add(mesh);
+  addShapeEdgeDecorations(group, mesh, prepared, shape);
+}
 
+function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared: THREE.BufferGeometry, shape: WorkplaneShape) {
   const complexEdges =
     shape.kind === "mesh" ||
     Boolean(shape.importedMesh) ||
@@ -5478,8 +6192,10 @@ function addMesh(
       addCadDisplayEdges(group, shape, edgeColor, edgeOpacity);
     } else {
       const selectedThreshold = shape.importedMesh ? NORMAL_IMPORTED_SELECTION_EDGE_ANGLE : 1;
-      const edges = new THREE.LineSegments(getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : complexEdges ? 14 : 25), new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: edgeOpacity }));
+      const edges = new THREE.LineSegments(getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : complexEdges ? 14 : 25), sharedLineMaterial(edgeColor, edgeOpacity));
       edges.userData.complexEdge = complexEdges;
+      edges.userData.shapeDecoration = true;
+      edges.userData.shapeEdge = true;
       edges.position.copy(mesh.position);
       edges.rotation.copy(mesh.rotation);
       edges.scale.copy(mesh.scale);
@@ -5488,9 +6204,9 @@ function addMesh(
   }
 }
 
-function addCadDisplayEdges(group: THREE.Group, shape: WorkplaneShape, color: string, opacity: number, theme: AppTheme = defaultThemes.light) {
+function addCadDisplayEdges(group: THREE.Group, shape: WorkplaneShape, color: string, opacity: number) {
   if (!shape.cadDisplayEdges?.length) return;
-  const material = new THREE.LineBasicMaterial({ color, depthWrite: false, transparent: true, opacity });
+  const material = sharedLineMaterial(color, opacity, false);
   shape.cadDisplayEdges.forEach((edge) => {
     if (edge.points.length < 6) return;
     const positions = resizedImportedCoordinates(shape, edge.points);
@@ -5500,6 +6216,8 @@ function addCadDisplayEdges(group: THREE.Group, shape: WorkplaneShape, color: st
     line.position.y -= shape.height / 2;
     line.renderOrder = 1003;
     line.userData.complexEdge = true;
+    line.userData.shapeDecoration = true;
+    line.userData.cadDisplayEdge = true;
     group.add(line);
   });
 }
@@ -5541,19 +6259,23 @@ function getPreservedImportedMeshGeometry(shape: WorkplaneShape) {
 }
 
 function getEdgesGeometry(shape: WorkplaneShape, geometry: THREE.BufferGeometry, threshold: number) {
-  if (!shape.importedMesh || preservesEdgeTreatmentSize(shape)) {
-    return new THREE.EdgesGeometry(geometry, threshold);
+  const importedCache = shape.importedMesh && !preservesEdgeTreatmentSize(shape)
+    ? getImportedMeshCache(shape.importedMesh).edges
+    : null;
+  let cache = importedCache ?? sharedEdgesGeometryCache.get(geometry);
+  if (!cache) {
+    cache = new Map<number, THREE.EdgesGeometry>();
+    sharedEdgesGeometryCache.set(geometry, cache);
   }
 
-  const cache = getImportedMeshCache(shape.importedMesh);
-  const cached = cache.edges.get(threshold);
+  const cached = cache.get(threshold);
   if (cached) {
     return cached;
   }
 
-  const edges = new THREE.EdgesGeometry(cache.geometry, threshold);
+  const edges = new THREE.EdgesGeometry(geometry, threshold);
   edges.userData.cached = true;
-  cache.edges.set(threshold, edges);
+  cache.set(threshold, edges);
   return edges;
 }
 
@@ -5565,41 +6287,43 @@ function setComplexEdgeVisibility(object: THREE.Object3D, visible: boolean) {
   });
 }
 
-function addTextShape(group: THREE.Group, material: THREE.MeshStandardMaterial, shape: WorkplaneShape) {
-  const text = (shape.text ?? "TEXT").trim() || " ";
-  const bevel = clamp(shape.bevel ?? 0, 0, 8);
-  const fontName = shape.font ?? "Multilanguage";
-  const geometry = new TextGeometry(text, {
-    font: textFonts[fontName] ?? textFonts.Multilanguage,
-    size: 20,
-    depth: shape.height,
-    curveSegments: fontName === "Stencil" ? 1 : 8,
-    bevelEnabled: bevel > 0,
-    bevelThickness: bevel * 0.22,
-    bevelSize: bevel * 0.16,
-    bevelSegments: Math.max(1, shape.segments ?? 0),
+function addTextShape(group: THREE.Group, material: THREE.MeshStandardMaterial, shape: WorkplaneShape, geometryCacheKey: string) {
+  const geometry = sharedShapeGeometry(geometryCacheKey, () => {
+    const text = (shape.text ?? "TEXT").trim() || " ";
+    const bevel = clamp(shape.bevel ?? 0, 0, 8);
+    const fontName = shape.font ?? "Multilanguage";
+    const next = new TextGeometry(text, {
+      font: textFonts[fontName] ?? textFonts.Multilanguage,
+      size: 20,
+      depth: shape.height,
+      curveSegments: fontName === "Stencil" ? 1 : 8,
+      bevelEnabled: bevel > 0,
+      bevelThickness: bevel * 0.22,
+      bevelSize: bevel * 0.16,
+      bevelSegments: Math.max(1, shape.segments ?? 0),
+    });
+
+    next.computeBoundingBox();
+    const box = next.boundingBox;
+    if (box) {
+      const textWidth = Math.max(1, box.max.x - box.min.x);
+      const textDepth = Math.max(1, box.max.y - box.min.y);
+      const scale = Math.min(shapeWidth(shape) / textWidth, shapeDepth(shape) / textDepth);
+      next.scale(scale, scale, 1);
+    }
+
+    next.rotateX(-Math.PI / 2);
+    next.computeBoundingBox();
+    const rotatedBox = next.boundingBox;
+    if (rotatedBox) {
+      next.translate(
+        -(rotatedBox.min.x + rotatedBox.max.x) / 2,
+        -rotatedBox.min.y,
+        -(rotatedBox.min.z + rotatedBox.max.z) / 2,
+      );
+    }
+    return next;
   });
-
-  geometry.computeBoundingBox();
-  const box = geometry.boundingBox;
-  if (box) {
-    const textWidth = Math.max(1, box.max.x - box.min.x);
-    const textDepth = Math.max(1, box.max.y - box.min.y);
-    const scale = Math.min(shapeWidth(shape) / textWidth, shapeDepth(shape) / textDepth);
-    geometry.scale(scale, scale, 1);
-  }
-
-  geometry.rotateX(-Math.PI / 2);
-  geometry.computeBoundingBox();
-  const rotatedBox = geometry.boundingBox;
-  if (rotatedBox) {
-    geometry.translate(
-      -(rotatedBox.min.x + rotatedBox.max.x) / 2,
-      -rotatedBox.min.y,
-      -(rotatedBox.min.z + rotatedBox.max.z) / 2,
-    );
-  }
-
   addMesh(group, geometry, material, shape);
 }
 
@@ -5817,19 +6541,19 @@ function disposeObject(object: THREE.Object3D) {
   object.traverse((child) => {
     const mesh = child as THREE.Mesh | THREE.LineSegments;
     if ("geometry" in mesh && mesh.geometry) {
+      releaseSharedShapeGeometry(mesh);
       if (!mesh.geometry.userData.cached) {
+        if ((mesh.geometry as THREE.BufferGeometry & { boundsTree?: unknown }).boundsTree) {
+          disposeBoundsTree.call(mesh.geometry);
+        }
         mesh.geometry.dispose();
       }
     }
     if ("material" in mesh && mesh.material) {
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      materials.forEach((material) => {
-        const map = "map" in material ? (material.map as THREE.Texture | null) : null;
-        if (map) {
-          map.dispose();
-        }
-        material.dispose();
-      });
+      releaseSharedShapeMaterials(mesh);
+      materials.forEach(disposeMaterialResource);
+      trimSharedShapeMaterialCache();
     }
   });
 }
