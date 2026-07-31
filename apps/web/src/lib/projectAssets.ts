@@ -1,5 +1,7 @@
 import type { ProjectAsset, ProjectAssetSourceFormat, WorkplaneShape } from "@/types/sketchforge";
 
+export const MAX_PROJECT_ASSET_BYTES = 256 * 1024 * 1024;
+
 function exactArrayBuffer(bytes: Uint8Array) {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
@@ -111,7 +113,7 @@ export async function sha256Hex(bytes: Uint8Array) {
 
 export function sourceFormatForFileName(fileName: string): ProjectAssetSourceFormat | null {
   const extension = fileName.split(".").pop()?.toLowerCase();
-  if (extension === "stl" || extension === "obj" || extension === "svg") return extension;
+  if (extension === "stl" || extension === "3mf" || extension === "obj" || extension === "svg") return extension;
   if (extension === "step" || extension === "stp") return "step";
   return null;
 }
@@ -119,6 +121,7 @@ export function sourceFormatForFileName(fileName: string): ProjectAssetSourceFor
 export function defaultMediaTypeForSource(format: ProjectAssetSourceFormat) {
   if (format === "svg") return "image/svg+xml";
   if (format === "step") return "application/step";
+  if (format === "3mf") return "model/3mf";
   if (format === "obj") return "model/obj";
   return "model/stl";
 }

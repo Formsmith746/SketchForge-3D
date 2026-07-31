@@ -42,8 +42,8 @@ No login. No server project storage. No heavyweight CAD install just to make a u
 - **Boolean Intersection** - keep only the geometry where selected solid and hole shapes overlap.
 - **Reversible edge tools** - chamfer and fillet selected CAD edges, with history controls for removing applied edge features.
 - **Rotated solid edge treatment** - chamfer and fillet preserve analytic box topology after one-, two-, or three-axis rotations.
-- **STL import** - bring outside models into the same workspace as primitives.
-- **STL, OBJ, and STEP workflows** - export selected objects or the whole scene, and round-trip exact STEP/B-Rep geometry.
+- **3MF, STL, STEP, and SVG import** - bring outside models and vector profiles into the same workspace as primitives.
+- **3MF, STL, OBJ, STEP, and SVG workflows** - export selected objects or the whole scene, including print-ready 3MF packages and exact STEP/B-Rep geometry.
 - **Fast browser stack** - Next.js, React, TypeScript, Three.js, and Manifold/CSG geometry tooling.
 
 ## Demo

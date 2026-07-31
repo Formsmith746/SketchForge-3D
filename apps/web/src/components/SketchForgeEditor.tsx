@@ -103,7 +103,7 @@ import {
   type ConstructionPlanePose,
   type PrincipalPlane,
 } from "@/lib/constructionPlanes";
-import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
+import { attachProjectAsset, dedupeProjectAssets, MAX_PROJECT_ASSET_BYTES, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
 import { findSketchOutlineIntersection } from "@/lib/sketchProfileValidation";
 import { cadSketchProfileForRegions, cadSketchRegions, cadSketchSelectableRegions, selectedCadSketchRegions } from "@/lib/sketchCadProfile";
 import { sketchDimensionAnchorKey, sketchDistanceDimensionValue } from "@/lib/sketchDimensions";
@@ -111,6 +111,7 @@ import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketc
 import { exportSkfProject, SKF_MEDIA_TYPE } from "@/lib/skfProject";
 import { makeShapeFromAsset, sceneShape, toolbarShapeAssets, type ToolbarShapeAsset } from "@/lib/shapeCatalog";
 import { importedShapeFromStl, importExtensionSupported } from "@/lib/stlImport";
+import { exportMeshesTo3mf, importedShapeFrom3mf } from "@/lib/threeMf";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
 import { normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
@@ -127,10 +128,10 @@ import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 import { appColorModeForThemePreset, customThemeWithDefaults, defaultThemes, THEME_PRESET_OPTIONS, type AppTheme } from "@/lib/themes";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, SketchDimensionAnchor, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
-export { importedShapeFromStl, importedShapeFromSvg };
+export { importedShapeFrom3mf, importedShapeFromStl, importedShapeFromSvg };
 
 type TopPanel = "import" | "export" | "tips" | "profile" | "settings" | null;
-type ExportFormat = "stl" | "obj" | "step" | "svg" | "skf";
+type ExportFormat = "stl" | "3mf" | "obj" | "step" | "svg" | "skf";
 type DirectExportFormat = Exclude<ExportFormat, "step" | "skf">;
 type SkfHistoryLimit = EditorHistoryExportLimit;
 type SkfExportTarget = "download" | "shared";
@@ -9069,6 +9070,17 @@ export function SketchForgeEditor({
       return;
     }
     const meshes = exportable.map(meshForShape);
+    if (format === "3mf") {
+      void Promise.resolve()
+        .then(() => {
+          const bytes = exportMeshesTo3mf(exportable.map((shape, index) => ({ ...meshes[index], color: shape.color })), exportName.trim() || projectName);
+          const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+          return downloadBlobFile(projectExportFileName(exportName, "3mf"), new Blob([buffer], { type: "model/3mf" }));
+        })
+        .then((result) => finishNotice("3MF", result))
+        .catch((error: unknown) => failNotice("3MF", error));
+      return;
+    }
     if (format === "stl") {
       void downloadTextFile(projectExportFileName(exportName, "stl"), toStl(meshes), "model/stl")
         .then((result) => finishNotice("STL", result))
@@ -9206,7 +9218,7 @@ export function SketchForgeEditor({
     const projectFiles = files.filter((file) => /\.skf$/i.test(file.name));
     if (projectFiles.length) {
       if (files.length !== 1) {
-        setNotice("Open one .skf project at a time; import STL, STEP, and SVG geometry separately");
+        setNotice("Open one .skf project at a time; import 3MF, STL, STEP, and SVG geometry separately");
         return;
       }
       if (!onOpenSkfProjectFile) {
@@ -9231,24 +9243,31 @@ export function SketchForgeEditor({
         return;
       }
 
-      const sourceFormat = sourceFormatForFileName(file.name) ?? (file.type === "image/svg+xml" ? "svg" : null);
+      const sourceFormat = sourceFormatForFileName(file.name) ?? (file.type === "model/3mf" ? "3mf" : file.type === "image/svg+xml" ? "svg" : null);
+      const isThreeMf = sourceFormat === "3mf";
       const isStep = sourceFormat === "step";
       const isSvg = sourceFormat === "svg";
-      if (!sourceFormat || sourceFormat === "obj" || (!isStep && !isSvg && !importExtensionSupported(file.name))) {
+      if (!sourceFormat || sourceFormat === "obj" || (!isThreeMf && !isStep && !isSvg && !importExtensionSupported(file.name))) {
         failures.push({ fileName: file.name, reason: "Unsupported file type" });
+        continue;
+      }
+      if (isThreeMf && file.size > MAX_PROJECT_ASSET_BYTES) {
+        failures.push({ fileName: file.name, reason: "3MF file exceeds the 256 MB archive limit" });
         continue;
       }
 
       setNotice(`Importing ${index + 1} of ${files.length}: ${file.name}${isStep ? "… first STEP import loads the OpenCascade kernel (~22 MB)" : ""}`);
       try {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+        const buffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
         let nextShape: WorkplaneShape;
         if (isStep) {
           const { importedShapeFromStep } = await import("@/lib/stepImport");
           nextShape = await importedShapeFromStep(file.name, buffer);
         } else if (isSvg) {
           nextShape = importedShapeFromSvg(file.name, new TextDecoder().decode(bytes));
+        } else if (isThreeMf) {
+          nextShape = importedShapeFrom3mf(file.name, buffer);
         } else {
           nextShape = importedShapeFromStl(file.name, buffer);
         }
@@ -9914,7 +9933,7 @@ export function SketchForgeEditor({
         className="hidden-file-input"
         type="file"
         multiple
-        accept=".stl,.step,.stp,.svg,image/svg+xml"
+        accept=".3mf,.stl,.step,.stp,.svg,model/3mf,image/svg+xml"
         onChange={(event) => {
           if (event.currentTarget.files) {
             selectFiles(event.currentTarget.files);
@@ -10749,6 +10768,11 @@ function TopActionPanel({
       description: "3D print mesh",
       note: "Best for slicers and 3D printing. Geometry is exported as a triangulated mesh.",
     },
+    "3mf": {
+      label: "3MF",
+      description: "3D print package",
+      note: "A modern 3D printing format with millimeter units, object names, and display colors.",
+    },
     obj: {
       label: "OBJ",
       description: "Universal 3D mesh",
@@ -10816,7 +10840,7 @@ function TopActionPanel({
             }}
           >
             <ToolbarImportIcon />
-            <strong>Drop STL, STEP, or SVG files</strong>
+            <strong>Drop 3MF, STL, STEP, or SVG files</strong>
             <span>or click to choose from your computer</span>
           </button>
         </div>
@@ -10850,7 +10874,7 @@ function TopActionPanel({
               <span className="export-scope-badge">{exportFormat === "skf" ? "Full project" : `${shapeCount} ${scopeLabel}`}</span>
             </div>
             <div className="export-format-slider" data-format={exportFormat} role="radiogroup" aria-label="Export format">
-              {(["stl", "obj", "step", "svg", "skf"] as const).map((format) => (
+              {(["stl", "3mf", "obj", "step", "svg", "skf"] as const).map((format) => (
                 <button
                   key={format}
                   type="button"

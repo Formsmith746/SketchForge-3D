@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { importExtensionSupported } from "@/lib/stlImport";
 
 describe("importExtensionSupported", () => {
-  it("accepts STL and SVG imports", () => {
+  it("accepts 3MF, STL, and SVG imports", () => {
+    expect(importExtensionSupported("assembly.3mf")).toBe(true);
+    expect(importExtensionSupported("ASSEMBLY.3MF")).toBe(true);
     expect(importExtensionSupported("part.stl")).toBe(true);
     expect(importExtensionSupported("logo.svg")).toBe(true);
     expect(importExtensionSupported("profile.SVG")).toBe(true);

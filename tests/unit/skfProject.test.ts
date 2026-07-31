@@ -318,7 +318,7 @@ describe("SketchForge .skf project packages", () => {
     expect(restored.shapes[0].importedMesh?.assetId).toBe(restored.assets[0].id);
   });
 
-  it.each(["svg", "step"] as const)("stores and restores original %s sources", async (sourceFormat) => {
+  it.each(["3mf", "svg", "step"] as const)("stores and restores original %s sources", async (sourceFormat) => {
     const asset = await projectAssetFromBytes(`source.${sourceFormat}`, sourceFormat, strToU8(`${sourceFormat} source`));
     const importedMesh: NonNullable<WorkplaneShape["importedMesh"]> = {
       positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],

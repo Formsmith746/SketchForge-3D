@@ -2662,7 +2662,7 @@ button {
 .export-format-slider {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   height: 38px;
   padding: 3px;
   overflow: hidden;
@@ -2676,7 +2676,7 @@ button {
   top: 3px;
   bottom: 3px;
   left: 3px;
-  width: calc((100% - 6px) / 5);
+  width: calc((100% - 6px) / 6);
   content: "";
   background: #fff;
   border: 1px solid #a9dce9;
@@ -2685,20 +2685,24 @@ button {
   transition: transform 180ms ease;
 }
 
-.export-format-slider[data-format="obj"]::before {
+.export-format-slider[data-format="3mf"]::before {
   transform: translateX(100%);
 }
 
-.export-format-slider[data-format="step"]::before {
+.export-format-slider[data-format="obj"]::before {
   transform: translateX(200%);
 }
 
-.export-format-slider[data-format="svg"]::before {
+.export-format-slider[data-format="step"]::before {
   transform: translateX(300%);
 }
 
-.export-format-slider[data-format="skf"]::before {
+.export-format-slider[data-format="svg"]::before {
   transform: translateX(400%);
+}
+
+.export-format-slider[data-format="skf"]::before {
+  transform: translateX(500%);
 }
 
 .export-format-slider button {

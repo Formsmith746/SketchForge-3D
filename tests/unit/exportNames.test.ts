@@ -4,6 +4,7 @@ import { projectExportFileName } from "@/lib/exportNames";
 describe("project export filenames", () => {
   it("uses the project name for each supported export format", () => {
     expect(projectExportFileName("Gearbox Prototype", "stl")).toBe("Gearbox Prototype.stl");
+    expect(projectExportFileName("Gearbox Prototype", "3mf")).toBe("Gearbox Prototype.3mf");
     expect(projectExportFileName("Gearbox Prototype", "obj")).toBe("Gearbox Prototype.obj");
     expect(projectExportFileName("Gearbox Prototype", "step")).toBe("Gearbox Prototype.step");
     expect(projectExportFileName("Gearbox Prototype", "svg")).toBe("Gearbox Prototype.svg");

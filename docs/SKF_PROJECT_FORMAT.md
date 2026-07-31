@@ -1,6 +1,6 @@
 # SketchForge project files (`.skf`)
 
-`.skf` is SketchForge's native, editable project format. It is an additional backup, transfer, and sharing mechanism; IndexedDB autosave remains the normal local persistence system, and STL, OBJ, STEP, and SVG remain geometry exports.
+`.skf` is SketchForge's native, editable project format. It is an additional backup, transfer, and sharing mechanism; IndexedDB autosave remains the normal local persistence system, and 3MF, STL, OBJ, STEP, and SVG remain geometry exports.
 
 ## Architecture decision
 
@@ -14,7 +14,7 @@ This was selected over pure JSON because imported STL/STEP data and exact B-Rep 
 project.skf
 ├── project.json
 └── assets/
-    ├── source/          Original imported STL, SVG, or STEP files
+    ├── source/          Original imported 3MF, STL, SVG, or STEP files
     ├── derived-mesh/    Exact caches for baked operations or legacy imports
     ├── brep/            Exact STEP/B-Rep payloads
     └── image/           Deduplicated sketch/reference images
@@ -42,12 +42,12 @@ Object nodes keep stable SketchForge object IDs. Groups refer to child node IDs 
 - Position, rotation, dimensions, mirrors, colour, solid/hole role, visibility, and lock state
 - Nested groups, boolean operands, subtraction results, and intersection metadata
 - Sketch points, lines, Bezier/smooth handles, disjoint profiles, reference images, and extrusion depth
-- Imported STL, SVG, and STEP sources, stored once and reused by instances
+- Imported 3MF, STL, SVG, and STEP sources, stored once and reused by instances
 - Exact imported STEP data, current exact CAD B-Rep, display edges, chamfer/fillet settings, and reversible edge-treatment history
 - Undo and redo states according to the export choice: Unlimited, 100, 50, or 30 recent actions. Unlimited means every state still retained by the editor, including available redo states.
 - Workspace units, grid/snap settings, dimensions, and active offset workplane
 
-Native primitives are regenerated from definitions and do not receive mesh assets. Source-backed STL, SVG, and STEP objects are regenerated from their original asset. Derived mesh assets are written only when the current editor has genuinely baked geometry (for example a boolean or edge treatment), or when an older local project no longer has its original imported source.
+Native primitives are regenerated from definitions and do not receive mesh assets. Source-backed 3MF, STL, SVG, and STEP objects are regenerated from their original asset. Derived mesh assets are written only when the current editor has genuinely baked geometry (for example a boolean or edge treatment), or when an older local project no longer has its original imported source.
 
 ## Opening safely
 

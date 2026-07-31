@@ -6,7 +6,7 @@ import { SketchForgeEditor, importedShapeFromStl, importedShapeFromSvg } from "@
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { createLocalId } from "@/lib/localIds";
-import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
+import { attachProjectAsset, dedupeProjectAssets, MAX_PROJECT_ASSET_BYTES, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
 import { hydrateProjectShapeState, type ImportedMeshResource } from "@/lib/projectShapePersistence";
 import { exportSkfProject, importSkfProject, SKF_CREATED_WITH_VERSION } from "@/lib/skfProject";
 import { importExtensionSupported } from "@/lib/stlImport";
@@ -959,7 +959,7 @@ export default function Home() {
       const projectFiles = files.filter((file) => /\.skf$/i.test(file.name));
       if (projectFiles.length) {
         if (files.length !== 1) {
-          setDashboardNotice("Open one .skf project at a time; import STL, STEP, and SVG geometry separately");
+          setDashboardNotice("Open one .skf project at a time; import 3MF, STL, STEP, and SVG geometry separately");
           return;
         }
         await openSkfProjectFromFile(projectFiles[0]);
@@ -972,20 +972,27 @@ export default function Home() {
 
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
-        const sourceFormat = sourceFormatForFileName(file.name) ?? (file.type === "image/svg+xml" ? "svg" : null);
+        const sourceFormat = sourceFormatForFileName(file.name) ?? (file.type === "model/3mf" ? "3mf" : file.type === "image/svg+xml" ? "svg" : null);
+        const isThreeMf = sourceFormat === "3mf";
         const isSvg = sourceFormat === "svg";
         const isStep = sourceFormat === "step";
-        if (!sourceFormat || sourceFormat === "obj" || (!isSvg && !isStep && !importExtensionSupported(file.name))) {
+        if (!sourceFormat || sourceFormat === "obj" || (!isThreeMf && !isSvg && !isStep && !importExtensionSupported(file.name))) {
           failures.push({ fileName: file.name, reason: "Unsupported file type" });
+          continue;
+        }
+        if (isThreeMf && file.size > MAX_PROJECT_ASSET_BYTES) {
+          failures.push({ fileName: file.name, reason: "3MF file exceeds the 256 MB archive limit" });
           continue;
         }
 
         setDashboardNotice(`Importing ${index + 1} of ${files.length}: ${file.name}`);
         try {
-          const bytes = new Uint8Array(await file.arrayBuffer());
-          const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+          const buffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
           const parsedShape = isStep
             ? await import("@/lib/stepImport").then(({ importedShapeFromStep }) => importedShapeFromStep(file.name, buffer))
+            : isThreeMf
+              ? await import("@/lib/threeMf").then(({ importedShapeFrom3mf }) => importedShapeFrom3mf(file.name, buffer))
             : isSvg
               ? importedShapeFromSvg(file.name, new TextDecoder().decode(bytes))
               : importedShapeFromStl(file.name, buffer);
@@ -1114,7 +1121,7 @@ export default function Home() {
         className="hidden-file-input"
         type="file"
         multiple
-        accept=".skf,.stl,.step,.stp,.svg,image/svg+xml"
+        accept=".skf,.3mf,.stl,.step,.stp,.svg,model/3mf,image/svg+xml"
         onChange={(event) => {
           const files = event.currentTarget.files ? Array.from(event.currentTarget.files) : [];
           if (files.length) {

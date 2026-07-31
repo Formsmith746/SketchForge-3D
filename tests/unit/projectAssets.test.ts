@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sha256Hex } from "@/lib/projectAssets";
+import { defaultMediaTypeForSource, sha256Hex, sourceFormatForFileName } from "@/lib/projectAssets";
 
 const utf8 = new TextEncoder();
 
@@ -24,5 +24,12 @@ describe("project asset hashing", () => {
     const expected = createHash("sha256").update(bytes).digest("hex");
     vi.stubGlobal("crypto", {});
     await expect(sha256Hex(bytes)).resolves.toBe(expected);
+  });
+});
+
+describe("project asset formats", () => {
+  it("recognizes 3MF files and their media type", () => {
+    expect(sourceFormatForFileName("printer-part.3MF")).toBe("3mf");
+    expect(defaultMediaTypeForSource("3mf")).toBe("model/3mf");
   });
 });

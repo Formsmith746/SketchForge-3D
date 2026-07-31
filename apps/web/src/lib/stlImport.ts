@@ -4,7 +4,7 @@ import { createLocalId } from "@/lib/localIds";
 import type { WorkplaneShape } from "@/types/sketchforge";
 
 const stlLoader = new STLLoader();
-const SUPPORTED_IMPORT_EXTENSIONS = new Set(["stl", "svg"]);
+const SUPPORTED_IMPORT_EXTENSIONS = new Set(["stl", "svg", "3mf"]);
 
 function fileExtension(fileName: string) {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
@@ -26,8 +26,9 @@ export function importedShapeFromTriangleSoup(
   geometry.computeBoundingBox();
 
   const box = geometry.boundingBox;
+  const formatLabel = sourceFormat.toUpperCase();
   if (!box) {
-    throw new Error("STL has no readable geometry");
+    throw new Error(`${formatLabel} has no readable geometry`);
   }
 
   const size = new THREE.Vector3();
@@ -37,7 +38,7 @@ export function importedShapeFromTriangleSoup(
 
   const maxDimension = Math.max(size.x, size.y, size.z);
   if (!Number.isFinite(maxDimension) || maxDimension <= 0) {
-    throw new Error("STL geometry is empty");
+    throw new Error(`${formatLabel} geometry is empty`);
   }
 
   const scale = 1;
