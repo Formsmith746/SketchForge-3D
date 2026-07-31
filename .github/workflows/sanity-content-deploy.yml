@@ -1,0 +1,44 @@
+name: Deploy Sanity content
+
+on:
+  repository_dispatch:
+    types:
+      - sanity-content-change
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sketchforge-production-content
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Rebuild and deploy SketchForge
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout production source
+        uses: actions/checkout@v4
+        with:
+          ref: production-static
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static website with current Sanity content
+        run: npm run export
+
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy -c wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
