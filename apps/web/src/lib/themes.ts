@@ -46,7 +46,63 @@ export type AppTheme = {
   viewport: ThemeViewport;
 };
 
+export const THEME_PRESET_OPTIONS = [
+  { value: "sketchforge", label: "SketchForge (Current)" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "solidworks", label: "SolidWorks" },
+  { value: "inventor", label: "Inventor" },
+  { value: "custom", label: "Custom" },
+] as const;
+
+export function appColorModeForThemePreset(themeId: string): "light" | "dark" {
+  return themeId === "sketchforge" ? "dark" : "light";
+}
+
 export const defaultThemes: Record<string, AppTheme> = {
+  sketchforge: {
+    id: "sketchforge",
+    name: "SketchForge",
+    ui: {
+      background: "#101820",
+      foreground: "#d8e6f1",
+      topbar: "#0e69f1",
+      subbar: "#1b2732",
+      panel: "#17232d",
+      tile: "#1b2833",
+      tileHover: "#223341",
+      border: "#304250",
+      borderStrong: "#405665",
+      muted: "#52697a",
+      mutedStrong: "#7890a1",
+      primary: "#0e69f1",
+      activeTab: "#0e69f1",
+      navText: "#d1e0eb",
+      workplane: "#65c9df",
+      workplaneSoft: "rgba(101, 201, 223, 0.24)",
+      shadow: "0 3px 12px rgba(0, 0, 0, 0.32)",
+    },
+    viewport: {
+      background: "#101820",
+      gridMinor: "#397080",
+      gridMajor: "#4d9caf",
+      gridAxis: "#65c9df",
+      gridBorder: "#59b8cc",
+      textPrimary: "#d8e6f1",
+      textSecondary: "#9eb1c0",
+      handleDefault: "#00aeea",
+      handleHover: "#ffbf45",
+      handleActive: "#ff8a1d",
+      handleHoverAlt: "#84edff",
+      handleActiveAlt: "#17b7e5",
+      handleMaterial: "#d5e2e9",
+      darkMaterial: "#17232d",
+      dashMaterial: "#c7d8e4",
+      hole: "#405665",
+      holeEdge: "#7890a1",
+      complexEdge: "#e1edf5",
+    },
+  },
   light: {
     id: "light",
     name: "Light",

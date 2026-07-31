@@ -1,6 +1,6 @@
 import type { GridSize, HistoryRetentionLimit, MeasurementAccuracy, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 import { normalizeScaleForUnits } from "@/lib/measurementUnits";
-import type { AppTheme } from "@/lib/themes";
+import { defaultThemes, type AppTheme } from "@/lib/themes";
 import { DEFAULT_WORKPLANE_GRID_COLOR } from "@/lib/workplaneGrid";
 
 export const DEFAULT_SNAP_GRID: GridSize = "1.0 mm";
@@ -65,7 +65,7 @@ function themeOrDefault(value: unknown, fallback: AppTheme | undefined): AppThem
   return value as AppTheme;
 }
 
-const VALID_THEME_IDS = new Set(["light", "dark", "solidworks", "inventor", "custom"]);
+const VALID_THEME_IDS = new Set([...Object.keys(defaultThemes), "custom"]);
 
 export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWorkspaceSettings = DEFAULT_WORKPLANE_WORKSPACE): WorkplaneWorkspaceSettings {
   const candidate = value && typeof value === "object" ? (value as Partial<WorkplaneWorkspaceSettings>) : {};

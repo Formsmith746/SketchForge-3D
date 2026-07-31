@@ -4,10 +4,9 @@ import { ChevronDown, Grid3X3, History, Palette, RotateCcw, Ruler, X } from "luc
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
-import { APP_THEME_OPTIONS, type AppThemePreference } from "@/lib/appTheme";
 import { normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
-import { customThemeWithDefaults } from "@/lib/themes";
+import { customThemeWithDefaults, THEME_PRESET_OPTIONS } from "@/lib/themes";
 import type { GridSize, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
@@ -92,19 +91,15 @@ function isHistoryLimitPreset(value: unknown): value is 30 | 50 | 100 {
 export function WorkspaceSettingsModal({
   workspace,
   snap,
-  themePreference,
   onWorkspaceChange,
   onSnapChange,
-  onThemePreferenceChange,
   onMakeDefault,
   onClose,
 }: {
   workspace: WorkspaceSettings;
   snap: GridSize;
-  themePreference: AppThemePreference;
   onWorkspaceChange: (next: WorkspaceSettings) => void;
   onSnapChange: (next: GridSize) => void;
-  onThemePreferenceChange?: (preference: AppThemePreference) => void;
   onMakeDefault: () => void;
   onClose: () => void;
 }) {
@@ -226,19 +221,21 @@ export function WorkspaceSettingsModal({
                     <span>Adjust the canvas, theme, and navigation behavior.</span>
                   </div>
                   <div className="workspace-row">
-                    <span>Theme</span>
+                    <span>Theme preset</span>
                     <select
                       value={workspace.themeId || "light"}
-                      onChange={(event) => patchWorkspace({ themeId: event.target.value })}
+                      onChange={(event) => {
+                        const themeId = event.currentTarget.value;
+                        patchWorkspace({ themeId });
+                      }}
                       style={{ padding: "4px 8px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--tile)", color: "var(--foreground)", fontSize: "13px" }}
                     >
-                      <option value="light">Light</option>
-                      <option value="dark">Dark</option>
-                      <option value="solidworks">SolidWorks</option>
-                      <option value="inventor">Inventor</option>
-                      <option value="custom">Custom</option>
+                      {THEME_PRESET_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select>
                   </div>
+                  <p className="workspace-global-note">The selected preset is saved for this project and becomes the default for new projects.</p>
                   {workspace.themeId === "custom" && (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignContent: "start", gap: "10px", height: "400px", maxHeight: "45vh", overflowY: "auto", padding: "16px", background: "var(--tile)", borderRadius: "8px", border: "2px solid var(--primary)" }}>
                       <p style={{ gridColumn: "1 / -1", fontWeight: 600, margin: "0 0 8px 0", fontSize: "13px", color: "var(--foreground)" }}>UI Colors</p>
@@ -310,20 +307,6 @@ export function WorkspaceSettingsModal({
                       </label>
                     </div>
                   </div>
-                  <label className="workspace-select">
-                    <span>Theme</span>
-                    <select
-                      value={themePreference}
-                      onChange={(event) => onThemePreferenceChange?.(event.currentTarget.value as AppThemePreference)}
-                    >
-                      {APP_THEME_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <p className="workspace-global-note">Theme applies across SketchForge and all projects.</p>
                   <WorkspaceToggle label="Show shadows" checked={workspace.showShadows} onChange={(showShadows) => patchWorkspace({ showShadows })} />
                   <WorkspaceToggle
                     label="Cruise when adding new shapes"

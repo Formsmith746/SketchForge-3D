@@ -1187,7 +1187,6 @@ export default function Home() {
             projectModifiedAt={activeProject?.updatedAt}
             projectRevision={activeProjectShapeEntry?.revision ?? activeProject?.revision ?? 0}
             sharedProjectsEnabled={sharedProjectsEnabled}
-            themePreference={themePreference}
             resolvedTheme={resolvedTheme}
             onThemePreferenceChange={setThemePreference}
           />

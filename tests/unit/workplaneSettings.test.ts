@@ -60,6 +60,8 @@ describe("workplane settings helpers", () => {
     expect(normalizeWorkspaceSettings({ historyLimit: 9000 }).historyLimit).toBe(5000);
     expect(normalizeWorkspaceSettings({ historyLimit: "invalid" }).historyLimit).toBe("unlimited");
     expect(normalizeWorkspaceSettings({ gridColor: "not-a-color" }).gridColor).toBe(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
+    expect(normalizeWorkspaceSettings({ themeId: "sketchforge" }).themeId).toBe("sketchforge");
+    expect(normalizeWorkspaceSettings({ themeId: "unknown" }).themeId).toBe(DEFAULT_WORKPLANE_WORKSPACE.themeId);
   });
 
   it("keeps scale options in the selected unit family", () => {
