@@ -18,7 +18,7 @@ import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
 import { ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
 import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettingsModal";
-import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
+import type { ResolvedAppTheme } from "@/lib/appTheme";
 import { createGearGeometry } from "@/lib/gearGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint, workspaceHydrationRequired, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
@@ -188,9 +188,7 @@ type WorkplaneViewportProps = {
   modifierEdges?: CadModifierEdge[];
   selectedModifierEdgeIds?: number[];
   onModifierEdgeToggle?: (id: number, singleEdge: boolean) => void;
-  themePreference?: AppThemePreference;
   resolvedTheme?: ResolvedAppTheme;
-  onThemePreferenceChange?: (preference: AppThemePreference) => void;
 };
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
@@ -1778,9 +1776,7 @@ export function WorkplaneViewport({
   modifierEdges = [],
   selectedModifierEdgeIds = [],
   onModifierEdgeToggle,
-  themePreference = "system",
   resolvedTheme = "light",
-  onThemePreferenceChange,
 }: WorkplaneViewportProps) {
   const [snapOpen, setSnapOpen] = useState(false);
   const [snap, setSnap] = useState<GridSize>(() => normalizeSnapGrid(initialSnap, DEFAULT_SNAP_GRID));
@@ -4119,10 +4115,8 @@ export function WorkplaneViewport({
         <WorkspaceSettingsModal
           workspace={workspace}
           snap={snap}
-          themePreference={themePreference}
           onWorkspaceChange={setWorkspace}
           onSnapChange={setSnap}
-          onThemePreferenceChange={onThemePreferenceChange}
           onMakeDefault={makeWorkspaceDefault}
           onClose={() => setSettingsOpen(false)}
         />

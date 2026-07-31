@@ -122,7 +122,7 @@ import {
 } from "@/lib/sketchforgeMcpProtocol";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
-import { customThemeWithDefaults, defaultThemes, type AppTheme } from "@/lib/themes";
+import { appColorModeForThemePreset, customThemeWithDefaults, defaultThemes, THEME_PRESET_OPTIONS, type AppTheme } from "@/lib/themes";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 export { importedShapeFromStl, importedShapeFromSvg };
@@ -5597,7 +5597,6 @@ export function SketchForgeEditor({
   projectModifiedAt = Date.now(),
   projectRevision = 0,
   sharedProjectsEnabled = false,
-  themePreference = "system",
   resolvedTheme = "light",
   onThemePreferenceChange,
 }: {
@@ -5631,7 +5630,6 @@ export function SketchForgeEditor({
   projectModifiedAt?: number;
   projectRevision?: number;
   sharedProjectsEnabled?: boolean;
-  themePreference?: AppThemePreference;
   resolvedTheme?: ResolvedAppTheme;
   onThemePreferenceChange?: (preference: AppThemePreference) => void;
 } = {}) {
@@ -5684,6 +5682,10 @@ export function SketchForgeEditor({
     }
     return defaultThemes[workspaceSettings.themeId || "light"] || defaultThemes.light;
   }, [workspaceSettings.themeId, workspaceSettings.customTheme]);
+
+  useEffect(() => {
+    onThemePreferenceChange?.(appColorModeForThemePreset(activeTheme.id));
+  }, [activeTheme.id, onThemePreferenceChange]);
 
   const themeStyles = useMemo(() => {
     const vars: Record<string, string> = {};
@@ -9700,9 +9702,7 @@ export function SketchForgeEditor({
           modifierEdges={edgeModifier?.edges.filter((edge) => modifierAvailableEdgeIds.includes(edge.id)) ?? []}
           selectedModifierEdgeIds={edgeModifier?.selectedEdgeIds ?? []}
           onModifierEdgeToggle={toggleModifierEdge}
-          themePreference={themePreference}
           resolvedTheme={resolvedTheme}
-          onThemePreferenceChange={onThemePreferenceChange}
           />
         )}
         {toolbarMode === "geometry" && constructionPlanePanelOpen ? (
@@ -9781,7 +9781,7 @@ export function SketchForgeEditor({
         <TopActionPanel
           panel={topPanel}
           workspace={workspaceSettings}
-          onWorkspaceChange={setWorkspaceSettings}
+          onWorkspaceChange={(workspace) => updateProjectWorkspaceSettings({ workspace, snap: snapGrid })}
           projectName={projectName}
           shapeCount={exportableShapeCount}
           scopeLabel={exportScopeLabel}
@@ -10845,18 +10845,19 @@ function TopActionPanel({
         <div className="top-action-body">
           <p>Workspace preferences</p>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", background: "var(--tile)", borderRadius: "6px" }}>
-            <label htmlFor="theme-select" style={{ fontSize: "14px", fontWeight: 600 }}>Theme:</label>
+            <label htmlFor="theme-select" style={{ fontSize: "14px", fontWeight: 600 }}>Theme preset:</label>
             <select
               id="theme-select"
               value={workspace.themeId || "light"}
-              onChange={(e) => onWorkspaceChange({ ...workspace, themeId: e.target.value })}
+              onChange={(event) => {
+                const themeId = event.currentTarget.value;
+                onWorkspaceChange({ ...workspace, themeId });
+              }}
               style={{ padding: "4px 8px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)" }}
             >
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="solidworks">SolidWorks</option>
-              <option value="inventor">Inventor</option>
-              <option value="custom">Custom</option>
+              {THEME_PRESET_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
           {workspace.themeId === "custom" && (
