@@ -3416,6 +3416,64 @@ button {
   pointer-events: none;
 }
 
+.sketch-profile-selection-status {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px 5px 10px;
+  color: #29465a;
+  background: rgba(250, 253, 255, 0.94);
+  border: 1px solid #b9ccd9;
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(24, 49, 67, 0.14);
+  font-size: 11px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.sketch-profile-selection-status .hint {
+  color: #688092;
+}
+
+.sketch-profile-selection-status button {
+  padding: 3px 7px;
+  color: #31566e;
+  background: #fff;
+  border: 1px solid #b7cad6;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.sketch-profile-selection-status button:hover {
+  color: #fff;
+  background: #087fae;
+  border-color: #087fae;
+}
+
+.sketch-dimension-status {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  z-index: 10;
+  padding: 6px 10px;
+  color: #31566e;
+  background: rgba(250, 253, 255, 0.94);
+  border: 1px solid #b9ccd9;
+  border-radius: 7px;
+  box-shadow: 0 3px 10px rgba(24, 49, 67, 0.12);
+  font-size: 11px;
+  font-weight: 750;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .sketch-revolve-preview {
   position: absolute;
   top: 18px;
@@ -3630,6 +3688,22 @@ button {
   fill: rgba(98, 148, 214, 0.2);
   fill-rule: evenodd;
   stroke: none;
+}
+
+.sketch-profile-fills path.selectable {
+  fill: rgba(86, 173, 211, 0.09);
+  cursor: pointer;
+  transition: fill 100ms ease;
+}
+
+.sketch-profile-fills path.selectable.selected {
+  fill: rgba(70, 156, 207, 0.24);
+}
+
+.sketch-profile-fills path.selectable:hover,
+.sketch-profile-fills path.selectable:focus-visible {
+  fill: rgba(59, 177, 219, 0.32);
+  outline: none;
 }
 
 .sketch-segments path {
@@ -3939,6 +4013,59 @@ button {
 .sketch-segment-dimensions.driving text {
   fill: #086954;
   font-weight: 800;
+}
+
+.sketch-distance-dimension > line {
+  stroke: #5b7f95;
+  stroke-width: 1.25;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.sketch-segment-dimensions .reference rect {
+  fill: #edf7fc;
+  stroke: #4892b5;
+}
+
+.sketch-segment-dimensions .reference text {
+  fill: #245f7b;
+  font-weight: 800;
+}
+
+.sketch-dimension-anchors {
+  cursor: crosshair;
+}
+
+.sketch-dimension-anchors .hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.sketch-dimension-anchors g > circle:not(.hit),
+.sketch-dimension-anchors g > rect {
+  fill: #f8fdff;
+  stroke: #148eb7;
+  stroke-width: 1.8;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.sketch-dimension-anchors g > line {
+  stroke: #148eb7;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.sketch-dimension-anchors g.active > circle:not(.hit),
+.sketch-dimension-anchors g.active > rect {
+  fill: #ffb24b;
+  stroke: #9d4d00;
+}
+
+.sketch-dimension-anchors g.active > line {
+  stroke: #9d4d00;
 }
 
 .sketch-measurement > line {
@@ -6987,6 +7114,17 @@ button {
     transform-origin: top left;
   }
 
+  .sketch-profile-selection-status .hint {
+    display: none;
+  }
+
+  .sketch-dimension-status {
+    width: max-content;
+    max-width: calc(100vw - 96px);
+    text-align: center;
+    white-space: normal;
+  }
+
   .workplane-plane {
     inset: 0;
   }
@@ -7480,6 +7618,29 @@ html[data-theme="dark"] .toolbar-workspace-tabs button.active {
 
 html[data-theme="dark"] .sketch-workspace-stage {
   background: #101820;
+}
+
+html[data-theme="dark"] .sketch-profile-selection-status {
+  color: #d3e4ee;
+  background: rgba(24, 38, 48, 0.95);
+  border-color: #465d6c;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.32);
+}
+
+html[data-theme="dark"] .sketch-profile-selection-status .hint {
+  color: #91a8b7;
+}
+
+html[data-theme="dark"] .sketch-profile-selection-status button {
+  color: #d4e7f1;
+  background: #263944;
+  border-color: #526c7b;
+}
+
+html[data-theme="dark"] .sketch-dimension-status {
+  color: #d3e4ee;
+  background: rgba(24, 38, 48, 0.95);
+  border-color: #465d6c;
 }
 
 html[data-theme="dark"] .sketch-plate-background {

@@ -176,9 +176,28 @@ export function transformSketchSelection(
     }
 
     for (const dimension of profile.dimensions ?? []) {
-      const segmentId = segmentIdMap.get(dimension.segmentId);
-      if (!segmentId) continue;
-      copiedDimensions.push({ ...dimension, id: createId("sketch-length"), segmentId });
+      if (dimension.kind === "length") {
+        const segmentId = segmentIdMap.get(dimension.segmentId);
+        if (!segmentId) continue;
+        copiedDimensions.push({ ...dimension, id: createId("sketch-length"), segmentId });
+        continue;
+      }
+      const remapAnchor = (anchor: typeof dimension.start): typeof dimension.start | null => {
+        if (anchor.kind === "point") {
+          const pointId = pointIdMap.get(anchor.pointId);
+          return pointId ? { kind: "point", pointId } : null;
+        }
+        if (anchor.kind === "midpoint") {
+          const segmentId = segmentIdMap.get(anchor.segmentId);
+          return segmentId ? { kind: "midpoint", segmentId } : null;
+        }
+        const firstSegmentId = segmentIdMap.get(anchor.firstSegmentId);
+        const secondSegmentId = segmentIdMap.get(anchor.secondSegmentId);
+        return firstSegmentId && secondSegmentId ? { ...anchor, firstSegmentId, secondSegmentId } : null;
+      };
+      const start = remapAnchor(dimension.start);
+      const end = remapAnchor(dimension.end);
+      if (start && end) copiedDimensions.push({ id: createId("sketch-distance"), kind: "distance", start, end });
     }
 
     for (const image of sourceImages) {

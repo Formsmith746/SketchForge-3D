@@ -40,10 +40,13 @@ describe("sketch constraints", () => {
   it("creates and updates a driving segment length", () => {
     const horizontal = setSketchSegmentConstraint(profile(), "ab", "horizontal", true, createId).profile;
     const dimensioned = setSketchSegmentLength(horizontal, "ab", 25, createId).profile;
+    const updated = setSketchSegmentLength(dimensioned, "ab", 30, createId).profile;
 
     expect(dimensioned.points[1]).toMatchObject({ x: 25, z: 0 });
     expect(dimensioned.dimensions).toEqual([{ id: "sketch-length-id", kind: "length", segmentId: "ab", value: 25 }]);
     expect(solveSketchProfile(dimensioned).conflicts).toEqual([]);
+    expect(updated.dimensions).toEqual([{ id: "sketch-length-id", kind: "length", segmentId: "ab", value: 30 }]);
+    expect(setSketchSegmentLength(updated, "ab", null, createId).profile.dimensions).toEqual([]);
   });
 
   it("preserves a fixed point while solving connected geometry", () => {

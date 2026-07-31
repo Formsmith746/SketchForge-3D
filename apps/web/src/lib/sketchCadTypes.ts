@@ -4,6 +4,7 @@ export type SketchCadBuildRequest = {
   type: "build";
   requestId: number;
   profile: SketchProfile;
+  regionIds?: string[];
   height: number;
 };
 
@@ -18,4 +19,3 @@ export type SketchCadBuildResponse =
       brep: string;
     }
   | { type: "error"; requestId: number; message: string };
-

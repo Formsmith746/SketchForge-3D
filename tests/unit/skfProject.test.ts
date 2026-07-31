@@ -147,6 +147,7 @@ describe("SketchForge .skf project packages", () => {
           { id: "s2", startId: "p2", endId: "p3", kind: "line" },
           { id: "s3", startId: "p3", endId: "p1", kind: "line" },
         ],
+        dimensions: [{ id: "distance-1", kind: "distance", start: { kind: "point", pointId: "p1" }, end: { kind: "midpoint", segmentId: "s2" } }],
         projections: [{ id: "projection-1", sourceShapeId: "source-shape", sourceName: "Source shape", sourceKind: "intersection" }],
       },
       sketchFeature: { kind: "extrusion" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Circle, CircleDot, CloudUpload, CopyPlus, Download, FolderOpen, Grid2X2, Hexagon, Pentagon, RotateCw, Route, ScanLine, Square, Type, X } from "lucide-react";
+import { Check, Circle, CircleDot, CloudUpload, CopyPlus, Download, FolderOpen, Grid2X2, Hexagon, Pentagon, RotateCw, Route, Ruler, ScanLine, Square, Type, X } from "lucide-react";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -105,6 +105,8 @@ import {
 } from "@/lib/constructionPlanes";
 import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
 import { findSketchOutlineIntersection } from "@/lib/sketchProfileValidation";
+import { cadSketchProfileForRegions, cadSketchRegions, cadSketchSelectableRegions, selectedCadSketchRegions } from "@/lib/sketchCadProfile";
+import { sketchDimensionAnchorKey, sketchDistanceDimensionValue } from "@/lib/sketchDimensions";
 import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketchRevolveSettings, type SketchRevolveMesh } from "@/lib/sketchRevolve";
 import { exportSkfProject, SKF_MEDIA_TYPE } from "@/lib/skfProject";
 import { makeShapeFromAsset, sceneShape, toolbarShapeAssets, type ToolbarShapeAsset } from "@/lib/shapeCatalog";
@@ -123,7 +125,7 @@ import {
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 import { appColorModeForThemePreset, customThemeWithDefaults, defaultThemes, THEME_PRESET_OPTIONS, type AppTheme } from "@/lib/themes";
-import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, SketchDimensionAnchor, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 export { importedShapeFromStl, importedShapeFromSvg };
 
@@ -265,7 +267,9 @@ function cloneSketchProfile(profile: SketchProfile): SketchProfile {
       dimensionLabelOffset: segment.dimensionLabelOffset ? { ...segment.dimensionLabelOffset } : undefined,
     })),
     constraints: (profile.constraints ?? []).map((constraint) => ({ ...constraint })),
-    dimensions: (profile.dimensions ?? []).map((dimension) => ({ ...dimension })),
+    dimensions: (profile.dimensions ?? []).map((dimension) => dimension.kind === "length"
+      ? { ...dimension }
+      : { ...dimension, start: { ...dimension.start }, end: { ...dimension.end } }),
     images: (profile.images ?? []).map((image) => ({ ...image })),
     texts: (profile.texts ?? []).map((text) => ({ ...text })),
     projections: (profile.projections ?? []).map((projection) => ({ ...projection })),
@@ -472,19 +476,6 @@ function withSmoothSketchHandles(profile: SketchProfile) {
   return next;
 }
 
-function pointInSketchPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]) {
-  let inside = false;
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
-    const currentPoint = polygon[index];
-    const previousPoint = polygon[previous];
-    const crosses = currentPoint.y > point.y !== previousPoint.y > point.y;
-    if (crosses && point.x < ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y)) / (previousPoint.y - currentPoint.y) + currentPoint.x) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
 async function shapeFromResolvedSketchProfile(
   profile: SketchProfile,
   polygons: Array<Array<[number, number]>>,
@@ -568,9 +559,13 @@ async function shapeFromResolvedSketchProfile(
   }
 }
 
-async function shapeFromSketchProfile(profile: SketchProfile, height: number, existing?: WorkplaneShape | null) {
-  const closedPaths = orderedSketchPaths(profile).filter((path) => path.closed);
-  if (closedPaths.length === 0) return null;
+async function shapeFromSketchProfile(profile: SketchProfile, height: number, existing?: WorkplaneShape | null, regionIds?: readonly string[]) {
+  const geometryProfile = cadSketchProfileForRegions(profile, regionIds);
+  const regions = selectedCadSketchRegions(profile, regionIds);
+  if (regions.length === 0) return null;
+  const closedPaths = [...new Map(
+    regions.flatMap((region) => [region.outer, ...region.holes]).map((path) => [path.id, path] as const),
+  ).values()];
   const profilePoints = closedPaths.flatMap((path) => path.points);
   const minX = Math.min(...profilePoints.map((point) => point.x));
   const maxX = Math.max(...profilePoints.map((point) => point.x));
@@ -604,10 +599,10 @@ async function shapeFromSketchProfile(profile: SketchProfile, height: number, ex
     });
     outline.closePath();
     const polygon = outline.extractPoints(16).shape;
-    return { outline, polygon, area: Math.abs(THREE.ShapeUtils.area(polygon)) };
+    return { id: path.id, outline, polygon };
   });
-  const hasCurves = profile.segments.some((segment) => segment.kind === "bezier" || segment.kind === "smooth");
-  const longestHandle = profile.points.reduce((longest, point) => Math.max(
+  const hasCurves = geometryProfile.segments.some((segment) => segment.kind === "bezier" || segment.kind === "smooth");
+  const longestHandle = geometryProfile.points.reduce((longest, point) => Math.max(
     longest,
     point.handleIn ? Math.hypot(point.handleIn.x - point.x, point.handleIn.z - point.z) : 0,
     point.handleOut ? Math.hypot(point.handleOut.x - point.x, point.handleOut.z - point.z) : 0,
@@ -625,17 +620,15 @@ async function shapeFromSketchProfile(profile: SketchProfile, height: number, ex
       existing,
     );
   }
-  const sortedOutlines = [...outlineRecords].sort((a, b) => b.area - a.area);
-  const outlines: THREE.Shape[] = [];
-  sortedOutlines.forEach((record) => {
-    const sample = record.polygon[0];
-    const parent = sample
-      ? sortedOutlines
-          .filter((candidate) => candidate !== record && candidate.area > record.area && pointInSketchPolygon(sample, candidate.polygon))
-          .sort((a, b) => a.area - b.area)[0]
-      : undefined;
-    if (parent) parent.outline.holes.push(record.outline);
-    else outlines.push(record.outline);
+  const outlineById = new Map(outlineRecords.map((record) => [record.id, record.outline]));
+  const outlines = regions.flatMap((region) => {
+    const outline = outlineById.get(region.outer.id);
+    if (!outline) return [];
+    outline.holes.push(...region.holes.flatMap((hole) => {
+      const holeOutline = outlineById.get(hole.id);
+      return holeOutline ? [holeOutline] : [];
+    }));
+    return [outline];
   });
   const geometry = new THREE.ExtrudeGeometry(outlines, { depth: safeHeight, bevelEnabled: false, steps: 1, curveSegments });
   geometry.rotateX(-Math.PI / 2);
@@ -835,7 +828,7 @@ function ensureSketchCadWorker(): Worker {
   return worker;
 }
 
-async function cadShapeFromSketchProfile(profile: SketchProfile, height: number, existing?: WorkplaneShape | null) {
+async function cadShapeFromSketchProfile(profile: SketchProfile, height: number, existing?: WorkplaneShape | null, regionIds?: readonly string[]) {
   const safeHeight = Math.max(MIN_SHAPE_DIMENSION, height);
   const worker = ensureSketchCadWorker();
   const requestId = ++sketchCadRequestId;
@@ -845,7 +838,7 @@ async function cadShapeFromSketchProfile(profile: SketchProfile, height: number,
       reject(new Error("OpenCascade timed out while building the sketch"));
     }, 30_000);
     sketchCadPending.set(requestId, { resolve, reject, timer });
-    worker.postMessage({ type: "build", requestId, profile: cloneSketchProfile(profile), height: safeHeight });
+    worker.postMessage({ type: "build", requestId, profile: cloneSketchProfile(profile), regionIds: regionIds ? [...regionIds] : undefined, height: safeHeight });
   });
   if (response.type === "error") throw new Error(response.message);
   const source = canonicalizeShape({
@@ -5747,6 +5740,7 @@ export function SketchForgeEditor({
   const sketchHistoryIndexRef = useRef(sketchHistoryIndex);
   const [sketchActivePointId, setSketchActivePointId] = useState<string | null>(null);
   const [sketchSelection, setSketchSelection] = useState<SketchSelection>(null);
+  const [sketchExtrusionRegionIds, setSketchExtrusionRegionIds] = useState<string[] | null>(null);
   const [sketchMeasureStart, setSketchMeasureStart] = useState<SketchPoint | null>(null);
   const [sketchMeasurement, setSketchMeasurement] = useState<SketchMeasurement>(null);
   const [sketchCircleDraft, setSketchCircleDraft] = useState<SketchCircleDraft | null>(null);
@@ -5775,6 +5769,28 @@ export function SketchForgeEditor({
   const cadModifierWorkerRestartRef = useRef<() => Worker | null>(() => null);
   const lastMcpErrorRef = useRef<string | null>(null);
   const executeMcpCommandRef = useRef<((command: SketchForgeMcpCommand) => Promise<unknown>) | null>(null);
+  const sketchCadRegions = useMemo(() => {
+    if (!sketchActive || sketchOperation !== "extrude") return [];
+    try {
+      return cadSketchSelectableRegions(sketchProfile);
+    } catch {
+      return [];
+    }
+  }, [sketchActive, sketchOperation, sketchProfile]);
+  const sketchCadRegionIds = useMemo(() => sketchCadRegions.map((region) => region.id), [sketchCadRegions]);
+  const defaultSketchRegionIds = useMemo(() => {
+    if (!sketchActive || sketchOperation !== "extrude") return [];
+    try {
+      return cadSketchRegions(sketchProfile).map((region) => region.id);
+    } catch {
+      return [];
+    }
+  }, [sketchActive, sketchOperation, sketchProfile]);
+  const selectedSketchRegionIds = useMemo(() => {
+    if (sketchExtrusionRegionIds === null) return defaultSketchRegionIds;
+    const available = new Set(sketchCadRegionIds);
+    return sketchExtrusionRegionIds.filter((id) => available.has(id));
+  }, [defaultSketchRegionIds, sketchCadRegionIds, sketchExtrusionRegionIds]);
 
   const clearCadModifierWatchdog = useCallback((requestId?: number) => {
     const active = cadModifierWatchdogRef.current;
@@ -6527,6 +6543,18 @@ export function SketchForgeEditor({
     setSketchHistoryIndex(0);
     setSketchActivePointId(null);
     setSketchSelection(null);
+    const editingFeature = editingId ? shapes.find((shape) => shape.id === editingId)?.sketchFeature : undefined;
+    const storedRegionIds = editingFeature?.kind === "extrusion" ? editingFeature.regionIds : undefined;
+    let initialRegionIds: string[] | null = storedRegionIds ? [...storedRegionIds] : null;
+    if (storedRegionIds) {
+      try {
+        const availableIds = cadSketchRegions(initial).map((region) => region.id);
+        if (storedRegionIds.length === availableIds.length && availableIds.every((id) => storedRegionIds.includes(id))) initialRegionIds = null;
+      } catch {
+        initialRegionIds = [...storedRegionIds];
+      }
+    }
+    setSketchExtrusionRegionIds(operation === "extrude" ? initialRegionIds : null);
     setSketchMeasureStart(null);
     setSketchMeasurement(null);
     setSketchCircleDraft(null);
@@ -6556,6 +6584,7 @@ export function SketchForgeEditor({
     setSketchActive(false);
     setSketchActivePointId(null);
     setSketchSelection(null);
+    setSketchExtrusionRegionIds(null);
     setSketchMeasureStart(null);
     setSketchMeasurement(null);
     setSketchCircleDraft(null);
@@ -6616,7 +6645,10 @@ export function SketchForgeEditor({
     setSketchPolygonDraft(null);
     setSketchTextDraft(null);
     setSketchSelection(null);
-    if (tool !== "measure") setSketchMeasureStart(null);
+    if (tool !== "measure") {
+      setSketchMeasureStart(null);
+      setSketchMeasurement(null);
+    }
     const messages: Record<SketchTool, string> = {
       line: "Line: click points to draw straight segments",
       bezier: "Bézier: click and drag points to pull curve handles",
@@ -6632,6 +6664,7 @@ export function SketchForgeEditor({
       select: "Select: edit sketch geometry or place and scale reference images",
       refine: "Refine: click a segment to add a point, or a point to remove it",
       erase: "Erase: click a point or segment to remove it",
+      dimension: "Dimension: choose a line, then type its driving length",
       measure: "Measure: choose two points",
     };
     setNotice(messages[tool]);
@@ -7011,6 +7044,31 @@ export function SketchForgeEditor({
     setSketchSelection({ kind: "segment", id });
   }, [commitSketchProfile, sketchProfile]);
 
+  const addSketchDistanceDimension = useCallback((start: SketchDimensionAnchor, end: SketchDimensionAnchor) => {
+    const value = sketchDistanceDimensionValue(sketchProfile, start, end);
+    if (value === null || value < 0.0001) {
+      setNotice("Choose two different dimension anchors");
+      return;
+    }
+    const key = [sketchDimensionAnchorKey(start), sketchDimensionAnchorKey(end)].sort().join("|");
+    const duplicate = (sketchProfile.dimensions ?? []).some((dimension) => dimension.kind === "distance"
+      && [sketchDimensionAnchorKey(dimension.start), sketchDimensionAnchorKey(dimension.end)].sort().join("|") === key);
+    if (duplicate) {
+      setNotice("That reference dimension already exists");
+      return;
+    }
+    commitSketchProfile({
+      ...sketchProfile,
+      dimensions: [...(sketchProfile.dimensions ?? []), { id: createLocalId("sketch-distance"), kind: "distance", start, end }],
+    }, "Reference dimension added");
+    setSketchSelection(null);
+  }, [commitSketchProfile, sketchProfile]);
+
+  const deleteSketchDimension = useCallback((id: string) => {
+    if (!(sketchProfile.dimensions ?? []).some((dimension) => dimension.id === id)) return;
+    commitSketchProfile({ ...sketchProfile, dimensions: (sketchProfile.dimensions ?? []).filter((dimension) => dimension.id !== id) }, "Dimension removed");
+  }, [commitSketchProfile, sketchProfile]);
+
   const moveSketchHandle = useCallback((id: string, handle: "in" | "out", position: { x: number; z: number }) => {
     const next = cloneSketchProfile(sketchProfile);
     const point = next.points.find((entry) => entry.id === id);
@@ -7321,14 +7379,18 @@ export function SketchForgeEditor({
         return;
       }
     } else {
+      if (selectedSketchRegionIds.length === 0) {
+        setNotice("Select at least one closed profile to extrude");
+        return;
+      }
       setNotice("Building exact sketch geometry…");
       exact = true;
       try {
-        resolved = await cadShapeFromSketchProfile(refreshedProfile, height, existing);
+        resolved = await cadShapeFromSketchProfile(refreshedProfile, height, existing, selectedSketchRegionIds);
       } catch (error) {
         exact = false;
         try {
-          resolved = await shapeFromSketchProfile(refreshedProfile, height, existing);
+          resolved = await shapeFromSketchProfile(refreshedProfile, height, existing, selectedSketchRegionIds);
         } catch (fallbackError) {
           setNotice(fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "The sketch profile cannot be converted to 3D");
           return;
@@ -7342,7 +7404,8 @@ export function SketchForgeEditor({
     resolved = sketchShapeWithPlanePose(resolved, sketchConstructionPlaneId, constructionPlanePoseById(sketchConstructionPlaneId, shapes, existing?.sketchPlane?.pose), existing?.sketchPlane?.localCenter);
     resolved = canonicalizeShape({
       ...resolved,
-      sketchFeature: sketchOperation === "extrude" ? { kind: "extrusion" } : undefined,
+      sketchProfile: cloneSketchProfile(refreshedProfile),
+      sketchFeature: sketchOperation === "extrude" ? { kind: "extrusion", regionIds: [...selectedSketchRegionIds] } : undefined,
       sketchOperation,
       sketchRevolve: sketchOperation === "revolve" ? normalizeSketchRevolveSettings(sketchRevolveSettings) : undefined,
     });
@@ -7352,6 +7415,7 @@ export function SketchForgeEditor({
     setSketchActive(false);
     setSketchActivePointId(null);
     setSketchSelection(null);
+    setSketchExtrusionRegionIds(null);
     setSketchMeasureStart(null);
     setSketchMeasurement(null);
     setSketchCircleDraft(null);
@@ -7362,7 +7426,7 @@ export function SketchForgeEditor({
     setSketchRevolvePreview(null);
     setEditingSketchShapeId(null);
     setToolbarMode("geometry");
-  }, [commitShapes, editingSketchShapeId, shapes, sketchOperation, sketchProfile, sketchRevolveSettings]);
+  }, [commitShapes, editingSketchShapeId, selectedSketchRegionIds, shapes, sketchOperation, sketchProfile, sketchRevolveSettings]);
 
   useEffect(() => {
     if (!projectId) {
@@ -9573,6 +9637,7 @@ export function SketchForgeEditor({
             <SketchWorkspace
             profile={sketchProfile}
             operation={sketchOperation}
+            selectedRegionIds={selectedSketchRegionIds}
             revolvePreviewPositions={sketchRevolvePreview?.positions ?? null}
             referenceShapes={sketchConstructionPlaneId === BASE_CONSTRUCTION_PLANE_ID ? shapes.filter((shape) => shape.id !== editingSketchShapeId && shape.kind !== "constructionPlane") : []}
             tool={sketchTool}
@@ -9590,8 +9655,30 @@ export function SketchForgeEditor({
             onPlanePoint={addSketchPlanePoint}
             onPointPress={pressSketchPoint}
             onSelectSegment={(id) => {
+              const segment = sketchProfile.segments.find((entry) => entry.id === id);
+              if (sketchTool === "dimension" && segment?.kind && segment.kind !== "line") {
+                setNotice("Length dimensions currently apply to straight sketch lines");
+                return;
+              }
               setSketchSelection({ kind: "segment", id });
               setSketchActivePointId(null);
+            }}
+            onSelectRegion={(id) => {
+              const next = selectedSketchRegionIds.includes(id)
+                ? selectedSketchRegionIds.filter((regionId) => regionId !== id)
+                : [...selectedSketchRegionIds, id];
+              setSketchExtrusionRegionIds(next);
+              setSketchSelection(null);
+              setSketchActivePointId(null);
+              setNotice(next.length ? `${next.length} extrusion profile${next.length === 1 ? "" : "s"} selected` : "No extrusion profiles selected");
+            }}
+            onSelectAllRegions={() => {
+              setSketchExtrusionRegionIds([...sketchCadRegionIds]);
+              setNotice(`All ${sketchCadRegionIds.length} extrusion profile${sketchCadRegionIds.length === 1 ? "" : "s"} selected`);
+            }}
+            onClearRegionSelection={() => {
+              setSketchExtrusionRegionIds([]);
+              setNotice("No extrusion profiles selected");
             }}
             onSelectMany={(pointIds, segmentIds, imageIds, textIds) => {
               setSketchSelection(pointIds.length || segmentIds.length || imageIds.length || textIds.length ? { kind: "multiple", pointIds, segmentIds, imageIds, textIds } : null);
@@ -9621,6 +9708,8 @@ export function SketchForgeEditor({
             onTogglePointFixed={toggleSketchPointFixed}
             onToggleSegmentConstraint={toggleSketchSegmentConstraint}
             onSetSegmentLength={updateSketchSegmentLength}
+            onAddDistanceDimension={addSketchDistanceDimension}
+            onDeleteDimension={deleteSketchDimension}
             onClearMeasurement={clearSketchMeasurement}
             onTextSubmit={(text) => {
               if (!sketchTextDraft) return;
@@ -10513,6 +10602,9 @@ function SecondaryToolbar({
                 <div className="toolbar-section sketch-measure-section">
                   <div className="toolbar-section-label">Inspect</div>
                   <div className="toolbar-section-tools">
+                    <button className={`toolbar-icon sketch-tool-icon ${sketchTool === "dimension" ? "active" : ""}`} type="button" aria-label="Dimension" title="Add driving dimension" onClick={() => onSketchTool("dimension")}>
+                      <Ruler aria-hidden="true" />
+                    </button>
                     <button className={`toolbar-icon sketch-tool-icon ${sketchTool === "measure" ? "active" : ""}`} type="button" aria-label="Measure" title="Measure" onClick={() => onSketchTool("measure")}>
                       <SketchReferenceIcon name="measure" />
                     </button>

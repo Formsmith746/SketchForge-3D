@@ -11,11 +11,13 @@ import { circleFromPoints } from "@/lib/sketchCircles";
 import { moveConstrainedSketchPoint } from "@/lib/sketchConstraints";
 import { rectFromPoints } from "@/lib/sketchRectangles";
 import { polygonFromPoints } from "@/lib/sketchPolygons";
+import { cadSketchSelectableRegions } from "@/lib/sketchCadProfile";
+import { sketchDimensionAnchorCandidates, sketchDimensionAnchorKey, sketchDimensionAnchorPoint, sketchDistanceDimensionValue, type SketchDimensionAnchorCandidate } from "@/lib/sketchDimensions";
 import { dedupeSketchSnapCandidates, snapSketchPoint, type SketchSnapCandidate, type SketchSnapResult } from "@/lib/sketchSnapping";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
-import type { GridSize, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, SketchText, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import type { GridSize, SketchDimensionAnchor, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, SketchText, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
-export type SketchTool = "line" | "bezier" | "smooth" | "circle-center" | "circle-diameter" | "rect-corner" | "rect-center" | "poly-inscribed" | "poly-circumscribed" | "poly-edge" | "text" | "select" | "refine" | "erase" | "measure";
+export type SketchTool = "line" | "bezier" | "smooth" | "circle-center" | "circle-diameter" | "rect-corner" | "rect-center" | "poly-inscribed" | "poly-circumscribed" | "poly-edge" | "text" | "select" | "refine" | "erase" | "dimension" | "measure";
 export type SketchCircleDraft = {
   tool: "circle-center" | "circle-diameter";
   first: { x: number; z: number };
@@ -45,6 +47,7 @@ export type SketchMeasurement = { start: SketchPoint; end: SketchPoint } | null;
 type SketchWorkspaceProps = {
   profile: SketchProfile;
   operation?: SketchOperation;
+  selectedRegionIds: readonly string[];
   revolvePreviewPositions?: number[] | null;
   referenceShapes: WorkplaneShape[];
   tool: SketchTool;
@@ -62,6 +65,9 @@ type SketchWorkspaceProps = {
   onPlanePoint: (point: { x: number; z: number }, handles?: { handleIn: { x: number; z: number }; handleOut: { x: number; z: number } }) => void;
   onPointPress: (id: string) => void;
   onSelectSegment: (id: string) => void;
+  onSelectRegion: (id: string) => void;
+  onSelectAllRegions: () => void;
+  onClearRegionSelection: () => void;
   onSelectMany: (pointIds: string[], segmentIds: string[], imageIds: string[], textIds: string[]) => void;
   onSelectImage: (id: string) => void;
   onSelectText: (id: string) => void;
@@ -77,6 +83,8 @@ type SketchWorkspaceProps = {
   onTogglePointFixed: (id: string) => void;
   onToggleSegmentConstraint: (id: string, kind: "horizontal" | "vertical") => void;
   onSetSegmentLength: (id: string, value: number | null) => void;
+  onAddDistanceDimension: (start: SketchDimensionAnchor, end: SketchDimensionAnchor) => void;
+  onDeleteDimension: (id: string) => void;
   onClearMeasurement: () => void;
   onTextSubmit: (text: string) => void;
   onTextCancel: () => void;
@@ -436,6 +444,7 @@ function importedMeshFootprint(shape: WorkplaneShape): SketchReferenceFootprint 
 export function SketchWorkspace({
   profile,
   operation = "extrude",
+  selectedRegionIds,
   revolvePreviewPositions = null,
   referenceShapes,
   tool,
@@ -453,6 +462,9 @@ export function SketchWorkspace({
   onPlanePoint,
   onPointPress,
   onSelectSegment,
+  onSelectRegion,
+  onSelectAllRegions,
+  onClearRegionSelection,
   onSelectMany,
   onSelectImage,
   onSelectText,
@@ -468,6 +480,8 @@ export function SketchWorkspace({
   onTogglePointFixed,
   onToggleSegmentConstraint,
   onSetSegmentLength,
+  onAddDistanceDimension,
+  onDeleteDimension,
   onClearMeasurement,
   onTextSubmit,
   onTextCancel,
@@ -485,6 +499,7 @@ export function SketchWorkspace({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const textInputRef = useRef<HTMLInputElement | null>(null);
   const [textDraftValue, setTextDraftValue] = useState("");
+  const [pendingDimensionAnchor, setPendingDimensionAnchor] = useState<SketchDimensionAnchorCandidate | null>(null);
   useEffect(() => {
     if (textDraft) {
       setTextDraftValue("");
@@ -537,10 +552,20 @@ export function SketchWorkspace({
   }, [pointerAction, profile.images]);
   const pointById = useMemo(() => new Map(displayProfile.points.map((point) => [point.id, point])), [displayProfile.points]);
   const paths = useMemo(() => orderedPaths(displayProfile), [displayProfile]);
+  const dimensionAnchorCandidates = useMemo(() => tool === "dimension" ? sketchDimensionAnchorCandidates(displayProfile) : [], [displayProfile, tool]);
+  const regions = useMemo(() => {
+    if (operation !== "extrude") return [];
+    try {
+      return cadSketchSelectableRegions(displayProfile);
+    } catch {
+      return [];
+    }
+  }, [displayProfile, operation]);
+  const selectedRegionIdSet = useMemo(() => new Set(selectedRegionIds), [selectedRegionIds]);
   const fixedPointIds = useMemo(() => new Set((profile.constraints ?? []).flatMap((constraint) => constraint.kind === "fixed" ? [constraint.pointId] : [])), [profile.constraints]);
   const horizontalSegmentIds = useMemo(() => new Set((profile.constraints ?? []).flatMap((constraint) => constraint.kind === "horizontal" ? [constraint.segmentId] : [])), [profile.constraints]);
   const verticalSegmentIds = useMemo(() => new Set((profile.constraints ?? []).flatMap((constraint) => constraint.kind === "vertical" ? [constraint.segmentId] : [])), [profile.constraints]);
-  const dimensionBySegmentId = useMemo(() => new Map((profile.dimensions ?? []).map((dimension) => [dimension.segmentId, dimension])), [profile.dimensions]);
+  const dimensionBySegmentId = useMemo(() => new Map((profile.dimensions ?? []).flatMap((dimension) => dimension.kind === "length" ? [[dimension.segmentId, dimension] as const] : [])), [profile.dimensions]);
   const activePoint = activePointId ? pointById.get(activePointId) ?? null : null;
   const selectedPoint = selected?.kind === "point" ? pointById.get(selected.id) ?? null : null;
   const selectedSegment = selected?.kind === "segment" ? displayProfile.segments.find((segment) => segment.id === selected.id) ?? null : null;
@@ -548,6 +573,24 @@ export function SketchWorkspace({
   const isPointSelected = (id: string) => selected?.kind === "point" ? selected.id === id : selected?.kind === "multiple" ? selected.pointIds.includes(id) : false;
   const isSegmentSelected = (id: string) => selected?.kind === "segment" ? selected.id === id : selected?.kind === "multiple" ? selected.segmentIds.includes(id) : false;
   const gridStep = clamp(workspace.gridBlockSize, 1, 200);
+  useEffect(() => {
+    if (tool !== "dimension") setPendingDimensionAnchor(null);
+  }, [tool]);
+  useEffect(() => {
+    if (pendingDimensionAnchor && !dimensionAnchorCandidates.some((candidate) => candidate.id === pendingDimensionAnchor.id)) setPendingDimensionAnchor(null);
+  }, [dimensionAnchorCandidates, pendingDimensionAnchor]);
+  const chooseDimensionAnchor = (candidate: SketchDimensionAnchorCandidate) => {
+    if (!pendingDimensionAnchor) {
+      setPendingDimensionAnchor(candidate);
+      return;
+    }
+    if (sketchDimensionAnchorKey(pendingDimensionAnchor.anchor) === sketchDimensionAnchorKey(candidate.anchor)) {
+      setPendingDimensionAnchor(null);
+      return;
+    }
+    onAddDistanceDimension(pendingDimensionAnchor.anchor, candidate.anchor);
+    setPendingDimensionAnchor(null);
+  };
   const verticalLines = useMemo(() => {
     const lines: number[] = [];
     const start = Math.ceil((-workspace.width / 2) / gridStep) * gridStep;
@@ -843,6 +886,19 @@ export function SketchWorkspace({
   return (
     <main className="sketch-workspace-stage">
       <div className="sketch-mode-badge">{operation === "revolve" ? "Revolve sketch" : "Sketch view"} - {planeName}</div>
+      {operation === "extrude" && regions.length > 0 ? (
+        <div className="sketch-profile-selection-status">
+          <span><strong>{selectedRegionIds.length} of {regions.length}</strong> profiles selected</span>
+          <span className="hint">{tool === "select" ? "Click profiles to toggle" : "Use Select to choose profiles"}</span>
+          <button type="button" onClick={onSelectAllRegions}>All</button>
+          <button type="button" onClick={onClearRegionSelection}>Clear</button>
+        </div>
+      ) : null}
+      {tool === "dimension" ? (
+        <div className="sketch-dimension-status">
+          {pendingDimensionAnchor ? `First anchor: ${pendingDimensionAnchor.label}. Choose the second anchor.` : "Choose two endpoints, midpoints, or intersections."}
+        </div>
+      ) : null}
       {operation === "revolve" ? <SketchRevolvePreview positions={revolvePreviewPositions} /> : null}
       <div className="camera-controls sketch-camera-controls" aria-label="Sketch view controls">
         <button aria-label="Reset sketch view" onClick={() => { setZoom(1); setPan({ x: 0, z: 0 }); }}><Home size={28} /></button>
@@ -970,8 +1026,34 @@ export function SketchWorkspace({
               pointerEvents="none"
             />
           ) : null}
-          <g className="sketch-profile-fills" pointerEvents="none">
-            {paths.some((path) => path.closed) ? <path d={paths.filter((path) => path.closed).map(pathData).join(" ")} /> : null}
+          <g className="sketch-profile-fills">
+            {operation === "extrude" ? regions.map((region, index) => (
+              <path
+                key={region.id}
+                className={`selectable ${selectedRegionIdSet.has(region.id) ? "selected" : ""}`}
+                d={[region.outer, ...region.holes].map(pathData).join(" ")}
+                pointerEvents={tool === "select" ? "fill" : "none"}
+                role="button"
+                aria-label={`Extrusion profile ${index + 1}${selectedRegionIdSet.has(region.id) ? ", selected" : ""}`}
+                aria-pressed={selectedRegionIdSet.has(region.id)}
+                tabIndex={tool === "select" ? 0 : -1}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (isPanGesture(event)) {
+                    beginPan(event);
+                    return;
+                  }
+                  if (event.button === 0 && tool === "select") onSelectRegion(region.id);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectRegion(region.id);
+                  }
+                }}
+              />
+            )) : paths.some((path) => path.closed) ? <path d={paths.filter((path) => path.closed).map(pathData).join(" ")} pointerEvents="none" /> : null}
           </g>
           {snapToGeometry ? (
             <g className="sketch-center-points" pointerEvents="none">
@@ -1018,10 +1100,45 @@ export function SketchWorkspace({
             ))}
           </g>
           <g className="sketch-segment-dimensions">
-            {displayProfile.segments.map((segment) => {
-              const dimension = segmentDimension(segment, pointById);
-              if (!dimension || segment.projectionId) return null;
-              const label = formatDimension(dimension.length, workspace.accuracy);
+            {(profile.dimensions ?? []).map((storedDimension) => {
+              if (storedDimension.kind === "distance") {
+                const start = sketchDimensionAnchorPoint(displayProfile, storedDimension.start);
+                const end = sketchDimensionAnchorPoint(displayProfile, storedDimension.end);
+                const value = sketchDistanceDimensionValue(displayProfile, storedDimension.start, storedDimension.end);
+                if (!start || !end || value === null) return null;
+                const deltaX = end.x - start.x;
+                const deltaZ = end.z - start.z;
+                const length = Math.max(0.000001, Math.hypot(deltaX, deltaZ));
+                const position = {
+                  x: (start.x + end.x) / 2 + deltaZ / length * labelOffset,
+                  z: (start.z + end.z) / 2 - deltaX / length * labelOffset,
+                };
+                const label = formatDimension(value, workspace.accuracy);
+                const pill = dimensionPillSize(label, screenUnit, 18);
+                return (
+                  <g className="sketch-distance-dimension" key={storedDimension.id}>
+                    <line x1={start.x} y1={start.z} x2={end.x} y2={end.z} pointerEvents="none" />
+                    <g
+                      data-sketch-entity="dimension"
+                      className="reference"
+                      transform={`translate(${position.x} ${position.z})`}
+                      pointerEvents={tool === "erase" ? "auto" : "none"}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (event.button === 0 && tool === "erase") onDeleteDimension(storedDimension.id);
+                      }}
+                    >
+                      <rect x={-pill.width / 2} y={-pill.height / 2} width={pill.width} height={pill.height} rx={pill.radius} />
+                      <text y={5 * screenUnit} fontSize={13 * screenUnit}>{label}</text>
+                    </g>
+                  </g>
+                );
+              }
+              const segment = displayProfile.segments.find((entry) => entry.id === storedDimension.segmentId);
+              const dimension = segment ? segmentDimension(segment, pointById) : null;
+              if (!segment || !dimension || segment.projectionId) return null;
+              const label = formatDimension(storedDimension.value, workspace.accuracy);
               const pill = dimensionPillSize(label, screenUnit, 18);
               const defaultPosition = {
                 x: dimension.midpoint.x + (segment.dimensionLabelOffset?.x ?? 0),
@@ -1035,19 +1152,28 @@ export function SketchWorkspace({
               return (
                 <g
                   data-sketch-entity="dimension"
-                  className={`${dimensionBySegmentId.has(segment.id) ? "driving" : ""} movable ${action ? "dragging" : ""}`}
-                  key={`dimension-${segment.id}`}
+                  className={`driving movable ${action ? "dragging" : ""}`}
+                  key={storedDimension.id}
                   transform={`translate(${position.x} ${position.z})`}
-                  pointerEvents={tool === "select" ? "auto" : "none"}
+                  pointerEvents={tool === "select" || tool === "dimension" || tool === "erase" ? "auto" : "none"}
                   onPointerDown={(event) => {
                     if (isPanGesture(event)) {
                       beginPan(event);
                       return;
                     }
-                    if (event.button !== 0 || tool !== "select") return;
+                    if (event.button !== 0 || tool !== "select" && tool !== "dimension" && tool !== "erase") return;
+                    if (tool === "erase") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onDeleteDimension(storedDimension.id);
+                      return;
+                    }
                     const point = pointFromEvent(event, false);
                     if (!point) return;
+                    event.preventDefault();
+                    event.stopPropagation();
                     onSelectSegment(segment.id);
+                    if (tool === "dimension") return;
                     beginEntityDrag(event, {
                       kind: "move-dimension",
                       pointerId: event.pointerId,
@@ -1207,7 +1333,7 @@ export function SketchWorkspace({
               <circle cx={pointerAction.origin.x} cy={pointerAction.origin.z} r={controlPointRadius} />
             </g>
           ) : null}
-          {measurement ? (
+          {tool === "measure" && measurement ? (
             <g className="sketch-measurement">
               <line x1={measurement.start.x} y1={measurement.start.z} x2={measurement.end.x} y2={measurement.end.z} />
               <circle className="sketch-measurement-point" cx={measurement.start.x} cy={measurement.start.z} r={pointRadius} pointerEvents="none" />
@@ -1273,6 +1399,30 @@ export function SketchWorkspace({
               />
             ))}
           </g>
+          {tool === "dimension" ? (
+            <g className="sketch-dimension-anchors">
+              {dimensionAnchorCandidates.map((candidate) => {
+                const active = pendingDimensionAnchor?.id === candidate.id;
+                return (
+                  <g
+                    key={candidate.id}
+                    className={`${candidate.kind} ${active ? "active" : ""}`}
+                    transform={`translate(${candidate.x} ${candidate.z})`}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (isPanGesture(event)) beginPan(event);
+                      else if (event.button === 0) chooseDimensionAnchor(candidate);
+                    }}
+                  >
+                    <circle className="hit" r={9 * screenUnit} />
+                    {candidate.kind === "midpoint" ? <rect x={-4 * screenUnit} y={-4 * screenUnit} width={8 * screenUnit} height={8 * screenUnit} transform="rotate(45)" /> : <circle r={4.5 * screenUnit} />}
+                    {candidate.kind === "intersection" ? <><line x1={-6 * screenUnit} y1={0} x2={6 * screenUnit} y2={0} /><line x1={0} y1={-6 * screenUnit} x2={0} y2={6 * screenUnit} /></> : null}
+                  </g>
+                );
+              })}
+            </g>
+          ) : null}
           {selectedImage && selectedImageBounds && tool === "select" ? (
             <g className="sketch-image-selection">
               <rect
@@ -1386,14 +1536,16 @@ export function SketchWorkspace({
           onDelete={() => onDeleteImage(selectedImage.id)}
         />
       ) : null}
-      {selectedSegment && tool === "select" ? (
+      {selectedSegment && (tool === "select" || tool === "dimension") ? (
         <SketchSegmentInspector
+          key={selectedSegment.id}
           segment={selectedSegment}
           length={segmentDimension(selectedSegment, pointById)?.length ?? 0}
           accuracy={workspace.accuracy}
           horizontal={horizontalSegmentIds.has(selectedSegment.id)}
           vertical={verticalSegmentIds.has(selectedSegment.id)}
           dimensionValue={dimensionBySegmentId.get(selectedSegment.id)?.value ?? null}
+          dimensionOnly={tool === "dimension"}
           onClose={() => onSelectMany([], [], [], [])}
           onToggleConstraint={(kind) => onToggleSegmentConstraint(selectedSegment.id, kind)}
           onSetLength={(value) => onSetSegmentLength(selectedSegment.id, value)}
@@ -1428,6 +1580,7 @@ function SketchSegmentInspector({
   horizontal,
   vertical,
   dimensionValue,
+  dimensionOnly,
   onClose,
   onToggleConstraint,
   onSetLength,
@@ -1438,6 +1591,7 @@ function SketchSegmentInspector({
   horizontal: boolean;
   vertical: boolean;
   dimensionValue: number | null;
+  dimensionOnly: boolean;
   onClose: () => void;
   onToggleConstraint: (kind: "horizontal" | "vertical") => void;
   onSetLength: (value: number | null) => void;
@@ -1446,7 +1600,7 @@ function SketchSegmentInspector({
   const [draft, setDraft] = useState(formatDimension(dimensionValue ?? length, accuracy));
   useEffect(() => setDraft(formatDimension(dimensionValue ?? length, accuracy)), [accuracy, dimensionValue, length]);
   const commitLength = () => {
-    const value = Number(draft);
+    const value = parseMeasurementInput(draft);
     if (Number.isFinite(value) && value > 0) onSetLength(value);
     else setDraft(formatDimension(dimensionValue ?? length, accuracy));
   };
@@ -1457,7 +1611,7 @@ function SketchSegmentInspector({
         <button className="inspector-header-icon" type="button" aria-label="Close segment constraints" onClick={onClose}>
           <ChevronUp size={26} strokeWidth={2.8} />
         </button>
-        <strong>Segment</strong>
+        <strong>{dimensionOnly ? "Dimension" : "Segment"}</strong>
       </div>
       <div className="property-card">
         <div className="property-card-header static"><span>Driving dimension</span></div>
@@ -1466,10 +1620,10 @@ function SketchSegmentInspector({
             <span>Length</span>
             <div>
               <input
-                type="number"
-                min="0.001"
-                step={accuracy === 1 ? 0.1 : 0.01}
+                type="text"
+                inputMode="decimal"
                 value={draft}
+                autoFocus={dimensionOnly}
                 disabled={!editable}
                 onChange={(event) => setDraft(event.currentTarget.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") commitLength(); }}
@@ -1481,13 +1635,13 @@ function SketchSegmentInspector({
           {dimensionValue !== null ? <button className="sketch-remove-dimension" type="button" onClick={() => onSetLength(null)}>Remove driving length</button> : null}
         </div>
       </div>
-      <div className="property-card">
+      {!dimensionOnly ? <div className="property-card">
         <div className="property-card-header static"><span>Geometric constraints</span></div>
         <div className="sketch-constraint-buttons">
           <button className={horizontal ? "active" : ""} type="button" disabled={!editable} aria-pressed={horizontal} onClick={() => onToggleConstraint("horizontal")}>H <span>Horizontal</span></button>
           <button className={vertical ? "active" : ""} type="button" disabled={!editable} aria-pressed={vertical} onClick={() => onToggleConstraint("vertical")}>V <span>Vertical</span></button>
         </div>
-      </div>
+      </div> : null}
     </aside>
   );
 }

@@ -1,4 +1,5 @@
-import type { SketchConstraint, SketchPoint, SketchProfile, SketchSegment } from "@/types/sketchforge";
+import type { SketchConstraint, SketchDimensionAnchor, SketchPoint, SketchProfile, SketchSegment } from "@/types/sketchforge";
+import { sketchDimensionAnchorKey, sketchDimensionAnchorPoint } from "@/lib/sketchDimensions";
 
 const SOLVER_TOLERANCE = 0.000001;
 const DIMENSION_TOLERANCE = 0.0001;
@@ -21,7 +22,9 @@ function cloneProfile(profile: SketchProfile): SketchProfile {
     })),
     segments: profile.segments.map((segment) => ({ ...segment })),
     constraints: (profile.constraints ?? []).map((constraint) => ({ ...constraint })),
-    dimensions: (profile.dimensions ?? []).map((dimension) => ({ ...dimension })),
+    dimensions: (profile.dimensions ?? []).map((dimension) => dimension.kind === "length"
+      ? { ...dimension }
+      : { ...dimension, start: { ...dimension.start }, end: { ...dimension.end } }),
     images: profile.images?.map((image) => ({ ...image })),
     texts: profile.texts?.map((text) => ({ ...text })),
   };
@@ -51,6 +54,7 @@ export function sketchSegmentLength(profile: SketchProfile, segmentId: string) {
 export function pruneSketchParameters(profile: SketchProfile): SketchProfile {
   const next = cloneProfile(profile);
   const pointIds = new Set(next.points.map((point) => point.id));
+  const segmentIds = new Set(next.segments.map((segment) => segment.id));
   const lineSegmentIds = new Set(next.segments.filter(isLineSegment).map((segment) => segment.id));
   const seenConstraints = new Set<string>();
   const seenDimensions = new Set<string>();
@@ -66,12 +70,22 @@ export function pruneSketchParameters(profile: SketchProfile): SketchProfile {
     return valid;
   });
   next.dimensions = (next.dimensions ?? []).filter((dimension) => {
-    const key = `${dimension.kind}:${dimension.segmentId}`;
-    const valid = !seenDimensions.has(key)
-      && dimension.kind === "length"
-      && lineSegmentIds.has(dimension.segmentId)
-      && Number.isFinite(dimension.value)
-      && dimension.value > SOLVER_TOLERANCE;
+    const anchorValid = (anchor: SketchDimensionAnchor) => {
+      if (anchor.kind === "point") return pointIds.has(anchor.pointId);
+      if (anchor.kind === "midpoint") return segmentIds.has(anchor.segmentId);
+      return segmentIds.has(anchor.firstSegmentId)
+        && segmentIds.has(anchor.secondSegmentId)
+        && anchor.firstSegmentId !== anchor.secondSegmentId
+        && Number.isInteger(anchor.index)
+        && anchor.index >= 0
+        && sketchDimensionAnchorPoint(next, anchor) !== null;
+    };
+    const key = dimension.kind === "length"
+      ? `length:${dimension.segmentId}`
+      : `distance:${[sketchDimensionAnchorKey(dimension.start), sketchDimensionAnchorKey(dimension.end)].sort().join("|")}`;
+    const valid = !seenDimensions.has(key) && (dimension.kind === "length"
+      ? lineSegmentIds.has(dimension.segmentId) && Number.isFinite(dimension.value) && dimension.value > SOLVER_TOLERANCE
+      : anchorValid(dimension.start) && anchorValid(dimension.end) && sketchDimensionAnchorKey(dimension.start) !== sketchDimensionAnchorKey(dimension.end));
     if (valid) seenDimensions.add(key);
     return valid;
   });
@@ -83,7 +97,7 @@ export function solveSketchProfile(profile: SketchProfile, anchorPointId?: strin
   const pointById = new Map(next.points.map((point) => [point.id, point]));
   const fixedConstraints = (next.constraints ?? []).filter((constraint): constraint is Extract<SketchConstraint, { kind: "fixed" }> => constraint.kind === "fixed");
   const segmentConstraints = new Map<string, Set<SegmentConstraintKind>>();
-  const dimensionBySegment = new Map((next.dimensions ?? []).map((dimension) => [dimension.segmentId, dimension]));
+  const dimensionBySegment = new Map((next.dimensions ?? []).flatMap((dimension) => dimension.kind === "length" ? [[dimension.segmentId, dimension] as const] : []));
   // Decreasing priority propagates changes away from fixed or dragged anchors without closed loops pulling them back.
   const priority = new Map<string, number>();
   const fixedPointIds = new Set(fixedConstraints.map((constraint) => constraint.pointId));
@@ -171,6 +185,7 @@ export function solveSketchProfile(profile: SketchProfile, anchorPointId?: strin
     if (error > SOLVER_TOLERANCE) conflicts.push(constraint.id);
   });
   (next.dimensions ?? []).forEach((dimension) => {
+    if (dimension.kind !== "length") return;
     const length = sketchSegmentLength(next, dimension.segmentId);
     if (length === null || Math.abs(length - dimension.value) > DIMENSION_TOLERANCE) conflicts.push(dimension.id);
   });
@@ -205,7 +220,7 @@ export function setSketchPointFixed(profile: SketchProfile, pointId: string, fix
 export function setSketchSegmentLength(profile: SketchProfile, segmentId: string, value: number | null, createId: IdFactory) {
   const segment = profile.segments.find((entry) => entry.id === segmentId);
   if (!segment || !isLineSegment(segment)) return solveSketchProfile(profile);
-  const dimensions = (profile.dimensions ?? []).filter((dimension) => dimension.segmentId !== segmentId || dimension.kind !== "length");
+  const dimensions = (profile.dimensions ?? []).filter((dimension) => dimension.kind !== "length" || dimension.segmentId !== segmentId);
   if (value !== null && Number.isFinite(value) && value > SOLVER_TOLERANCE) {
     dimensions.push({ id: createId("sketch-length"), kind: "length", segmentId, value });
   }
