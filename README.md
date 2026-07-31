@@ -35,6 +35,7 @@ No login. No server project storage. No heavyweight CAD install just to make a u
 
 ## What It Does
 
+- **2D Sketching & Parametric Profiles** - draw parametric lines, bezier curves, circles, rectangles, polygons, and text with constraints, distance dimensions, region selections, and revolve/extrude/sweep operations.
 - **Local-first projects** - designs live in browser storage with generated project thumbnails.
 - **Real 3D workplane** - grid, camera controls, snap settings, transform handles, outlines, and inspector controls.
 - **Primitive shape library** - boxes, cylinders, spheres, cones, pyramids, wedges, text, roofs, half spheres, torus shapes, tubes, and more.
@@ -49,6 +50,10 @@ No login. No server project storage. No heavyweight CAD install just to make a u
 ## Demo
 
 ![SketchForge editor demo preview](docs/media/videos/01-create-and-edit-block-preview.gif)
+
+### 2D Sketching & Revolve Workflow
+
+![SketchForge 2D Sketching feature overview](docs/media/sketchforge-editor-v0.8.0.png)
 
 ## Getting Started
 
