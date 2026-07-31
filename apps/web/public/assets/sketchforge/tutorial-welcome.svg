@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-labelledby="title description">
+  <title id="title">Welcome to SketchForge</title>
+  <desc id="description">A friendly waving hand welcomes the user to the SketchForge tutorial.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dff8ff"/>
+      <stop offset="0.55" stop-color="#f5fcff"/>
+      <stop offset="1" stop-color="#fff4df"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00a9dc"/>
+      <stop offset="1" stop-color="#0874d1"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#17445f" flood-opacity="0.18"/>
+    </filter>
+    <filter id="small-shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#073b58" flood-opacity="0.2"/>
+    </filter>
+    <pattern id="blueprint-grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M34 0H0V34" fill="none" stroke="#2eb3d7" stroke-opacity="0.13" stroke-width="1.5"/>
+    </pattern>
+    <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#9ceaff"/>
+      <stop offset="1" stop-color="#50caea"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="640" rx="46" fill="url(#background)"/>
+  <rect width="1200" height="640" rx="46" fill="url(#blueprint-grid)"/>
+  <circle cx="1020" cy="94" r="152" fill="#aeeaff" opacity="0.42"/>
+  <circle cx="95" cy="574" r="190" fill="#ffe2a9" opacity="0.46"/>
+  <path d="M0 470C176 403 344 523 516 475c210-59 326-188 684-118v283H0Z" fill="#dff7ff" opacity="0.58"/>
+  <g filter="url(#shadow)">
+    <rect x="72" y="58" width="1056" height="524" rx="42" fill="#fff" fill-opacity="0.94" stroke="#fff" stroke-width="4"/>
+  </g>
+  <g transform="translate(120 110)">
+    <rect width="350" height="420" rx="38" fill="url(#accent)"/>
+    <circle cx="175" cy="182" r="128" fill="#fff" fill-opacity="0.11"/>
+    <circle cx="175" cy="182" r="96" fill="#fff" fill-opacity="0.1"/>
+    <g filter="url(#small-shadow)" transform="rotate(-7 175 182)">
+      <circle cx="175" cy="182" r="91" fill="#fff"/>
+      <circle cx="175" cy="182" r="82" fill="#e8f9ff" stroke="#a8e7f8" stroke-width="3"/>
+      <g transform="translate(104 91) rotate(-9 72 88)" fill="#ffc83d" stroke="#cc8314" stroke-linecap="round" stroke-linejoin="round" stroke-width="4">
+        <rect x="43" y="25" width="27" height="102" rx="13.5"/>
+        <rect x="70" y="7" width="27" height="118" rx="13.5"/>
+        <rect x="97" y="14" width="27" height="112" rx="13.5"/>
+        <rect x="124" y="32" width="27" height="96" rx="13.5"/>
+        <path d="M48 93 26 71c-9-9-20-8-25 0-4 7 0 16 7 24l37 48c11 17 30 28 53 28 34 0 58-23 58-56V91c0-10-8-18-18-18s-18 8-18 18v23-17c0-10-8-18-18-18s-18 8-18 18v14-17c0-10-8-18-18-18S48 84 48 94Z"/>
+        <path d="M60 128c17 8 35 9 53 1" fill="none" stroke="#e0a11c" stroke-width="3"/>
+      </g>
+    </g>
+    <g fill="none" stroke="#fff" stroke-linecap="round" stroke-width="7" opacity="0.88">
+      <path d="m71 125-20-18"/><path d="M61 169H34"/><path d="m279 125 20-18"/><path d="M289 169h27"/><path d="m264 92 11-25"/>
+    </g>
+    <g transform="translate(109 298)" filter="url(#small-shadow)">
+      <path d="m0 34 66-34 66 34-66 35Z" fill="url(#cube-top)" stroke="#fff" stroke-width="3"/>
+      <path d="M0 34v70l66 36V69Z" fill="#0b8fbe" stroke="#fff" stroke-width="3"/>
+      <path d="m66 69 66-35v70l-66 36Z" fill="#0768aa" stroke="#fff" stroke-width="3"/>
+    </g>
+  </g>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif">
+    <g transform="translate(522 116)">
+      <rect width="184" height="34" rx="17" fill="#e7f8fd" stroke="#bce9f5"/>
+      <circle cx="19" cy="17" r="6" fill="#10acd7"/>
+      <text x="34" y="22" fill="#087fa6" font-size="14" font-weight="800" letter-spacing="1">QUICK START</text>
+    </g>
+    <text x="518" y="232" fill="#173d56" font-size="70" font-weight="850" letter-spacing="-2">Welcome!</text>
+    <text x="522" y="286" fill="#4e7185" font-size="27" font-weight="600">Let's create your first 3D shape.</text>
+
+    <g transform="translate(518 335)">
+      <g>
+        <rect width="158" height="112" rx="18" fill="#f1fbfe" stroke="#caeaf3"/>
+        <circle cx="32" cy="34" r="20" fill="#0ba9d5"/>
+        <path d="M24 34h16M32 26v16" stroke="#fff" stroke-linecap="round" stroke-width="4"/>
+        <text x="18" y="83" fill="#294f66" font-size="17" font-weight="800">Add a cube</text>
+      </g>
+      <g transform="translate(176)">
+        <rect width="158" height="112" rx="18" fill="#f3f9fd" stroke="#d2e5ef"/>
+        <circle cx="32" cy="34" r="20" fill="#147fc5"/>
+        <path d="M23 28h18M23 34h18M23 40h18" stroke="#fff" stroke-linecap="round" stroke-width="3"/>
+        <circle cx="29" cy="28" r="3" fill="#fff"/><circle cx="36" cy="34" r="3" fill="#fff"/><circle cx="27" cy="40" r="3" fill="#fff"/>
+        <text x="18" y="83" fill="#294f66" font-size="17" font-weight="800">Adjust it</text>
+      </g>
+      <g transform="translate(352)">
+        <rect width="158" height="112" rx="18" fill="#f4f8fc" stroke="#d4e3ed"/>
+        <circle cx="32" cy="34" r="20" fill="#0863a2"/>
+        <path d="m24 42 17-17M32 25h9v9" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5"/>
+        <text x="18" y="83" fill="#294f66" font-size="17" font-weight="800">Resize</text>
+      </g>
+    </g>
+
+    <g transform="translate(518 474)">
+      <rect width="510" height="52" rx="15" fill="#f5fafc" stroke="#d8eaf1"/>
+      <path d="M24 26h16m-8-8v16" stroke="#0aa6d3" stroke-linecap="round" stroke-width="3"/>
+      <text x="54" y="32" fill="#587589" font-size="15" font-weight="700">A short guided tour - skip whenever you want.</text>
+    </g>
+  </g>
+</svg>

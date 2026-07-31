@@ -1,0 +1,8 @@
+/normal /demo 307
+/normal/* /demo 307
+/beta /demo 307
+/beta/* /demo 307
+/cloud /demo 307
+/cloud/* /demo 307
+/data-retention /demo 307
+/refund-cancellation /demo 307

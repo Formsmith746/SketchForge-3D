@@ -1,0 +1,45 @@
+name: Bug report
+description: Report something broken or unexpected.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps needed to reproduce the issue.
+      placeholder: |
+        1. Add a box
+        2. Import an STL
+        3. Group the shapes
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome on Windows 11
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or recordings
+      description: Add screenshots, recordings, or sample STL files if they help.

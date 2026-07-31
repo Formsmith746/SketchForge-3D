@@ -1,0 +1,6 @@
+services:
+  sketchforge:
+    image: ghcr.io/formsmith746/sketchforge-3d:latest
+    ports:
+      - "${SKETCHFORGE_PORT:-3000}:80"
+    restart: unless-stopped

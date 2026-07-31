@@ -1,0 +1,9 @@
+services:
+  sketchforge:
+    image: sketchforge:local
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "${SKETCHFORGE_PORT:-3000}:80"
+    restart: unless-stopped

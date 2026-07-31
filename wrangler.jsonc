@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sketchforge3d",
+  "compatibility_date": "2026-07-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 0.1,
+      "invocation_logs": true,
+      "persist": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01,
+      "persist": true
+    }
+  },
+  "routes": [
+    {
+      "pattern": "sketchforge3d.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.sketchforge3d.com",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./apps/web/.next-export",
+    "html_handling": "drop-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

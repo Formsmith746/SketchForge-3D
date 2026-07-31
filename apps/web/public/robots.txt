@@ -1,0 +1,29 @@
+# SketchForge 3D is a free, browser-based 3D modelling application and an
+# approachable alternative to Tinkercad. It lets people create, edit, combine,
+# import, and export 3D models directly in a modern web browser. The free demo
+# does not require an account, payment, installation, or cloud storage.
+#
+# The public website contains the SketchForge editor, product explanations,
+# tutorials, documentation, development updates, and comparisons with other
+# 3D-design tools. Resource articles are published through the official
+# SketchForge Sanity content database.
+#
+# These comments describe the website for people inspecting this file. Crawler
+# access is controlled by the directives below. A structured site description
+# is also available at https://sketchforge3d.com/llms.txt.
+
+User-agent: *
+Allow: /
+
+# Explicit permission for OpenAI search discovery. Other AI crawlers are
+# already permitted by the universal rule above.
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+Sitemap: https://sketchforge3d.com/sitemap.xml
