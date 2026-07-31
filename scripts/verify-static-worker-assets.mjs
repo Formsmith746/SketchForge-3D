@@ -1,24 +1,47 @@
-import { readdir, readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { lstat, readdir, readFile, realpath } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const exportRoot = join(repositoryRoot, "apps", "web", ".next-export");
 const chunksRoot = join(exportRoot, "_next", "static", "chunks");
 
-async function listJavaScriptFiles(directory) {
+function isPathInside(root, candidate) {
+  const relativePath = relative(root, candidate);
+  return relativePath === "" || (!isAbsolute(relativePath) && relativePath !== ".." && !relativePath.startsWith(`..${sep}`));
+}
+
+async function readContainedTextFile(root, filePath) {
+  const fileStat = await lstat(filePath);
+  if (fileStat.isSymbolicLink() || !fileStat.isFile()) throw new Error(`Static worker asset is not a regular file: ${filePath}`);
+  const canonicalPath = await realpath(filePath);
+  if (!isPathInside(root, canonicalPath)) throw new Error(`Static worker asset escapes the export directory: ${filePath}`);
+  return readFile(canonicalPath, "utf8");
+}
+
+async function listJavaScriptFiles(directory, root) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = await Promise.all(
     entries.map((entry) => {
-      const path = join(directory, entry.name);
-      return entry.isDirectory() ? listJavaScriptFiles(path) : [path];
+      if (entry.name !== basename(entry.name)) throw new Error(`Invalid static asset name: ${entry.name}`);
+      const assetPath = resolve(directory, entry.name);
+      if (!isPathInside(root, assetPath)) throw new Error(`Static asset escapes the chunks directory: ${assetPath}`);
+      if (entry.isSymbolicLink()) throw new Error(`Static worker assets must not be symbolic links: ${assetPath}`);
+      if (entry.isDirectory()) return listJavaScriptFiles(assetPath, root);
+      return entry.isFile() && assetPath.endsWith(".js") ? [assetPath] : [];
     }),
   );
 
-  return files.flat().filter((path) => path.endsWith(".js"));
+  return files.flat();
 }
 
-const indexHtml = await readFile(join(exportRoot, "index.html"), "utf8");
+const canonicalExportRoot = await realpath(exportRoot);
+const canonicalChunksRoot = await realpath(chunksRoot);
+if (!isPathInside(canonicalExportRoot, canonicalChunksRoot)) {
+  throw new Error(`Static chunks directory escapes the export directory: ${chunksRoot}`);
+}
+
+const indexHtml = await readContainedTextFile(canonicalExportRoot, resolve(canonicalExportRoot, "index.html"));
 if (indexHtml.includes('="./_next/')) {
   throw new Error(
     "Static HTML uses a relative ./_next asset prefix. Worker chunks resolve that prefix " +
@@ -27,10 +50,10 @@ if (indexHtml.includes('="./_next/')) {
 }
 
 const workerChunks = [];
-for (const path of await listJavaScriptFiles(chunksRoot)) {
-  const source = await readFile(path, "utf8");
+for (const workerPath of await listJavaScriptFiles(canonicalChunksRoot, canonicalChunksRoot)) {
+  const source = await readContainedTextFile(canonicalChunksRoot, workerPath);
   if (source.includes("importScripts(") && source.includes("static/chunks/")) {
-    workerChunks.push({ path, source });
+    workerChunks.push({ path: workerPath, source });
   }
 }
 

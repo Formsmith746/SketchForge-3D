@@ -1,16 +1,42 @@
+import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
+import { homedir } from "os";
 import path from "path";
 import { NextResponse } from "next/server";
 
 export const revalidate = false;
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const LOCAL_DOWNLOAD_ROOT_ENV = "SKETCHFORGE_LOCAL_DOWNLOAD_ROOT";
 const MAX_TEXT_DOWNLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_BINARY_DOWNLOAD_BYTES = 512 * 1024 * 1024;
 
 function safeFileName(filename: string) {
   const base = path.basename(filename).replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim();
   return base || "download.txt";
+}
+
+function isPathInside(root: string, candidate: string) {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`));
+}
+
+async function localDownloadDirectory(requestedFolder: string) {
+  const configuredRoot = process.env[LOCAL_DOWNLOAD_ROOT_ENV]?.trim();
+  const allowedRoot = path.resolve(configuredRoot || path.join(homedir(), "Downloads"));
+  const requestedDirectory = path.resolve(path.isAbsolute(requestedFolder) ? requestedFolder : path.join(allowedRoot, requestedFolder));
+  if (!isPathInside(allowedRoot, requestedDirectory)) return null;
+
+  await fs.mkdir(allowedRoot, { recursive: true });
+  try {
+    const [canonicalRoot, canonicalDirectory] = await Promise.all([fs.realpath(allowedRoot), fs.realpath(requestedDirectory)]);
+    const directoryStat = await fs.stat(canonicalDirectory);
+    return directoryStat.isDirectory() && isPathInside(canonicalRoot, canonicalDirectory) ? canonicalDirectory : null;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return null;
+    throw error;
+  }
 }
 
 function isLocalSameOriginRequest(request: Request) {
@@ -77,15 +103,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Choose a folder first" }, { status: 400 });
     }
 
-    const targetDirectory = path.resolve(path.isAbsolute(trimmedFolder) ? trimmedFolder : path.join(process.cwd(), trimmedFolder));
-    await fs.mkdir(targetDirectory, { recursive: true });
-    const targetPath = path.resolve(targetDirectory, safeFileName(filename));
-    const relativeTarget = path.relative(targetDirectory, targetPath);
-    if (relativeTarget.startsWith("..") || path.isAbsolute(relativeTarget)) {
-      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+    const targetDirectory = await localDownloadDirectory(trimmedFolder);
+    if (!targetDirectory) {
+      return NextResponse.json({ error: "Folder must exist inside the configured local download root" }, { status: 400 });
     }
-    if (typeof content === "string") await fs.writeFile(targetPath, content, "utf8");
-    else await fs.writeFile(targetPath, content);
+
+    const targetPath = path.join(targetDirectory, safeFileName(filename));
+    const temporaryPath = path.join(targetDirectory, `.${randomUUID()}.tmp`);
+    try {
+      const handle = await fs.open(temporaryPath, "wx");
+      try {
+        if (typeof content === "string") await handle.writeFile(content, "utf8");
+        else await handle.writeFile(content);
+      } finally {
+        await handle.close();
+      }
+      await fs.rename(temporaryPath, targetPath);
+    } finally {
+      await fs.unlink(temporaryPath).catch(() => undefined);
+    }
 
     return NextResponse.json({ path: targetPath });
   } catch (error) {

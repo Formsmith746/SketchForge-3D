@@ -242,7 +242,7 @@ Use this path if you want to edit SketchForge's code.
 
 ### What You Need
 
-- Node.js 20 or newer
+- Node.js 20.9 or newer
 - npm, included with Node.js
 
 Check your versions:
@@ -270,6 +270,19 @@ http://127.0.0.1:3000/
 ```
 
 Leave the terminal open while you use the app. To stop the development server, press `Ctrl+C` in the terminal.
+
+The **Save to folder** setting is limited to existing folders under your user `Downloads` directory. To use a different root, set `SKETCHFORGE_LOCAL_DOWNLOAD_ROOT` before starting SketchForge. For example, on macOS or Linux:
+
+```bash
+SKETCHFORGE_LOCAL_DOWNLOAD_ROOT=/path/to/exports npm run dev
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:SKETCHFORGE_LOCAL_DOWNLOAD_ROOT = "C:\path\to\exports"
+npm run dev
+```
 
 ### Useful Developer Commands
 
