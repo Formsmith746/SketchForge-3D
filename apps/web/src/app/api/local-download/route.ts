@@ -108,7 +108,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Folder must exist inside the configured local download root" }, { status: 400 });
     }
 
-    const targetPath = path.join(targetDirectory, safeFileName(filename));
+    const resolvedBase = path.resolve(targetDirectory);
+    const resolvedTarget = path.resolve(resolvedBase, safeFileName(filename));
+    const relativePath = path.relative(resolvedBase, resolvedTarget);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+    }
+    const targetPath = resolvedTarget;
     const temporaryPath = path.join(targetDirectory, `.${randomUUID()}.tmp`);
     try {
       const handle = await fs.open(temporaryPath, "wx");
