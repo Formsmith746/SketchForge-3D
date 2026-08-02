@@ -93,4 +93,78 @@ describe("local download route path validation", () => {
     await expect(readFile(outputPath, "utf8")).resolves.toBe("replacement");
     expect((await lstat(outputPath)).isSymbolicLink()).toBe(false);
   });
+
+  describe("path traversal vulnerability mitigation", () => {
+    it("sanitizes path traversal attempts in filename via basename extraction", async () => {
+      const exportDirectory = path.join(downloadRoot, "exports");
+      await mkdir(exportDirectory);
+
+      // The safeFileName function uses path.basename which extracts only the filename
+      // So "../../../etc/passwd" becomes "passwd"
+      const response = await POST(downloadRequest("exports", "../../../etc/passwd", "content"));
+
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { path?: string };
+      // File should be created as "passwd" in the exports directory, not traversing
+      expect(payload.path).toBe(path.join(await realpath(exportDirectory), "passwd"));
+      await expect(readFile(payload.path!, "utf8")).resolves.toBe("content");
+      // Verify it didn't write outside the directory
+      await expect(access(path.join(outsideRoot, "passwd"))).rejects.toMatchObject({ code: "ENOENT" });
+    });
+
+    it("sanitizes encoded path separators in filename", async () => {
+      const exportDirectory = path.join(downloadRoot, "exports");
+      await mkdir(exportDirectory);
+
+      // URL-encoded slashes - the validation catches this as potentially malicious
+      const response = await POST(downloadRequest("exports", "..%2F..%2Fsensitive.txt", "content"));
+
+      // The new validation code correctly rejects this as it contains ".." patterns
+      expect(response.status).toBe(400);
+      const payload = (await response.json()) as { error?: string };
+      expect(payload.error).toBe("Invalid file path");
+    });
+
+    it("sanitizes absolute path in filename via basename extraction", async () => {
+      const exportDirectory = path.join(downloadRoot, "exports");
+      await mkdir(exportDirectory);
+      const absolutePath = path.join(outsideRoot, "absolute-attack.txt");
+
+      // Absolute paths get reduced to just the filename by path.basename
+      const response = await POST(downloadRequest("exports", absolutePath, "content"));
+
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { path?: string };
+      // Should create file with sanitized name in exports directory
+      expect(payload.path).toBe(path.join(await realpath(exportDirectory), "absolute-attack.txt"));
+      // Verify it didn't write to the absolute path location
+      await expect(access(absolutePath)).rejects.toMatchObject({ code: "ENOENT" });
+    });
+
+    it("allows safe filenames with dots but not traversal", async () => {
+      const exportDirectory = path.join(downloadRoot, "exports");
+      await mkdir(exportDirectory);
+
+      const response = await POST(downloadRequest("exports", "my.file.name.svg", "<svg />"));
+
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { path?: string };
+      expect(payload.path).toBe(path.join(await realpath(exportDirectory), "my.file.name.svg"));
+      await expect(readFile(payload.path!, "utf8")).resolves.toBe("<svg />");
+    });
+
+    it("prevents traversal even after basename extraction with path separators in name", async () => {
+      const exportDirectory = path.join(downloadRoot, "exports");
+      await mkdir(exportDirectory);
+
+      // Even if someone tries path separators, they get sanitized
+      const response = await POST(downloadRequest("exports", "../../outside/file.txt", "content"));
+
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { path?: string };
+      // basename extracts "file.txt", which is safe
+      expect(payload.path).toBe(path.join(await realpath(exportDirectory), "file.txt"));
+      await expect(readFile(payload.path!, "utf8")).resolves.toBe("content");
+    });
+  });
 });
