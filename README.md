@@ -19,7 +19,7 @@
     <a href="https://github.com/Formsmith746/SketchForge-3D/stargazers"><img alt="Star SketchForge on GitHub" src="docs/media/badges/github-star.svg"></a>
     <a href="https://github.com/sponsors/Formsmith746"><img alt="Sponsor SketchForge on GitHub" src="docs/media/badges/github-sponsor.svg"></a>
     <img alt="Local first" src="https://img.shields.io/badge/local--first-no%20account-0ea5e9">
-    <img alt="Version 0.8.0" src="docs/media/badges/version-0.8.0.svg">
+    <img alt="Version v0.9.0" src="https://img.shields.io/badge/version-v0.9.0-2563eb">
   </p>
 </div>
 
@@ -46,6 +46,10 @@ No login. No server project storage. No heavyweight CAD install just to make a u
 - **3MF, STL, STEP, and SVG import** - bring outside models and vector profiles into the same workspace as primitives.
 - **3MF, STL, OBJ, STEP, and SVG workflows** - export selected objects or the whole scene, including print-ready 3MF packages and exact STEP/B-Rep geometry.
 - **Fast browser stack** - Next.js, React, TypeScript, Three.js, and Manifold/CSG geometry tooling.
+
+### Camera projection shortcut
+
+Press **O** in the editor to switch between perspective and orthographic projection. The current view direction and framing are preserved when switching.
 
 ## Demo
 

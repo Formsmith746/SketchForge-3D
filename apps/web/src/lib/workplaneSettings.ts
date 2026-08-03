@@ -21,7 +21,7 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   units: "Metric (Default)",
   scale: "1:1 (millimeters)",
   accuracy: 2,
-  historyLimit: "unlimited",
+  historyLimit: 100,
 };
 
 const snapGridOptions: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];

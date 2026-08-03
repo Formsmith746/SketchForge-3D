@@ -1,5 +1,6 @@
 import { strFromU8, strToU8, unzip, zip, type AsyncZippable } from "fflate";
 import { editorHistoryEntry, hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
+import { normalizePlacementWorkplane, placementWorkplaneIsBase, type PlacementWorkplane } from "@/lib/placementWorkplane";
 import { MAX_PROJECT_ASSET_BYTES, normalizeProjectAsset, sha256Hex } from "@/lib/projectAssets";
 import { canonicalizeShape } from "@/lib/workplaneShapes";
 import { importedShapeFromStl } from "@/lib/stlImport";
@@ -10,7 +11,7 @@ import type { GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation,
 export const SKF_SCHEMA_ID = "com.sketchforge.project";
 export const SKF_FORMAT_VERSION = 1;
 export const SKF_MINIMUM_READER_VERSION = 1;
-export const SKF_CREATED_WITH_VERSION = "0.7.0";
+export const SKF_CREATED_WITH_VERSION = "0.9.0";
 export const SKF_MEDIA_TYPE = "application/vnd.sketchforge.project+zip";
 
 export const SKF_LIMITS = {
@@ -120,6 +121,8 @@ export type SkfProjectDocumentV1 = {
     snapGrid: GridSize;
     selectedWorkplaneId: string;
     placementElevation: number;
+    placementWorkplane?: PlacementWorkplane;
+    sketchPlacementWorkplane?: PlacementWorkplane;
   };
 };
 
@@ -135,6 +138,8 @@ export type SkfProjectExportInput = {
   workspace: WorkplaneWorkspaceSettings;
   snapGrid: GridSize;
   placementElevation: number;
+  placementWorkplane?: PlacementWorkplane;
+  sketchPlacementWorkplane?: PlacementWorkplane;
   compressionLevel?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 };
 
@@ -150,6 +155,8 @@ export type SkfRestoredProject = {
   workspace: WorkplaneWorkspaceSettings;
   snapGrid: GridSize;
   placementElevation: number;
+  placementWorkplane: PlacementWorkplane;
+  sketchPlacementWorkplane: PlacementWorkplane;
   migratedFromVersion?: number;
 };
 
@@ -663,7 +670,9 @@ export async function exportSkfProject(input: SkfProjectExportInput) {
   const indexes = activeProjectIndexes(activeState);
   const now = Date.now();
   const placementElevation = Number.isFinite(input.placementElevation) ? input.placementElevation : 0;
-  const selectedWorkplaneId = Math.abs(placementElevation) < 1e-9 ? "workplane-base" : "workplane-active";
+  const placementWorkplane = normalizePlacementWorkplane(input.placementWorkplane, placementElevation);
+  const sketchPlacementWorkplane = normalizePlacementWorkplane(input.sketchPlacementWorkplane);
+  const selectedWorkplaneId = placementWorkplaneIsBase(placementWorkplane) ? "workplane-base" : "workplane-active";
   const document: SkfProjectDocumentV1 = {
     schema: SKF_SCHEMA_ID,
     formatVersion: SKF_FORMAT_VERSION,
@@ -693,6 +702,8 @@ export async function exportSkfProject(input: SkfProjectExportInput) {
       snapGrid: normalizeSnapGrid(input.snapGrid),
       selectedWorkplaneId,
       placementElevation,
+      placementWorkplane,
+      sketchPlacementWorkplane,
     },
   };
   builder.files["project.json"] = strToU8(`${JSON.stringify(document, null, 2)}\n`);
@@ -1093,6 +1104,16 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
   validateFeatureGraph(document.features, activeObjectIds);
   const editor = objectRecord(document.editor, "editor");
   finiteNumber(editor.placementElevation, "editor.placementElevation");
+  for (const fieldName of ["placementWorkplane", "sketchPlacementWorkplane"] as const) {
+    if (editor[fieldName] === undefined) continue;
+    const workplane = objectRecord(editor[fieldName], `editor.${fieldName}`);
+    for (const field of ["origin", "normal", "xAxis", "zAxis"] as const) {
+      const coordinates = objectRecord(workplane[field], `editor.${fieldName}.${field}`);
+      finiteNumber(coordinates.x, `editor.${fieldName}.${field}.x`);
+      finiteNumber(coordinates.y, `editor.${fieldName}.${field}.y`);
+      finiteNumber(coordinates.z, `editor.${fieldName}.${field}.z`);
+    }
+  }
   return { document, assetById, stateById };
 }
 
@@ -1242,6 +1263,8 @@ async function restoreV1(document: SkfProjectDocumentV1, assetById: Map<string, 
     workspace: normalizeWorkspaceSettings(document.editor.workspace),
     snapGrid: normalizeSnapGrid(document.editor.snapGrid),
     placementElevation: document.editor.placementElevation,
+    placementWorkplane: normalizePlacementWorkplane(document.editor.placementWorkplane, document.editor.placementElevation),
+    sketchPlacementWorkplane: normalizePlacementWorkplane(document.editor.sketchPlacementWorkplane),
   } satisfies SkfRestoredProject;
 }
 
@@ -1266,6 +1289,11 @@ function migrateV0(raw: Record<string, unknown>): SkfRestoredProject {
     workspace: normalizeWorkspaceSettings(raw.workspace),
     snapGrid: normalizeSnapGrid(raw.snapGrid),
     placementElevation: typeof raw.placementElevation === "number" && Number.isFinite(raw.placementElevation) ? raw.placementElevation : 0,
+    placementWorkplane: normalizePlacementWorkplane(
+      raw.placementWorkplane,
+      typeof raw.placementElevation === "number" && Number.isFinite(raw.placementElevation) ? raw.placementElevation : 0,
+    ),
+    sketchPlacementWorkplane: normalizePlacementWorkplane(raw.sketchPlacementWorkplane),
     migratedFromVersion: 0,
   };
 }

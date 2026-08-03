@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import type { ConstructionPlanePose } from "@/lib/constructionPlanes";
 import { editorHistoryEntry } from "@/lib/editorHistory";
+import { placementWorkplaneFromSurface } from "@/lib/placementWorkplane";
 import { projectAssetFromBytes } from "@/lib/projectAssets";
 import { canonicalizeShape } from "@/lib/workplaneShapes";
 import {
@@ -132,7 +134,7 @@ describe("SketchForge .skf project packages", () => {
   });
 
   it("round-trips construction planes and sketch plane attachments", async () => {
-    const pose = { origin: [12, 4, -3], quaternion: [0, 0, 0, 1] } as const;
+    const pose: ConstructionPlanePose = { origin: [12, 4, -3], quaternion: [0, 0, 0, 1] };
     const plane = shape("constructionPlane", "plane-1", {
       name: "Offset XZ plane",
       constructionPlane: { kind: "principal", principal: "xz", offset: 4, pose },
@@ -159,6 +161,28 @@ describe("SketchForge .skf project packages", () => {
     expect(restored.shapes).toEqual([canonicalizeShape(plane), canonicalizeShape(sketch)]);
     expect(restored.shapes[0].constructionPlane?.kind).toBe("principal");
     expect(restored.shapes[1].sketchPlane?.constructionPlaneId).toBe("plane-1");
+  });
+
+  it("preserves an oriented placement workplane", async () => {
+    const placementWorkplane = placementWorkplaneFromSurface(
+      { x: 12, y: 8, z: -3 },
+      { x: 1, y: 0, z: 0 },
+      { x: 0, y: 1, z: 0 },
+    );
+    const sketchPlacementWorkplane = placementWorkplaneFromSurface(
+      { x: -4, y: 6, z: 9 },
+      { x: 0, y: 0, z: -1 },
+      { x: 1, y: 0, z: 0 },
+    );
+    const exported = await exportSkfProject(input([shape("box")], {
+      placementElevation: 0,
+      placementWorkplane,
+      sketchPlacementWorkplane,
+    }));
+    const restored = await importSkfProject(exported);
+
+    expect(restored.placementWorkplane).toEqual(placementWorkplane);
+    expect(restored.sketchPlacementWorkplane).toEqual(sketchPlacementWorkplane);
   });
 
   it("preserves editable revolve sketch settings and generated geometry", async () => {

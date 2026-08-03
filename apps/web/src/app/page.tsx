@@ -6,6 +6,12 @@ import { SketchForgeEditor, importedShapeFromStl, importedShapeFromSvg } from "@
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { createLocalId } from "@/lib/localIds";
+import {
+  horizontalPlacementWorkplane,
+  normalizePlacementWorkplane,
+  placementWorkplaneFingerprint,
+  type PlacementWorkplane,
+} from "@/lib/placementWorkplane";
 import { attachProjectAsset, dedupeProjectAssets, MAX_PROJECT_ASSET_BYTES, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
 import { hydrateProjectShapeState, type ImportedMeshResource } from "@/lib/projectShapePersistence";
 import { exportSkfProject, importSkfProject, SKF_CREATED_WITH_VERSION } from "@/lib/skfProject";
@@ -31,6 +37,8 @@ type DashboardProject = {
   workspace?: WorkplaneWorkspaceSettings;
   snapGrid?: GridSize;
   placementElevation?: number;
+  placementWorkplane?: PlacementWorkplane;
+  sketchPlacementWorkplane?: PlacementWorkplane;
   sharedProject?: { fileName: string; revision: string };
 };
 
@@ -73,6 +81,8 @@ type ProjectShapeSaveContext = {
   workspace: WorkplaneWorkspaceSettings;
   snapGrid: GridSize;
   placementElevation: number;
+  placementWorkplane: PlacementWorkplane;
+  sketchPlacementWorkplane: PlacementWorkplane;
 };
 
 type ProjectShapeResourceRecord =
@@ -166,13 +176,16 @@ function projectShapeCacheEntryFromEditor(
   };
 }
 
-function projectShapeSaveContext(project: Pick<DashboardProject, "name" | "createdAt" | "workspace" | "snapGrid" | "placementElevation">): ProjectShapeSaveContext {
+function projectShapeSaveContext(project: Pick<DashboardProject, "name" | "createdAt" | "workspace" | "snapGrid" | "placementElevation" | "placementWorkplane" | "sketchPlacementWorkplane">): ProjectShapeSaveContext {
+  const placementElevation = Number.isFinite(project.placementElevation) ? project.placementElevation ?? 0 : 0;
   return {
     projectName: project.name,
     createdAt: project.createdAt,
     workspace: normalizeWorkspaceSettings(project.workspace),
     snapGrid: normalizeSnapGrid(project.snapGrid),
-    placementElevation: Number.isFinite(project.placementElevation) ? project.placementElevation ?? 0 : 0,
+    placementElevation,
+    placementWorkplane: normalizePlacementWorkplane(project.placementWorkplane, placementElevation),
+    sketchPlacementWorkplane: normalizePlacementWorkplane(project.sketchPlacementWorkplane),
   };
 }
 
@@ -298,6 +311,8 @@ async function saveProjectShapes(projectId: string, entry: ProjectShapeCacheEntr
     workspace: context.workspace,
     snapGrid: context.snapGrid,
     placementElevation: context.placementElevation,
+    placementWorkplane: context.placementWorkplane,
+    sketchPlacementWorkplane: context.sketchPlacementWorkplane,
     compressionLevel: 1,
   });
   const database = await openProjectShapesDb();
@@ -396,6 +411,8 @@ function readStoredProjects() {
           workspace: normalizeWorkspaceSettings(project.workspace),
           snapGrid: normalizeSnapGrid(project.snapGrid),
           placementElevation: typeof project.placementElevation === "number" && Number.isFinite(project.placementElevation) ? project.placementElevation : 0,
+          placementWorkplane: normalizePlacementWorkplane(project.placementWorkplane, project.placementElevation),
+          sketchPlacementWorkplane: normalizePlacementWorkplane(project.sketchPlacementWorkplane),
           sharedProject: typeof project.sharedProject?.fileName === "string" && typeof project.sharedProject.revision === "string"
             ? { fileName: project.sharedProject.fileName, revision: project.sharedProject.revision }
             : undefined,
@@ -430,6 +447,8 @@ function mergeProjectForStorage(project: DashboardProject, storedProject?: Dashb
     workspace: storedProject.workspace ?? project.workspace,
     snapGrid: storedProject.snapGrid ?? project.snapGrid,
     placementElevation: storedProject.placementElevation ?? project.placementElevation,
+    placementWorkplane: storedProject.placementWorkplane ?? project.placementWorkplane,
+    sketchPlacementWorkplane: storedProject.sketchPlacementWorkplane ?? project.sketchPlacementWorkplane,
     sharedProject: project.sharedProject ?? storedProject.sharedProject,
   };
 }
@@ -448,6 +467,8 @@ function projectForStorage(project: DashboardProject): DashboardProject {
     workspace: normalizeWorkspaceSettings(project.workspace),
     snapGrid: normalizeSnapGrid(project.snapGrid),
     placementElevation: typeof project.placementElevation === "number" && Number.isFinite(project.placementElevation) ? project.placementElevation : 0,
+    placementWorkplane: normalizePlacementWorkplane(project.placementWorkplane, project.placementElevation),
+    sketchPlacementWorkplane: normalizePlacementWorkplane(project.sketchPlacementWorkplane),
     sharedProject: project.sharedProject,
   };
 }
@@ -476,6 +497,8 @@ function newProject(name: string, index: number, shapeCount = 0): DashboardProje
     },
     snapGrid: DEFAULT_SNAP_GRID,
     placementElevation: 0,
+    placementWorkplane: horizontalPlacementWorkplane(),
+    sketchPlacementWorkplane: horizontalPlacementWorkplane(),
   };
 }
 
@@ -779,6 +802,8 @@ export default function Home() {
     workspace: WorkplaneWorkspaceSettings;
     snapGrid: GridSize;
     placementElevation: number;
+    placementWorkplane: PlacementWorkplane;
+    sketchPlacementWorkplane: PlacementWorkplane;
   }) => {
     const revision = Math.max(Date.now(), nextProjectRevisionRef.current + 1);
     nextProjectRevisionRef.current = revision;
@@ -801,6 +826,8 @@ export default function Home() {
       workspace: normalizeWorkspaceSettings(snapshot.workspace),
       snapGrid: normalizeSnapGrid(snapshot.snapGrid),
       placementElevation: Number.isFinite(snapshot.placementElevation) ? snapshot.placementElevation : 0,
+      placementWorkplane: normalizePlacementWorkplane(snapshot.placementWorkplane, snapshot.placementElevation),
+      sketchPlacementWorkplane: normalizePlacementWorkplane(snapshot.sketchPlacementWorkplane),
     };
     const queuedSave = previousSave.catch(() => undefined).then(() => saveProjectShapesWhenIdle(snapshot.projectId, entry, saveContext));
     projectShapeSaveQueuesRef.current[snapshot.projectId] = queuedSave;
@@ -827,7 +854,14 @@ export default function Home() {
       });
   }, []);
 
-  const updateProjectWorkspace = useCallback((snapshot: { projectId: string; workspace: WorkplaneWorkspaceSettings; snap: GridSize; placementElevation?: number }) => {
+  const updateProjectWorkspace = useCallback((snapshot: {
+    projectId: string;
+    workspace: WorkplaneWorkspaceSettings;
+    snap: GridSize;
+    placementElevation?: number;
+    placementWorkplane?: PlacementWorkplane;
+    sketchPlacementWorkplane?: PlacementWorkplane;
+  }) => {
     const version = Math.max(Date.now(), nextProjectRevisionRef.current + 1);
     nextProjectRevisionRef.current = version;
     const workspace = normalizeWorkspaceSettings(snapshot.workspace);
@@ -835,7 +869,9 @@ export default function Home() {
     const placementElevation = typeof snapshot.placementElevation === "number" && Number.isFinite(snapshot.placementElevation)
       ? snapshot.placementElevation
       : 0;
-    const nextFingerprint = `${workplaneSettingsFingerprint(workspace, snapGrid)}:${placementElevation}`;
+    const placementWorkplane = normalizePlacementWorkplane(snapshot.placementWorkplane, placementElevation);
+    const sketchPlacementWorkplane = normalizePlacementWorkplane(snapshot.sketchPlacementWorkplane);
+    const nextFingerprint = `${workplaneSettingsFingerprint(workspace, snapGrid)}:${placementElevation}:${placementWorkplaneFingerprint(placementWorkplane)}:${placementWorkplaneFingerprint(sketchPlacementWorkplane)}`;
     setProjects((current) => {
       let changed = false;
       const next = current.map((project) => {
@@ -843,7 +879,7 @@ export default function Home() {
         const currentFingerprint = `${workplaneSettingsFingerprint(
           normalizeWorkspaceSettings(project.workspace),
           normalizeSnapGrid(project.snapGrid),
-        )}:${project.placementElevation ?? 0}`;
+        )}:${project.placementElevation ?? 0}:${placementWorkplaneFingerprint(normalizePlacementWorkplane(project.placementWorkplane, project.placementElevation))}:${placementWorkplaneFingerprint(normalizePlacementWorkplane(project.sketchPlacementWorkplane))}`;
         if (currentFingerprint === nextFingerprint) return project;
         changed = true;
         return {
@@ -851,6 +887,8 @@ export default function Home() {
           workspace,
           snapGrid,
           placementElevation,
+          placementWorkplane,
+          sketchPlacementWorkplane,
           updatedAt: version,
           revision: version,
         };
@@ -898,6 +936,8 @@ export default function Home() {
         workspace: restored.workspace,
         snapGrid: restored.snapGrid,
         placementElevation: restored.placementElevation,
+        placementWorkplane: restored.placementWorkplane,
+        sketchPlacementWorkplane: restored.sketchPlacementWorkplane,
         sharedProject: sharedProject ? { fileName: sharedProject.fileName, revision: sharedProject.revision } : undefined,
       };
       const entry = projectShapeCacheEntry(now, restored.shapes, restored.history, restored.historyIndex, restored.assets);
@@ -1182,6 +1222,7 @@ export default function Home() {
             initialSnap={activeProject?.snapGrid ?? DEFAULT_SNAP_GRID}
             initialWorkspace={activeProject?.workspace ?? DEFAULT_WORKPLANE_WORKSPACE}
             initialPlacementElevation={activeProject?.placementElevation ?? 0}
+            initialPlacementWorkplane={activeProject?.placementWorkplane}
             onHome={openDashboard}
             onOpenSkfProjectFile={openSkfProjectFromFile}
             onSaveSharedProject={saveActiveProjectToShared}

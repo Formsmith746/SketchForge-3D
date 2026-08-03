@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Circle, CircleDot, CloudUpload, CopyPlus, Download, FolderOpen, Grid2X2, Hexagon, Pentagon, RotateCw, Route, Ruler, ScanLine, Square, Type, X } from "lucide-react";
+import { Check, Circle, CircleDot, CloudUpload, CopyPlus, Download, Eye, FolderOpen, Grid2X2, Hexagon, Pentagon, RotateCw, Route, Ruler, ScanLine, Square, Type, X } from "lucide-react";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -20,6 +20,7 @@ import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import { createGearGeometry } from "@/lib/gearGeometry";
+import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import {
   ToolbarAlignIcon,
   ToolbarChamferIcon,
@@ -72,6 +73,7 @@ import { hasOneToOneCadComponentMapping } from "@/lib/cadModifierGroups";
 import {
   CAD_MODIFIER_MAX_SHARP_ANGLE,
   CAD_MODIFIER_REQUEST_TIMEOUT_MS,
+  cadModifierPrepareTimeoutMs,
   cadModifierTimeoutMessage,
   cadModifierWorkerFailureMessage,
   defaultCadModifierTangentChain,
@@ -115,6 +117,18 @@ import { exportMeshesTo3mf, importedShapeFrom3mf } from "@/lib/threeMf";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
 import { normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import {
+  normalizePlacementWorkplane,
+  placementPatchForNewShape,
+  placementWorkplaneCoordinates,
+  placementWorkplaneFromSurface,
+  placementWorkplaneIsBase,
+  placementWorkplaneQuaternion,
+  translationToWorkplane,
+  type PlacementPoint,
+  type PlacementWorkplane,
+} from "@/lib/placementWorkplane";
+import { placeSketchExtrusion } from "@/lib/sketchPlacement";
 import {
   SKETCHFORGE_MCP_POLL_MS,
   SKETCHFORGE_MCP_ROUTE,
@@ -328,6 +342,25 @@ function constructionPlanePoseById(id: string, shapes: WorkplaneShape[], fallbac
   if (id === BASE_CONSTRUCTION_PLANE_ID) return BASE_CONSTRUCTION_PLANE_POSE;
   const plane = shapes.find((shape) => shape.id === id && shape.kind === "constructionPlane");
   return plane ? resolvedConstructionPlanePose(plane, shapes) ?? plane.constructionPlane?.pose ?? fallback : fallback;
+}
+
+function placementWorkplaneForConstructionPlanePose(pose: ConstructionPlanePose) {
+  const quaternion = new THREE.Quaternion(...pose.quaternion).normalize();
+  const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion);
+  const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion);
+  return placementWorkplaneFromSurface(
+    { x: pose.origin[0], y: pose.origin[1], z: pose.origin[2] },
+    { x: normal.x, y: normal.y, z: normal.z },
+    { x: xAxis.x, y: xAxis.y, z: xAxis.z },
+  );
+}
+
+function constructionPlanePoseForPlacementWorkplane(workplane: PlacementWorkplane): ConstructionPlanePose {
+  const quaternion = placementWorkplaneQuaternion(workplane);
+  return {
+    origin: [workplane.origin.x, workplane.origin.y, workplane.origin.z],
+    quaternion: [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
+  };
 }
 
 function constructionPlaneShapeWithPose(shape: WorkplaneShape, pose: ConstructionPlanePose): WorkplaneShape {
@@ -2165,9 +2198,10 @@ function createBooleanWedgeGeometry(width: number, height: number, depth: number
 function createBooleanPyramidGeometry(width: number, height: number, depth: number, sides = 4) {
   const count = Math.max(3, Math.round(sides));
   if (count !== 4) {
-    const radius = Math.min(width, depth) / 2;
-    const geometry = new THREE.ConeGeometry(radius, height, count);
-    geometry.translate(0, height / 2, 0);
+    const footprintScale = regularPolygonFootprintScale(width, depth, count);
+    const geometry = new THREE.ConeGeometry(1, height, count);
+    geometry.scale(footprintScale.x, 1, footprintScale.z);
+    geometry.translate(footprintScale.offsetX, height / 2, footprintScale.offsetZ);
     return geometry;
   }
 
@@ -2506,6 +2540,7 @@ function refreshLinkedSketchProjections(
   profile: SketchProfile,
   sceneShapes: WorkplaneShape[],
   constructionPlaneId: string,
+  targetPose = constructionPlanePoseById(constructionPlaneId, sceneShapes),
 ) {
   const links = profile.projections ?? [];
   if (!links.length) return profile;
@@ -2516,7 +2551,6 @@ function refreshLinkedSketchProjections(
     points: profile.points.filter((point) => retainedPointIds.has(point.id)),
     segments: profile.segments.filter((segment) => (!segment.projectionId || !linkedIds.has(segment.projectionId)) && retainedPointIds.has(segment.startId) && retainedPointIds.has(segment.endId)),
   };
-  const targetPose = constructionPlanePoseById(constructionPlaneId, sceneShapes);
   for (const link of links) {
     const source = sceneShapes.find((shape) => shape.id === link.sourceShapeId && shape.kind !== "constructionPlane");
     if (!source) continue;
@@ -2528,6 +2562,63 @@ function refreshLinkedSketchProjections(
     };
   }
   return pruneSketchParameters(refreshed);
+}
+
+function sketchReferenceShapeOnWorkplane(shape: WorkplaneShape, workplane: PlacementWorkplane): WorkplaneShape {
+  const mesh = meshForShape(shape);
+  const projectedVertices = mesh.vertices.map(([x, y, z]) => {
+    const local = placementWorkplaneCoordinates(workplane, { x, y, z });
+    return { x: local.x, y: -local.y, z: local.z };
+  });
+  const minX = Math.min(...projectedVertices.map((vertex) => vertex.x));
+  const maxX = Math.max(...projectedVertices.map((vertex) => vertex.x));
+  const minY = Math.min(...projectedVertices.map((vertex) => vertex.y));
+  const maxY = Math.max(...projectedVertices.map((vertex) => vertex.y));
+  const minZ = Math.min(...projectedVertices.map((vertex) => vertex.z));
+  const maxZ = Math.max(...projectedVertices.map((vertex) => vertex.z));
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+  const positions = mesh.faces.flatMap(([a, b, c]) => [a, b, c].flatMap((index) => {
+    const vertex = projectedVertices[index];
+    return [vertex.x - centerX, vertex.y - centerY, vertex.z - centerZ];
+  }));
+  const width = Math.max(0.01, maxX - minX);
+  const depth = Math.max(0.01, maxZ - minZ);
+  const height = Math.max(0.01, maxY - minY);
+
+  return canonicalizeShape({
+    ...shape,
+    kind: "mesh",
+    x: centerX,
+    z: centerZ,
+    elevation: 0,
+    size: Math.max(width, depth),
+    width,
+    depth,
+    height,
+    rotation: 0,
+    rotationX: 0,
+    rotationZ: 0,
+    mirrorX: undefined,
+    mirrorY: undefined,
+    mirrorZ: undefined,
+    importedMesh: {
+      positions,
+      baseWidth: width,
+      baseDepth: depth,
+      baseHeight: height,
+      triangleCount: mesh.faces.length,
+      sourceFormat: "json",
+    },
+    groupedShapes: undefined,
+    edgeTreatments: undefined,
+    edgeTreatmentHistory: undefined,
+    cadDisplayEdges: undefined,
+    cadBrep: undefined,
+    cadBrepFrame: undefined,
+    cadPrimitiveFrame: undefined,
+  });
 }
 
 function appendMeshData(vertices: Vec3[], faces: [number, number, number][], mesh: MeshData) {
@@ -5579,6 +5670,7 @@ export function SketchForgeEditor({
   initialSnap,
   initialWorkspace,
   initialPlacementElevation = 0,
+  initialPlacementWorkplane,
   onHome,
   onOpenSkfProjectFile,
   onSaveSharedProject,
@@ -5601,6 +5693,7 @@ export function SketchForgeEditor({
   initialSnap?: GridSize;
   initialWorkspace?: WorkplaneWorkspaceSettings;
   initialPlacementElevation?: number;
+  initialPlacementWorkplane?: PlacementWorkplane;
   onHome?: () => void;
   onOpenSkfProjectFile?: (file: File) => Promise<{ ok: boolean; message: string } | void> | { ok: boolean; message: string } | void;
   onSaveSharedProject?: (request: { exportName: string; bytes: Uint8Array }) => Promise<string>;
@@ -5615,9 +5708,18 @@ export function SketchForgeEditor({
     workspace: WorkplaneWorkspaceSettings;
     snapGrid: GridSize;
     placementElevation: number;
+    placementWorkplane: PlacementWorkplane;
+    sketchPlacementWorkplane: PlacementWorkplane;
   }) => void;
   onProjectSnapshot?: (snapshot: { image: string; projectId: string; shapes: number }) => void;
-  onProjectWorkspaceChange?: (snapshot: { projectId: string; workspace: WorkplaneWorkspaceSettings; snap: GridSize; placementElevation?: number }) => void;
+  onProjectWorkspaceChange?: (snapshot: {
+    projectId: string;
+    workspace: WorkplaneWorkspaceSettings;
+    snap: GridSize;
+    placementElevation?: number;
+    placementWorkplane?: PlacementWorkplane;
+    sketchPlacementWorkplane?: PlacementWorkplane;
+  }) => void;
   projectId?: string | null;
   projectName?: string;
   projectCreatedAt?: number;
@@ -5650,6 +5752,9 @@ export function SketchForgeEditor({
   const [placementElevation, setPlacementElevation] = useState(() => Number.isFinite(initialPlacementElevation) ? initialPlacementElevation : 0);
   const [activeConstructionPlaneId, setActiveConstructionPlaneId] = useState(BASE_CONSTRUCTION_PLANE_ID);
   const [constructionPlanePanelOpen, setConstructionPlanePanelOpen] = useState(false);
+  const [placementWorkplane, setPlacementWorkplane] = useState<PlacementWorkplane>(
+    () => normalizePlacementWorkplane(initialPlacementWorkplane, initialPlacementElevation),
+  );
   const [workspaceSettings, setWorkspaceSettings] = useState<WorkplaneWorkspaceSettings>(() => normalizeWorkspaceSettings(initialWorkspace));
   const [snapGrid, setSnapGrid] = useState<GridSize>(() => normalizeSnapGrid(initialSnap));
   const [workplaneMode, setWorkplaneMode] = useState(false);
@@ -5716,6 +5821,7 @@ export function SketchForgeEditor({
   const workspaceSettingsRef = useRef(workspaceSettings);
   const snapGridRef = useRef(snapGrid);
   const placementElevationRef = useRef(placementElevation);
+  const placementWorkplaneRef = useRef(placementWorkplane);
   const noticeRef = useRef(notice);
   const projectInfoRef = useRef({ projectId: projectId ?? null, projectName, projectCreatedAt });
   const historyIndexRef = useRef(historyIndex);
@@ -5727,6 +5833,9 @@ export function SketchForgeEditor({
   const [projectInteractionActive, setProjectInteractionActive] = useState(false);
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode>("geometry");
   const [sketchActive, setSketchActive] = useState(false);
+  const [activeSketchWorkplane, setActiveSketchWorkplane] = useState<PlacementWorkplane>(
+    () => normalizePlacementWorkplane(initialPlacementWorkplane, initialPlacementElevation),
+  );
   const [sketchOperation, setSketchOperation] = useState<SketchOperation>("extrude");
   const [sketchRevolveSettings, setSketchRevolveSettings] = useState<SketchRevolveSettings>(() => ({ ...DEFAULT_SKETCH_REVOLVE_SETTINGS }));
   const [sketchRevolvePreview, setSketchRevolvePreview] = useState<SketchRevolveMesh | null>(null);
@@ -5800,7 +5909,7 @@ export function SketchForgeEditor({
     cadModifierWatchdogRef.current = null;
   }, []);
 
-  const armCadModifierWatchdog = useCallback((requestId: number, phase: CadModifierRequestPhase) => {
+  const armCadModifierWatchdog = useCallback((requestId: number, phase: CadModifierRequestPhase, timeoutMs = CAD_MODIFIER_REQUEST_TIMEOUT_MS) => {
     clearCadModifierWatchdog();
     const timer = window.setTimeout(() => {
       const active = cadModifierWatchdogRef.current;
@@ -5818,7 +5927,7 @@ export function SketchForgeEditor({
         error: message,
       } : current);
       setNotice(message);
-    }, CAD_MODIFIER_REQUEST_TIMEOUT_MS);
+    }, timeoutMs);
     cadModifierWatchdogRef.current = { requestId, phase, timer };
   }, [clearCadModifierWatchdog]);
 
@@ -6047,6 +6156,10 @@ export function SketchForgeEditor({
   }, [placementElevation]);
 
   useEffect(() => {
+    placementWorkplaneRef.current = placementWorkplane;
+  }, [placementWorkplane]);
+
+  useEffect(() => {
     noticeRef.current = notice;
   }, [notice]);
 
@@ -6170,6 +6283,14 @@ export function SketchForgeEditor({
           : shapes,
     [alignMode, alignPreview, edgeModifier?.preview, effectiveAlignAnchorId, mirrorMode, mirrorPreviewAxis, selectedIds, selectedShapes, shapes],
   );
+  const sketchReferenceShapes = useMemo(
+    () => sketchOperation === "revolve" || placementWorkplaneIsBase(activeSketchWorkplane)
+      ? shapes
+      : shapes.map((shape) => shape.hidden || shape.id === editingSketchShapeId
+        ? shape
+        : sketchReferenceShapeOnWorkplane(shape, activeSketchWorkplane)),
+    [activeSketchWorkplane, editingSketchShapeId, shapes, sketchOperation],
+  );
   const debugState = useMemo(
     () =>
       JSON.stringify({
@@ -6286,6 +6407,8 @@ export function SketchForgeEditor({
           workspace: workspaceSettingsRef.current,
           snapGrid: snapGridRef.current,
           placementElevation: placementElevationRef.current,
+          placementWorkplane: placementWorkplaneRef.current,
+          sketchPlacementWorkplane: placementWorkplaneRef.current,
         });
         projectSyncTimerRef.current = null;
       }, 120);
@@ -6402,7 +6525,14 @@ export function SketchForgeEditor({
       if (!projectId || !onProjectWorkspaceChange) {
         return;
       }
-      onProjectWorkspaceChange({ projectId, workspace: nextWorkspace, snap: settings.snap, placementElevation });
+      onProjectWorkspaceChange({
+        projectId,
+        workspace: nextWorkspace,
+        snap: settings.snap,
+        placementElevation,
+        placementWorkplane: placementWorkplaneRef.current,
+        sketchPlacementWorkplane: placementWorkplaneRef.current,
+      });
     },
     [onProjectWorkspaceChange, placementElevation, projectId],
   );
@@ -6414,8 +6544,10 @@ export function SketchForgeEditor({
       workspace: workspaceSettingsRef.current,
       snap: snapGrid,
       placementElevation,
+      placementWorkplane,
+      sketchPlacementWorkplane: placementWorkplane,
     });
-  }, [onProjectWorkspaceChange, placementElevation, projectId, snapGrid]);
+  }, [onProjectWorkspaceChange, placementElevation, placementWorkplane, projectId, snapGrid]);
 
   const commitShapes = useCallback(
     (next: WorkplaneShape[], nextSelection: string | string[] | null = selectedIds, message?: string) => {
@@ -6527,9 +6659,26 @@ export function SketchForgeEditor({
     [],
   );
 
-  const beginSketch = useCallback((operation: SketchOperation, profile?: SketchProfile, editingId: string | null = null, revolveSettings?: Partial<SketchRevolveSettings>, constructionPlaneId = activeConstructionPlaneId) => {
-    const refreshed = profile ? refreshLinkedSketchProjections(profile, shapes, constructionPlaneId) : emptySketchProfile();
+  const beginSketch = useCallback((
+    operation: SketchOperation,
+    profile?: SketchProfile,
+    editingId: string | null = null,
+    revolveSettings?: Partial<SketchRevolveSettings>,
+    constructionPlaneId = activeConstructionPlaneId,
+    workplaneOverride?: PlacementWorkplane,
+  ) => {
+    const constructionPose = constructionPlaneId === BASE_CONSTRUCTION_PLANE_ID
+      ? null
+      : constructionPlanePoseById(constructionPlaneId, shapes);
+    const sketchWorkplane = normalizePlacementWorkplane(
+      workplaneOverride
+        ?? (constructionPose ? placementWorkplaneForConstructionPlanePose(constructionPose) : placementWorkplaneRef.current),
+    );
+    const projectionPose = constructionPose ?? constructionPlanePoseForPlacementWorkplane(sketchWorkplane);
+    const refreshed = profile ? refreshLinkedSketchProjections(profile, shapes, constructionPlaneId, projectionPose) : emptySketchProfile();
     const initial = cloneSketchProfile(solveSketchProfile(refreshed).profile);
+    setWorkplaneMode(false);
+    setActiveSketchWorkplane(sketchWorkplane);
     setToolbarMode("sketch");
     setSketchActive(true);
     setSketchOperation(operation);
@@ -6566,7 +6715,7 @@ export function SketchForgeEditor({
     setSketchConstructionPlaneId(constructionPlaneId);
     setEditingSketchShapeId(editingId);
     const planeName = constructionPlaneId === BASE_CONSTRUCTION_PLANE_ID
-      ? "base plane"
+      ? placementWorkplaneIsBase(sketchWorkplane) ? "base plane" : "placement workplane"
       : constructionPlanes.find((plane) => plane.id === constructionPlaneId)?.name ?? "construction plane";
     const operationName = operation === "revolve" ? "revolve sketch" : "sketch";
     setNotice(editingId ? `Editing ${operationName} on ${planeName}` : operation === "revolve" ? `Revolve sketch started on ${planeName}: draw on the left side of the axis` : `Sketch started on ${planeName}: place the first point`);
@@ -6578,7 +6727,35 @@ export function SketchForgeEditor({
       return;
     }
     const operation = selectedShape.sketchOperation ?? (selectedShape.sketchRevolve ? "revolve" : "extrude");
-    beginSketch(operation, selectedShape.sketchProfile, selectedShape.id, selectedShape.sketchRevolve, selectedShape.sketchPlane?.constructionPlaneId ?? BASE_CONSTRUCTION_PLANE_ID);
+    const constructionPlaneId = selectedShape.sketchPlane?.constructionPlaneId ?? BASE_CONSTRUCTION_PLANE_ID;
+    let editWorkplane: PlacementWorkplane | undefined;
+    if (operation === "extrude") {
+      const quaternion = quaternionForShape(selectedShape);
+      const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion).normalize();
+      const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion).normalize();
+      const zAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion).normalize();
+      const points = selectedShape.sketchProfile.points;
+      const profileCenterX = points.length
+        ? (Math.min(...points.map((point) => point.x)) + Math.max(...points.map((point) => point.x))) / 2
+        : 0;
+      const profileCenterZ = points.length
+        ? (Math.min(...points.map((point) => point.z)) + Math.max(...points.map((point) => point.z))) / 2
+        : 0;
+      const origin = new THREE.Vector3(
+        selectedShape.x,
+        (selectedShape.elevation ?? 0) + selectedShape.height / 2,
+        selectedShape.z,
+      )
+        .addScaledVector(normal, -selectedShape.height / 2)
+        .addScaledVector(xAxis, -profileCenterX)
+        .addScaledVector(zAxis, -profileCenterZ);
+      editWorkplane = placementWorkplaneFromSurface(
+        { x: origin.x, y: origin.y, z: origin.z },
+        { x: normal.x, y: normal.y, z: normal.z },
+        { x: xAxis.x, y: xAxis.y, z: xAxis.z },
+      );
+    }
+    beginSketch(operation, selectedShape.sketchProfile, selectedShape.id, selectedShape.sketchRevolve, constructionPlaneId, editWorkplane);
   }, [beginSketch, selectedShape, selectedShapes.length]);
 
   const cancelSketch = useCallback(() => {
@@ -7346,7 +7523,10 @@ export function SketchForgeEditor({
 
   const finishSketch = useCallback(async () => {
     const existing = editingSketchShapeId ? shapes.find((shape) => shape.id === editingSketchShapeId) ?? null : null;
-    const refreshedProfile = refreshLinkedSketchProjections(sketchProfile, shapes, sketchConstructionPlaneId);
+    const projectionPose = sketchConstructionPlaneId === BASE_CONSTRUCTION_PLANE_ID && !placementWorkplaneIsBase(activeSketchWorkplane)
+      ? constructionPlanePoseForPlacementWorkplane(activeSketchWorkplane)
+      : undefined;
+    const refreshedProfile = refreshLinkedSketchProjections(sketchProfile, shapes, sketchConstructionPlaneId, projectionPose);
     if (existing?.sketchFeature?.kind === "sweep") {
       setNotice("Rebuilding sketch sweep…");
       let swept: WorkplaneShape;
@@ -7402,7 +7582,14 @@ export function SketchForgeEditor({
       setNotice("Close at least one profile before finishing the sketch");
       return;
     }
-    resolved = sketchShapeWithPlanePose(resolved, sketchConstructionPlaneId, constructionPlanePoseById(sketchConstructionPlaneId, shapes, existing?.sketchPlane?.pose), existing?.sketchPlane?.localCenter);
+    const usesConstructionPlane = sketchConstructionPlaneId !== BASE_CONSTRUCTION_PLANE_ID
+      || Boolean(existing?.sketchPlane)
+      || placementWorkplaneIsBase(activeSketchWorkplane);
+    if (usesConstructionPlane) {
+      resolved = sketchShapeWithPlanePose(resolved, sketchConstructionPlaneId, constructionPlanePoseById(sketchConstructionPlaneId, shapes, existing?.sketchPlane?.pose), existing?.sketchPlane?.localCenter);
+    } else if (sketchOperation === "extrude") {
+      resolved = placeSketchExtrusion(resolved, activeSketchWorkplane, existing);
+    }
     resolved = canonicalizeShape({
       ...resolved,
       sketchProfile: cloneSketchProfile(refreshedProfile),
@@ -7427,7 +7614,7 @@ export function SketchForgeEditor({
     setSketchRevolvePreview(null);
     setEditingSketchShapeId(null);
     setToolbarMode("geometry");
-  }, [commitShapes, editingSketchShapeId, selectedSketchRegionIds, shapes, sketchOperation, sketchProfile, sketchRevolveSettings]);
+  }, [activeSketchWorkplane, commitShapes, editingSketchShapeId, selectedSketchRegionIds, shapes, sketchConstructionPlaneId, sketchOperation, sketchProfile, sketchRevolveSettings]);
 
   useEffect(() => {
     if (!projectId) {
@@ -7447,7 +7634,9 @@ export function SketchForgeEditor({
       const nextAssets = dedupeProjectAssets(initialAssets);
       projectAssetsRef.current = nextAssets;
       setProjectAssets(nextAssets);
-      setPlacementElevation(Number.isFinite(initialPlacementElevation) ? initialPlacementElevation : 0);
+      const nextPlacementElevation = Number.isFinite(initialPlacementElevation) ? initialPlacementElevation : 0;
+      setPlacementElevation(nextPlacementElevation);
+      setPlacementWorkplane(normalizePlacementWorkplane(initialPlacementWorkplane, nextPlacementElevation));
     }
     const incoming = refreshConstructionPlaneShapes(initialShapes.map(canonicalizeShape));
     const incomingSerialized = projectShapesFingerprint(incoming);
@@ -7480,7 +7669,7 @@ export function SketchForgeEditor({
     setHistory(hydratedHistory.entries);
     setHistoryIndex(hydratedHistory.index);
     setNotice("Ready");
-  }, [initialAssets, initialHistory, initialHistoryIndex, initialPlacementElevation, initialShapes, projectId, projectRevision]);
+  }, [initialAssets, initialHistory, initialHistoryIndex, initialPlacementElevation, initialPlacementWorkplane, initialShapes, projectId, projectRevision]);
 
   useEffect(() => {
     if (!projectId || !onProjectShapesChange) {
@@ -7507,11 +7696,15 @@ export function SketchForgeEditor({
   }, []);
 
   const addShape = useCallback(
-    (asset: ShapeAsset, point?: { x: number; z: number; elevation?: number }) => {
-      const nextShape = makeShapeFromAsset(asset, point ?? { x: 0, z: 0, elevation: placementElevation });
+    (asset: ShapeAsset, point?: PlacementPoint) => {
+      const shape = makeShapeFromAsset(asset);
+      const nextShape = {
+        ...shape,
+        ...placementPatchForNewShape(shape, placementWorkplane, point ?? placementWorkplane.origin),
+      };
       commitShapes([...shapes, nextShape], nextShape.id, `${asset.name} added`);
     },
-    [commitShapes, placementElevation, shapes],
+    [commitShapes, placementWorkplane, shapes],
   );
 
   const scheduleRevolveShapeUpdate = useCallback((id: string, settings: SketchRevolveSettings) => {
@@ -7969,7 +8162,7 @@ export function SketchForgeEditor({
       return;
     }
     cadModifierPrepareRef.current = prepareRequestId;
-    armCadModifierWatchdog(prepareRequestId, "prepare");
+    armCadModifierWatchdog(prepareRequestId, "prepare", cadModifierPrepareTimeoutMs(triangleCount));
   }, [armCadModifierWatchdog, invalidateCadModifierSession, postCadModifierRequest, selectedShape, selectedShapes.length]);
 
   const prepareCadModifierForMcp = useCallback(async (shape: WorkplaneShape, sharpAngle: number) => {
@@ -8010,7 +8203,7 @@ export function SketchForgeEditor({
       parts,
       sharpAngle,
       suppressTreatmentDetailEdges: appliedEdgeTreatmentCount > 0,
-    }, transfer);
+    }, transfer, cadModifierPrepareTimeoutMs(triangleCount));
     if (response.type !== "ready") {
       throw new Error("The CAD worker did not return an edge list");
     }
@@ -8306,12 +8499,15 @@ export function SketchForgeEditor({
         return;
       }
       const selected = new Set(selectedIds);
+      const normal = placementWorkplane.normal;
       commitShapes(
         shapes.map((shape) =>
           selected.has(shape.id) && !shape.locked
             ? {
                 ...shape,
-                elevation: Math.max(0, Math.min(180, (shape.elevation ?? 0) + delta)),
+                x: cleanNearZero(shape.x + normal.x * delta),
+                z: cleanNearZero(shape.z + normal.z * delta),
+                elevation: cleanNearZero((shape.elevation ?? 0) + normal.y * delta),
               }
             : shape,
         ),
@@ -8319,7 +8515,7 @@ export function SketchForgeEditor({
         delta > 0 ? "Moved selection up" : "Moved selection down",
       );
     },
-    [commitShapes, hasSelection, selectedIds, shapes],
+    [commitShapes, hasSelection, placementWorkplane, selectedIds, shapes],
   );
 
   const dropSelectedToWorkplane = useCallback(() => {
@@ -8329,21 +8525,59 @@ export function SketchForgeEditor({
     }
     const selected = new Set(selectedIds);
     commitShapes(
-      shapes.map((shape) => (selected.has(shape.id) && !shape.locked ? { ...shape, ...dropPatchForShape(shape, placementElevation) } : shape)),
+      shapes.map((shape) => {
+        if (!selected.has(shape.id) || shape.locked) return shape;
+        const translation = translationToWorkplane(
+          placementWorkplane,
+          meshForShape(shape).vertices.map(([x, y, z]) => ({ x, y, z })),
+        );
+        return {
+          ...shape,
+          x: cleanNearZero(shape.x + translation.x),
+          z: cleanNearZero(shape.z + translation.z),
+          elevation: cleanNearZero((shape.elevation ?? 0) + translation.y),
+        };
+      }),
       selectedIds,
-      placementElevation === 0 ? "Dropped selection to the workplane" : `Dropped selection to ${placementElevation.toFixed(2)} mm workplane`,
+      "Dropped selection to the workplane",
     );
-  }, [commitShapes, hasSelection, placementElevation, selectedIds, shapes]);
+  }, [commitShapes, hasSelection, placementWorkplane, selectedIds, shapes]);
 
-  const activateWorkplaneTool = useCallback(() => {
+  const activateConstructionPlaneTool = useCallback(() => {
     setConstructionPlanePanelOpen((open) => !open);
     setWorkplaneMode(false);
     setNotice("Choose a principal plane or create one from a model face");
   }, []);
 
-  const setPlacementWorkplane = useCallback((elevation: number, source: "shape" | "base") => {
-    setPlacementElevation(elevation);
-    setNotice(source === "shape" ? `Workplane set to ${elevation.toFixed(2)} mm` : "Workplane reset to base");
+  const activateWorkplaneTool = useCallback(() => {
+    setConstructionPlanePanelOpen(false);
+    setWorkplaneMode((active) => {
+      const next = !active;
+      setNotice(next ? "Workplane tool: click a face or empty grid; hold Shift to reverse" : "Workplane tool cancelled");
+      return next;
+    });
+  }, []);
+
+  const setActivePlacementWorkplane = useCallback((next: PlacementWorkplane, source: "shape" | "base") => {
+    placementWorkplaneRef.current = next;
+    setPlacementWorkplane(next);
+    const horizontalElevation = Math.abs(next.normal.x) < 1e-6
+      && Math.abs(next.normal.y - 1) < 1e-6
+      && Math.abs(next.normal.z) < 1e-6
+      ? next.origin.y
+      : 0;
+    setPlacementElevation(horizontalElevation);
+    setNotice(source === "shape"
+      ? "Workplane set to selected face"
+      : placementWorkplaneIsBase(next) ? "Workplane reset to base" : "Workplane updated");
+  }, []);
+
+  const setViewportPlacementWorkplane = useCallback((next: PlacementWorkplane, source: "shape" | "base") => {
+    setActivePlacementWorkplane(next, source);
+  }, [setActivePlacementWorkplane]);
+
+  const closeViewportWorkplaneMode = useCallback((active: boolean) => {
+    setWorkplaneMode(active);
   }, []);
 
   const groupSelected = useCallback(async () => {
@@ -9147,6 +9381,8 @@ export function SketchForgeEditor({
         workspace: workspaceSettingsRef.current,
         snapGrid,
         placementElevation,
+        placementWorkplane,
+        sketchPlacementWorkplane: placementWorkplane,
       });
       if (target === "shared" && onSaveSharedProject) {
         setNotice(await onSaveSharedProject({ exportName: exportName.trim() || projectName, bytes }));
@@ -9160,7 +9396,7 @@ export function SketchForgeEditor({
     } finally {
       setSkfExporting(false);
     }
-  }, [onSaveSharedProject, placementElevation, projectCreatedAt, projectModifiedAt, projectName, skfExporting, snapGrid]);
+  }, [onSaveSharedProject, placementElevation, placementWorkplane, projectCreatedAt, projectModifiedAt, projectName, skfExporting, snapGrid]);
 
   const clearDesign = useCallback(() => {
     commitShapes([], [], "New empty design");
@@ -9351,13 +9587,19 @@ export function SketchForgeEditor({
         return;
       }
       const selected = new Set(selectedIds);
+      const translation = {
+        x: placementWorkplane.xAxis.x * deltaX + placementWorkplane.zAxis.x * deltaZ,
+        y: placementWorkplane.xAxis.y * deltaX + placementWorkplane.zAxis.y * deltaZ,
+        z: placementWorkplane.xAxis.z * deltaX + placementWorkplane.zAxis.z * deltaZ,
+      };
       commitShapes(
         shapes.map((shape) =>
           selected.has(shape.id) && !shape.locked
             ? {
                 ...shape,
-                x: Math.max(-110, Math.min(110, shape.x + deltaX)),
-                z: Math.max(-110, Math.min(110, shape.z + deltaZ)),
+                x: cleanNearZero(shape.x + translation.x),
+                z: cleanNearZero(shape.z + translation.z),
+                elevation: cleanNearZero((shape.elevation ?? 0) + translation.y),
               }
             : shape,
         ),
@@ -9365,7 +9607,7 @@ export function SketchForgeEditor({
         `Moved ${selectedShapes.length} shape${selectedShapes.length === 1 ? "" : "s"}`,
       );
     },
-    [commitShapes, hasSelection, selectedIds, selectedShapes.length, shapes],
+    [commitShapes, hasSelection, placementWorkplane, selectedIds, selectedShapes.length, shapes],
   );
 
   useEffect(() => {
@@ -9571,6 +9813,7 @@ export function SketchForgeEditor({
         toolbarMode={toolbarMode}
         onToolbarModeChange={(mode) => {
           setToolbarMode(mode);
+          setWorkplaneMode(false);
           setTopPanel(null);
           setMenuOpen(false);
         }}
@@ -9581,6 +9824,8 @@ export function SketchForgeEditor({
         canUngroup={selectedShapes.some((shape) => Boolean(shape.groupedShapes?.length))}
         hasClipboard={clipboard.length > 0 || systemClipboardSupported}
         hasSelection={hasSelection}
+        hiddenShapeCount={shapes.filter((shape) => shape.hidden).length}
+        selectionHidden={hasSelection && selectedShapes.every((shape) => shape.hidden)}
         alignMode={alignMode}
         canAlign={selectedShapes.length > 1}
         canEdgeModify={selectedShapes.length === 1 && Boolean(selectedShape && !selectedShape.locked && !selectedShape.hole)}
@@ -9631,14 +9876,11 @@ export function SketchForgeEditor({
         onPaste={pasteShape}
         onRedo={redo}
         onSnap={snapSelected}
-        onTips={() => {
-          setTopPanel(topPanel === "tips" ? null : "tips");
-          setMenuOpen(false);
-        }}
+        onShowHidden={showHidden}
         onToggleHidden={toggleHidden}
         onUngroup={ungroupSelected}
         onUndo={undo}
-        onWorkplaneTool={activateWorkplaneTool}
+        onWorkplaneTool={activateConstructionPlaneTool}
         workplaneMode={workplaneMode || constructionPlanePanelOpen}
         onTopPanel={(panel) => {
           setTopPanel((current) => (current === panel ? null : panel));
@@ -9658,7 +9900,7 @@ export function SketchForgeEditor({
             operation={sketchOperation}
             selectedRegionIds={selectedSketchRegionIds}
             revolvePreviewPositions={sketchRevolvePreview?.positions ?? null}
-            referenceShapes={sketchConstructionPlaneId === BASE_CONSTRUCTION_PLANE_ID ? shapes.filter((shape) => shape.id !== editingSketchShapeId && shape.kind !== "constructionPlane") : []}
+            referenceShapes={sketchReferenceShapes.filter((shape) => shape.id !== editingSketchShapeId && shape.kind !== "constructionPlane")}
             tool={sketchTool}
             activePointId={sketchActivePointId}
             selected={sketchSelection}
@@ -9782,7 +10024,7 @@ export function SketchForgeEditor({
           alignReferenceShapes={shapes}
           mirrorMode={mirrorMode}
           mirrorReferenceShapes={shapes}
-          placementElevation={placementElevation}
+          placementWorkplane={placementWorkplane}
           workplaneMode={workplaneMode}
           initialSnap={snapGrid}
           initialWorkspace={workspaceSettings}
@@ -9796,15 +10038,16 @@ export function SketchForgeEditor({
           onMirrorPreviewClear={clearMirrorPreview}
           onMirrorSelection={mirrorSelectionAcross}
           onSelectShape={selectShape}
-          onSetPlacementElevation={setPlacementWorkplane}
           onCreateFaceConstructionPlane={createFaceConstructionPlane}
+          onSetPlacementWorkplane={setViewportPlacementWorkplane}
+          onToggleWorkplaneTool={activateWorkplaneTool}
           onInteractionActiveChange={updateProjectInteractionActive}
           onEditSketch={beginSketchEdit}
           canSeparateParts={canSeparateSelectedParts}
           onSeparateParts={separateSelectedParts}
           onUpdateShape={updateShape}
           onWorkspaceSettingsChange={updateProjectWorkspaceSettings}
-          onWorkplaneModeChange={setWorkplaneMode}
+          onWorkplaneModeChange={closeViewportWorkplaneMode}
           modifierActive={Boolean(edgeModifier)}
           modifierPreviewActive={Boolean(edgeModifier?.preview)}
           modifierEdges={edgeModifier?.edges.filter((edge) => modifierAvailableEdgeIds.includes(edge.id)) ?? []}
@@ -10184,6 +10427,8 @@ function SecondaryToolbar({
   canUndo,
   hasClipboard,
   hasSelection,
+  hiddenShapeCount,
+  selectionHidden,
   mirrorMode,
   sketchActive,
   sketchOperation,
@@ -10224,7 +10469,7 @@ function SecondaryToolbar({
   onPaste,
   onRedo,
   onSnap,
-  onTips,
+  onShowHidden,
   onToggleHidden,
   onUngroup,
   onUndo,
@@ -10246,6 +10491,8 @@ function SecondaryToolbar({
   canUndo: boolean;
   hasClipboard: boolean;
   hasSelection: boolean;
+  hiddenShapeCount: number;
+  selectionHidden: boolean;
   mirrorMode: boolean;
   sketchActive: boolean;
   sketchOperation: SketchOperation;
@@ -10286,7 +10533,7 @@ function SecondaryToolbar({
   onPaste: () => void;
   onRedo: () => void;
   onSnap: () => void;
-  onTips: () => void;
+  onShowHidden: () => void;
   onToggleHidden: () => void;
   onUngroup: () => void;
   onUndo: () => void;
@@ -10297,12 +10544,16 @@ function SecondaryToolbar({
 }) {
   const [shapesOpen, setShapesOpen] = useState(false);
   const [sketchCreateOpen, setSketchCreateOpen] = useState(false);
+  const [visibilityOpen, setVisibilityOpen] = useState(false);
+  const [visibilityMenuPosition, setVisibilityMenuPosition] = useState({ top: 0, left: 0 });
   const sketchCreateMenuRef = useRef<HTMLDivElement>(null);
+  const visibilityMenuRef = useRef<HTMLDivElement>(null);
   const touchShapeStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const suppressNextShapeClickRef = useRef(false);
   const selectToolbarMode = (mode: "geometry" | "sketch") => {
     setShapesOpen(false);
     setSketchCreateOpen(false);
+    setVisibilityOpen(false);
     onTopPanel(null);
     onToolbarModeChange(mode);
   };
@@ -10332,6 +10583,51 @@ function SecondaryToolbar({
   useEffect(() => {
     if (sketchActive) setSketchCreateOpen(false);
   }, [sketchActive]);
+  useEffect(() => {
+    if (!visibilityOpen) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!visibilityMenuRef.current?.contains(event.target as Node)) setVisibilityOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setVisibilityOpen(false);
+    };
+    const closeOnViewportChange = () => setVisibilityOpen(false);
+    window.addEventListener("pointerdown", closeOnPointerDown);
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeOnViewportChange);
+    window.addEventListener("scroll", closeOnViewportChange, true);
+    return () => {
+      window.removeEventListener("pointerdown", closeOnPointerDown);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeOnViewportChange);
+      window.removeEventListener("scroll", closeOnViewportChange, true);
+    };
+  }, [visibilityOpen]);
+  const toggleVisibilityMenu = () => {
+    if (visibilityOpen) {
+      setVisibilityOpen(false);
+      return;
+    }
+    const triggerBounds = visibilityMenuRef.current?.getBoundingClientRect();
+    if (triggerBounds) {
+      const viewportGutter = 12;
+      const menuWidth = Math.min(276, Math.max(0, window.innerWidth - viewportGutter * 2));
+      setVisibilityMenuPosition({
+        top: triggerBounds.bottom + 8,
+        left: Math.max(
+          viewportGutter,
+          Math.min(
+            triggerBounds.left + triggerBounds.width / 2 - menuWidth / 2,
+            window.innerWidth - menuWidth - viewportGutter,
+          ),
+        ),
+      });
+    }
+    setShapesOpen(false);
+    setSketchCreateOpen(false);
+    onTopPanel(null);
+    setVisibilityOpen(true);
+  };
   const leftTools = [
     { label: "Copy", icon: ToolbarCopyIcon, action: onCopy, enabled: hasSelection },
     { label: "Paste", icon: ToolbarPasteIcon, action: onPaste, enabled: hasClipboard },
@@ -10341,8 +10637,15 @@ function SecondaryToolbar({
     { label: "Redo", icon: ToolbarRedoIcon, action: onRedo, enabled: canRedo },
   ];
   const visibilityTools = [
-    { label: "Hide selected", icon: ToolbarHideSelectedIcon, action: onToggleHidden, enabled: hasSelection },
-    { label: "Visibility options", icon: ToolbarCaretDownIcon, action: onTips, enabled: hasSelection },
+    {
+      label: selectionHidden ? "Show selected" : "Hide selected",
+      icon: ToolbarHideSelectedIcon,
+      action: () => {
+        setVisibilityOpen(false);
+        onToggleHidden();
+      },
+      enabled: hasSelection,
+    },
   ];
   const combineTools = [
     { label: "Group", icon: ToolbarGroupIcon, action: onGroup, enabled: canGroup },
@@ -10403,7 +10706,10 @@ function SecondaryToolbar({
               className={`shape-menu-trigger ${shapesOpen ? "active" : ""}`}
               aria-label="Add shape"
               aria-expanded={shapesOpen}
-              onClick={() => setShapesOpen((value) => !value)}
+              onClick={() => {
+                setVisibilityOpen(false);
+                setShapesOpen((value) => !value);
+              }}
             >
               <ToolbarShapeAddIcon />
             </button>
@@ -10482,9 +10788,49 @@ function SecondaryToolbar({
       </div>
       <div className="toolbar-spacer" />
       <div className="tool-group right">
-        <div className="toolbar-section compact">
+        <div className="toolbar-section compact toolbar-visibility-section" ref={visibilityMenuRef}>
           <div className="toolbar-section-label">Visibility</div>
-          <div className="toolbar-section-tools">{visibilityTools.map(renderToolButton)}</div>
+          <div className="toolbar-section-tools">
+            {visibilityTools.map(renderToolButton)}
+            <button
+              className={`toolbar-icon visibility-menu-trigger ${visibilityOpen ? "active" : ""}`}
+              type="button"
+              aria-label="Visibility options"
+              title="Visibility options"
+              aria-haspopup="menu"
+              aria-expanded={visibilityOpen}
+              onClick={toggleVisibilityMenu}
+            >
+              <ToolbarCaretDownIcon />
+            </button>
+          </div>
+          {visibilityOpen ? (
+            <div
+              className="visibility-dropdown"
+              role="menu"
+              aria-label="Visibility options"
+              style={visibilityMenuPosition}
+            >
+              <button
+                className="visibility-dropdown-action"
+                type="button"
+                role="menuitem"
+                disabled={hiddenShapeCount === 0}
+                onClick={() => {
+                  setVisibilityOpen(false);
+                  onShowHidden();
+                }}
+              >
+                <Eye size={20} aria-hidden="true" />
+                <strong>{hiddenShapeCount === 0 ? "Nothing hidden" : `Show all hidden (${hiddenShapeCount})`}</strong>
+              </button>
+              <div className="visibility-dropdown-help">
+                <span>Eye again: selected</span>
+                <span aria-hidden="true">·</span>
+                <span><kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd>: all</span>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="toolbar-section">
           <div className="toolbar-section-label">Combine</div>
@@ -10759,7 +11105,7 @@ function TopActionPanel({
           ? "Tips"
           : panel === "export"
             ? "Export"
-             : "Import";
+            : "Import";
   const customTheme = customThemeWithDefaults(workspace.customTheme);
 
   const exportDetails: Record<ExportFormat, { label: string; description: string; note: string }> = {
@@ -10950,11 +11296,6 @@ function TopActionPanel({
               </button>
             </div>
           </footer>
-        </div>
-      ) : null}
-      {panel === "tips" ? (
-        <div className="top-action-body">
-          <p>Click a shape to select it. Use the inspector for dimensions, rotation, solid/hole, color, duplicate, and delete.</p>
         </div>
       ) : null}
       {panel === "settings" ? (

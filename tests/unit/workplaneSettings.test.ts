@@ -58,7 +58,7 @@ describe("workplane settings helpers", () => {
     expect(normalizeWorkspaceSettings({ accuracy: 9 }, fallback).accuracy).toBe(fallback.accuracy);
     expect(normalizeWorkspaceSettings({ historyLimit: 73 }).historyLimit).toBe(73);
     expect(normalizeWorkspaceSettings({ historyLimit: 9000 }).historyLimit).toBe(5000);
-    expect(normalizeWorkspaceSettings({ historyLimit: "invalid" }).historyLimit).toBe("unlimited");
+    expect(normalizeWorkspaceSettings({ historyLimit: "invalid" }).historyLimit).toBe(100);
     expect(normalizeWorkspaceSettings({ gridColor: "not-a-color" }).gridColor).toBe(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
     expect(normalizeWorkspaceSettings({ themeId: "sketchforge" }).themeId).toBe("sketchforge");
     expect(normalizeWorkspaceSettings({ themeId: "unknown" }).themeId).toBe(DEFAULT_WORKPLANE_WORKSPACE.themeId);

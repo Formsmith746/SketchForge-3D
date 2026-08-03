@@ -22,7 +22,7 @@ import {
   gearToothPitch,
 } from "@/lib/gearGeometry";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
-import { fallbackSolidColor, resizedShapeSize, shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
+import { resizedShapeSize, shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import { normalizeSketchRevolveSettings } from "@/lib/sketchRevolve";
 import type { GearType, GridSize, MeasurementAccuracy, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
@@ -343,7 +343,7 @@ export function ShapeInspector({
   onSeparateParts?: () => void;
   onInteractionActiveChange?: (active: boolean) => void;
 }) {
-  const solidColor = shape.hole ? fallbackSolidColor(shape) : shape.color;
+  const solidColor = shape.color;
   const locked = Boolean(shape.locked);
   const properties = getShapeProperties(shape, onUpdate);
   const gearType = shape.kind === "gear" ? normalizeGearType(shape.gearType) : null;
@@ -427,7 +427,7 @@ export function ShapeInspector({
         <button
           className={shape.hole ? "active hole-choice" : "hole-choice"}
           onClick={() => {
-            onUpdate({ hole: true, color: "#b8c2cc" });
+            onUpdate({ hole: true });
             setColorOpen(false);
           }}
           disabled={locked}

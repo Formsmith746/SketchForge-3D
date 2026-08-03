@@ -1809,7 +1809,7 @@ button {
 }
 
 .sketch-start-section {
-  min-width: 260px;
+  min-width: 360px;
 }
 
 .sketch-finish-section {
@@ -1901,6 +1901,13 @@ button {
 .sketch-command-button .sketch-reference-icon {
   width: 27px;
   height: 27px;
+}
+
+.sketch-command-button .toolbar-command-icon {
+  width: 29px;
+  height: 29px;
+  object-fit: contain;
+  transform: translateY(var(--toolbar-art-offset-y, 0));
 }
 
 .sketch-command-button:hover:not(:disabled) {
@@ -2074,6 +2081,84 @@ button {
 
 .toolbar-section.compact {
   min-width: 78px;
+}
+
+.toolbar-visibility-section {
+  min-width: 92px;
+}
+
+.visibility-dropdown {
+  position: fixed;
+  z-index: 70;
+  width: min(276px, calc(100vw - 24px));
+  padding: 8px;
+  color: #263f56;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #c9d8e3;
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(29, 48, 66, 0.22);
+  backdrop-filter: blur(12px);
+}
+
+.visibility-dropdown-action {
+  display: grid;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 10px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  color: #263f56;
+  text-align: left;
+  background: #eef8fc;
+  border: 1px solid #c9e1ec;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.visibility-dropdown-action:hover:not(:disabled),
+.visibility-dropdown-action:focus-visible {
+  color: #123f5a;
+  background: #e2f4fb;
+  border-color: #9acfe2;
+  outline: none;
+}
+
+.visibility-dropdown-action:disabled {
+  color: #7a8e9f;
+  background: #f3f6f8;
+  border-color: #dce5eb;
+  cursor: default;
+}
+
+.visibility-dropdown-action strong {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.visibility-dropdown-help {
+  display: flex;
+  padding: 7px 8px 1px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: #5d7284;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.visibility-dropdown-help kbd {
+  padding: 1px 3px;
+  color: #29465f;
+  background: #eef2f5;
+  border: 1px solid #cfdae2;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 900;
 }
 
 .toolbar-section-label {
@@ -3526,8 +3611,7 @@ button {
 .sketch-plate-wrap {
   position: absolute;
   inset: 14px 14px 42px;
-  display: grid;
-  place-items: center;
+  display: block;
   overflow: hidden;
 }
 
@@ -3535,6 +3619,8 @@ button {
   display: block;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: visible;
   touch-action: none;
   cursor: crosshair;
@@ -4595,12 +4681,12 @@ button {
   box-shadow: inset 3px 0 0 #079bc6;
 }
 
-.ruler-control-group {
+.workplane-control-group {
   position: relative;
   margin-top: 6px;
 }
 
-.ruler-control-group::before {
+.workplane-control-group::before {
   position: absolute;
   top: -5px;
   right: 8px;
@@ -4608,6 +4694,10 @@ button {
   height: 1px;
   content: "";
   background: rgba(117, 144, 160, 0.28);
+}
+
+.ruler-control-group {
+  position: relative;
 }
 
 .ruler-tool-popover {
@@ -4752,6 +4842,48 @@ button {
   border: 1px solid rgba(0, 159, 227, 0.82);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
   pointer-events: none;
+}
+
+.move-dimension-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.move-dimension-guides {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.move-dimension-line {
+  stroke: #263846;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.7));
+}
+
+.move-dimension-projection {
+  stroke: rgba(38, 56, 70, 0.38);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.move-dimension-guides marker path {
+  fill: #263846;
+}
+
+.move-dimension-overlay.active .move-dimension-value {
+  pointer-events: none;
+  cursor: default;
+}
+
+.move-dimension-input {
+  appearance: textfield;
 }
 
 .ruler-overlay {
@@ -5030,7 +5162,7 @@ button {
   text-align: center;
   pointer-events: auto;
   cursor: text;
-  transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%) rotate(var(--rotate-handle-angle, 0deg));
+  transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%);
   will-change: transform;
   box-shadow: 0 1px 4px rgba(20, 42, 58, 0.09);
 }
@@ -5138,6 +5270,7 @@ button {
   background: #e9eef1;
   border: 1.5px solid #293743;
   box-shadow: 0 1px 2px rgba(20, 30, 40, 0.16);
+  transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%) rotate(var(--transform-handle-angle, 0deg));
 }
 
 .transform-handle.corner,
@@ -5189,7 +5322,7 @@ button {
   box-shadow: none;
   cursor: grab;
   opacity: 1;
-  transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%);
+  transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%) rotate(var(--rotate-handle-angle, 0deg));
 }
 
 .rotate-handle:hover {
@@ -5393,18 +5526,23 @@ button {
   display: block;
   width: 64px;
   height: 64px;
+  border: 4px solid transparent;
   border-radius: 10px;
 }
 
 .large-solid-swatch {
   background: var(--swatch);
-  border: 4px solid #7bb8ff;
   box-shadow: inset 0 0 0 4px white;
 }
 
 .large-hole-swatch {
   background: repeating-linear-gradient(135deg, #dedede 0 7px, #b8b8b8 7px 14px);
   box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.55);
+}
+
+.shape-state-card button.active .large-solid-swatch,
+.shape-state-card button.active .large-hole-swatch {
+  border-color: #7bb8ff;
 }
 
 .shape-state-card button:disabled,
@@ -7173,6 +7311,19 @@ html[data-theme="dark"] {
   --shadow: 0 3px 12px rgba(0, 0, 0, 0.32);
 }
 
+html[data-theme="dark"] .move-dimension-line {
+  stroke: #dceaf2;
+  filter: drop-shadow(0 1px 1px rgba(2, 12, 18, 0.72));
+}
+
+html[data-theme="dark"] .move-dimension-guides marker path {
+  fill: #dceaf2;
+}
+
+html[data-theme="dark"] .move-dimension-projection {
+  stroke: rgba(220, 234, 242, 0.38);
+}
+
 html[data-theme="dark"] body,
 html[data-theme="dark"] .dashboard-shell,
 html[data-theme="dark"] .sketchforge-editor,
@@ -7330,6 +7481,7 @@ html[data-theme="dark"] .toolbar-workspace-tabs button:hover {
 }
 
 html[data-theme="dark"] .shape-menu-dropdown,
+html[data-theme="dark"] .visibility-dropdown,
 html[data-theme="dark"] .top-action-panel,
 html[data-theme="dark"] .edge-modifier-panel,
 html[data-theme="dark"] .camera-controls,
@@ -7340,6 +7492,35 @@ html[data-theme="dark"] .snap-menu {
   background: rgba(20, 31, 40, 0.97);
   border-color: #3a4d5b;
   box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34);
+}
+
+html[data-theme="dark"] .visibility-dropdown-action {
+  color: #d9e7f0;
+  background: #213541;
+  border-color: #3b5665;
+}
+
+html[data-theme="dark"] .visibility-dropdown-action:hover:not(:disabled),
+html[data-theme="dark"] .visibility-dropdown-action:focus-visible {
+  color: #ecf9ff;
+  background: #294653;
+  border-color: #4b7385;
+}
+
+html[data-theme="dark"] .visibility-dropdown-action:disabled {
+  color: #8398a6;
+  background: #192832;
+  border-color: #334753;
+}
+
+html[data-theme="dark"] .visibility-dropdown-help {
+  color: #9eb2bf;
+}
+
+html[data-theme="dark"] .visibility-dropdown-help kbd {
+  color: #dceaf2;
+  background: #182832;
+  border-color: #415763;
 }
 
 html[data-theme="dark"] .shape-menu-item,

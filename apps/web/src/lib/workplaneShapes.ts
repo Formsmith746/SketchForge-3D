@@ -124,7 +124,7 @@ export function fallbackSolidColor(shape: WorkplaneShape) {
 }
 
 export function withHoleMode(shape: WorkplaneShape, hole: boolean, parentColor?: string): WorkplaneShape {
-  const color = hole ? "#b8c2cc" : (parentColor ?? fallbackSolidColor(shape));
+  const color = parentColor ?? shape.color;
   return {
     ...shape,
     hole,

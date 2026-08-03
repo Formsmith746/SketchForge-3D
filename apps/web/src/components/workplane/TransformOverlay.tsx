@@ -204,7 +204,11 @@ export function TransformOverlay({
         <button
           key={handle.key}
           className={`transform-handle ${handle.className}`}
-          style={{ "--overlay-x": `${handle.x}px`, "--overlay-y": `${handle.y}px` } as CSSProperties}
+          style={{
+            "--overlay-x": `${handle.x}px`,
+            "--overlay-y": `${handle.y}px`,
+            "--transform-handle-angle": `${handle.angle ?? 0}deg`,
+          } as CSSProperties}
           title={handle.title}
           onPointerEnter={(event) => {
             if ((event.buttons & 4) !== 0) {

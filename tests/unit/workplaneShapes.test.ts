@@ -150,6 +150,17 @@ describe("workplane shape helpers", () => {
     expect(grouped.groupedShapes?.[0].color).toBe("#222222");
   });
 
+  it("preserves the selected solid color while toggling hole mode", () => {
+    const colored = shape({ color: "#35a86b" });
+    const hole = withHoleMode(colored, true);
+    const solid = withHoleMode(hole, false);
+
+    expect(hole.hole).toBe(true);
+    expect(hole.color).toBe("#35a86b");
+    expect(solid.hole).toBe(false);
+    expect(solid.color).toBe("#35a86b");
+  });
+
   it("can resize the body while preserving fillet and chamfer boundary distances", () => {
     const modified = shape({
       kind: "mesh",

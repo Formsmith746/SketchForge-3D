@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   CAD_MODIFIER_MAX_SHARP_ANGLE,
+  CAD_MODIFIER_MAX_PREPARE_TIMEOUT_MS,
   CAD_MODIFIER_REQUEST_TIMEOUT_MS,
   CAD_MODIFIER_RUNTIME_BASE,
+  cadModifierPrepareTimeoutMs,
   cadModifierTopologyEdgeIsSelectable,
   cadTransformRequiresGeneralTransform,
   cadModifierTimeoutMessage,
@@ -23,10 +25,16 @@ describe("CAD modifier runtime state", () => {
     expect(edgeModifierSelectionStatus(true, 2, 12)).toBe("2 of 12 sharp edges selected");
   });
 
-  it("sets a bounded preparation wait and an actionable compatibility error", () => {
+  it("keeps exact CAD preparation short and gives imported meshes a bounded triangle-aware budget", () => {
     expect(CAD_MODIFIER_REQUEST_TIMEOUT_MS).toBeGreaterThanOrEqual(20_000);
     expect(CAD_MODIFIER_REQUEST_TIMEOUT_MS).toBeLessThanOrEqual(60_000);
-    expect(cadModifierTimeoutMessage("prepare")).toContain("Firefox 121+");
+    expect(cadModifierPrepareTimeoutMs(0)).toBe(CAD_MODIFIER_REQUEST_TIMEOUT_MS);
+    expect(cadModifierPrepareTimeoutMs(Number.NaN)).toBe(CAD_MODIFIER_REQUEST_TIMEOUT_MS);
+    expect(cadModifierPrepareTimeoutMs(10_000)).toBe(60_000);
+    expect(cadModifierPrepareTimeoutMs(100_000)).toBe(120_000);
+    expect(cadModifierPrepareTimeoutMs(180_000)).toBe(CAD_MODIFIER_MAX_PREPARE_TIMEOUT_MS);
+    expect(cadModifierTimeoutMessage("prepare")).toContain("lower-detail STL");
+    expect(cadModifierTimeoutMessage("prepare")).not.toContain("Firefox");
   });
 
   it("does not expose thresholds above the worker's folded edge-angle range", () => {
