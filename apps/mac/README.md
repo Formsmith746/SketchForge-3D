@@ -10,6 +10,17 @@ developers follows afterward.
 1. Open `SketchForge.dmg`.
 2. Drag `SketchForge.app` onto the **Applications** shortcut.
 3. Eject the disk image and start SketchForge from Applications.
+4. If macOS prevents the app from opening because it cannot verify the
+   developer, close the warning and open **System Settings > Privacy &
+   Security**. Scroll down to the **Security** section, find the message about
+   SketchForge, and click **Open Anyway**. Authenticate with your password or
+   Touch ID when prompted, then confirm that you want to open the app.
+
+An ad-hoc-signed development build will not start on another Mac until the user
+explicitly approves it under **Privacy & Security**. This approval is normally
+required only the first time that particular build is opened. A release signed
+with an Apple Developer ID and notarized by Apple does not require this manual
+exception.
 
 The disk image also includes this `README.md` and the project's `LICENSE` file.
 
