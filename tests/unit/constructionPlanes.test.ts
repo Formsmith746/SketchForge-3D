@@ -9,6 +9,7 @@ import {
   poseFromWorldOriginAndNormal,
   principalPlanePose,
   quaternionFromEulerXYZDegrees,
+  reconcileShapeCenterInConstructionPlane,
   resolveConstructionPlaneAttachment,
   shapeCenterInConstructionPlane,
   sourceShapePose,
@@ -106,7 +107,16 @@ describe("construction plane poses", () => {
 });
 
 describe("construction plane attachments", () => {
-  it("updates a sketch body's plane-local center when the body is moved", () => {
+  it("reconciles a moved sketch body's plane-local center instead of restoring its stale position", () => {
+    const originalBody = {
+      x: 2,
+      z: 4,
+      elevation: 1,
+      height: 4,
+      width: 10,
+      depth: 8,
+      rotation: 0,
+    };
     const movedBody = {
       x: 12,
       z: -7,
@@ -117,9 +127,12 @@ describe("construction plane attachments", () => {
       rotation: 0,
     };
 
-    expectVectorClose(shapeCenterInConstructionPlane(movedBody, BASE_CONSTRUCTION_PLANE_POSE), [12, 5, -7]);
     const sidePlane = principalPlanePose("yz", 2);
-    expectVectorClose(localPointToWorld(sidePlane, shapeCenterInConstructionPlane(movedBody, sidePlane)), [12, 5, -7]);
+    const staleCenter = shapeCenterInConstructionPlane(originalBody, sidePlane);
+    const reconciledCenter = reconcileShapeCenterInConstructionPlane(movedBody, originalBody, sidePlane, staleCenter);
+
+    expectVectorClose(localPointToWorld(sidePlane, reconciledCenter), [12, 5, -7]);
+    expect(reconcileShapeCenterInConstructionPlane(originalBody, undefined, sidePlane, staleCenter)).toEqual(staleCenter);
   });
 
   it("roundtrips an arbitrary world pose through a source-local attachment", () => {

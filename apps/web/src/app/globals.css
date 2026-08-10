@@ -2164,8 +2164,8 @@ button {
 .toolbar-icon:disabled .sketch-reference-icon,
 .sketch-command-button.disabled .sketch-reference-icon,
 .sketch-command-button:disabled .sketch-reference-icon {
-  filter: grayscale(1) brightness(1.25);
-  opacity: 0.34;
+  filter: grayscale(0.85) contrast(0.9) brightness(0.82);
+  opacity: 0.56;
 }
 
 .toolbar-icon:not(.disabled):hover .sketch-reference-icon,
@@ -2365,7 +2365,7 @@ button {
 }
 
 .toolbar-icon.disabled {
-  color: #d6e0e9;
+  color: var(--muted-strong);
   cursor: default;
   opacity: 1;
 }
@@ -2455,9 +2455,14 @@ button {
   height: 34px;
 }
 
-.toolbar-icon.disabled .toolbar-command-icon {
-  filter: grayscale(1) brightness(1.25);
-  opacity: 0.22;
+.toolbar-icon.disabled .toolbar-command-icon,
+.toolbar-icon:disabled .toolbar-command-icon,
+.toolbar-icon.disabled .toolbar-sprite-icon,
+.toolbar-icon:disabled .toolbar-sprite-icon,
+.toolbar-icon.disabled .vector-toolbar-sprite-icon,
+.toolbar-icon:disabled .vector-toolbar-sprite-icon {
+  filter: grayscale(0.85) contrast(0.9) brightness(0.82);
+  opacity: 0.52;
 }
 
 .toolbar-icon:not(.disabled):hover .toolbar-command-icon {
@@ -2489,10 +2494,6 @@ button {
   filter: grayscale(1) contrast(0.78) brightness(1.35);
   opacity: 0.22;
   transition: filter 120ms ease, opacity 120ms ease;
-}
-
-.toolbar-icon.disabled .vector-toolbar-sprite-icon {
-  opacity: 0.22;
 }
 
 .toolbar-icon:not(.disabled) .toolbar-sprite-icon,
@@ -4179,6 +4180,23 @@ button {
   stroke: #087d89;
   stroke-width: 1.25;
   vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.sketch-center-points .movable {
+  cursor: move;
+}
+
+.sketch-center-points .movable:hover circle,
+.sketch-center-points .dragging circle {
+  fill: #8de4d1;
+  stroke: #075f70;
+  stroke-width: 2;
+}
+
+.sketch-center-points .locked {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .sketch-snap-feedback .guide {
@@ -8187,8 +8205,8 @@ html[data-theme="dark"] .action-buttons button .vector-toolbar-sprite-icon {
 html[data-theme="dark"] .toolbar-icon.disabled .toolbar-command-icon,
 html[data-theme="dark"] .toolbar-icon.disabled .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon.disabled .vector-toolbar-sprite-icon {
-  filter: grayscale(1) brightness(1.4);
-  opacity: 0.24;
+  filter: grayscale(0.9) brightness(1.35) contrast(0.9);
+  opacity: 0.44;
 }
 
 html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .toolbar-command-icon,

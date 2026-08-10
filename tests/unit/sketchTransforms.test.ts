@@ -5,6 +5,7 @@ import {
   reflectionTransform,
   rotationTransform,
   transformSketchSelection,
+  translateSketchPoints,
   translationTransform,
   type SketchTransformSelection,
 } from "@/lib/sketchTransforms";
@@ -35,6 +36,20 @@ function lineProfile(): SketchProfile {
 }
 
 describe("sketch selection transforms", () => {
+  it("translates a closed profile atomically with its handles and fixed anchors", () => {
+    const source = lineProfile();
+    const moved = translateSketchPoints(source, ["a", "b"], { x: 7, z: -4 });
+
+    expect(moved.points.slice(0, 2)).toEqual([
+      { id: "a", x: 8, z: -2, mode: "smooth", handleIn: { x: 7, z: -2 }, handleOut: { x: 9, z: -2 } },
+      { id: "b", x: 12, z: -2, handleIn: undefined, handleOut: undefined },
+    ]);
+    expect(moved.points[2]).toBe(source.points[2]);
+    expect(moved.constraints?.[0]).toEqual({ id: "fixed-a", kind: "fixed", pointId: "a", x: 8, z: -2 });
+    expect(moved.constraints?.[2]).toBe(source.constraints?.[2]);
+    expect(source.points[0]).toMatchObject({ x: 1, z: 2 });
+  });
+
   it("normalizes selected segments to their endpoints and discards unknown IDs", () => {
     const selection = { ...emptySelection(), pointIds: ["unused", "missing"], segmentIds: ["ab", "missing"] };
 

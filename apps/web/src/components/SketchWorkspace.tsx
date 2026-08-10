@@ -14,6 +14,7 @@ import { polygonFromPoints } from "@/lib/sketchPolygons";
 import { cadSketchSelectableRegions } from "@/lib/sketchCadProfile";
 import { sketchDimensionAnchorCandidates, sketchDimensionAnchorKey, sketchDimensionAnchorPoint, sketchDistanceDimensionValue, type SketchDimensionAnchorCandidate } from "@/lib/sketchDimensions";
 import { dedupeSketchSnapCandidates, snapSketchPoint, type SketchSnapCandidate, type SketchSnapResult } from "@/lib/sketchSnapping";
+import { translateSketchPoints } from "@/lib/sketchTransforms";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
 import type { GridSize, SketchDimensionAnchor, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, SketchText, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
@@ -76,6 +77,7 @@ type SketchWorkspaceProps = {
   onDeletePoint: (id: string) => void;
   onDeleteSegment: (id: string) => void;
   onMovePoint: (id: string, point: { x: number; z: number }) => void;
+  onMovePoints: (ids: string[], delta: { x: number; z: number }) => void;
   onMoveHandle: (id: string, handle: "in" | "out", point: { x: number; z: number }) => void;
   onMoveDimension: (segmentId: string, offset: { x: number; z: number }) => void;
   onInsertPoint: (segmentId: string, point: { x: number; z: number }) => void;
@@ -96,6 +98,7 @@ type SketchReferenceFootprint = { fillD: string | null; outlineD: string | null 
 type PointerAction =
   | { kind: "bezier"; pointerId: number; origin: { x: number; z: number }; current: { x: number; z: number } }
   | { kind: "move-point"; pointerId: number; pointId: string; current: { x: number; z: number } }
+  | { kind: "move-center"; pointerId: number; centerId: string; pointIds: string[]; origin: { x: number; z: number }; current: { x: number; z: number } }
   | { kind: "move-handle"; pointerId: number; pointId: string; handle: "in" | "out"; current: { x: number; z: number } }
   | { kind: "move-dimension"; pointerId: number; segmentId: string; origin: { x: number; z: number }; current: { x: number; z: number }; grabOffset: { x: number; z: number } }
   | { kind: "pan"; pointerId: number; clientX: number; clientY: number }
@@ -473,6 +476,7 @@ export function SketchWorkspace({
   onDeletePoint,
   onDeleteSegment,
   onMovePoint,
+  onMovePoints,
   onMoveHandle,
   onMoveDimension,
   onInsertPoint,
@@ -518,6 +522,12 @@ export function SketchWorkspace({
   const displayProfile = useMemo(() => {
     if (pointerAction?.kind === "move-point") {
       return moveConstrainedSketchPoint(profile, pointerAction.pointId, pointerAction.current).profile;
+    }
+    if (pointerAction?.kind === "move-center") {
+      return translateSketchPoints(profile, pointerAction.pointIds, {
+        x: pointerAction.current.x - pointerAction.origin.x,
+        z: pointerAction.current.z - pointerAction.origin.z,
+      });
     }
     if (pointerAction?.kind === "move-handle") {
       return {
@@ -656,9 +666,13 @@ export function SketchWorkspace({
     screenPoint.x = event.clientX;
     screenPoint.y = event.clientY;
     const local = screenPoint.matrixTransform(matrix.inverse());
-    const candidates = pointerAction?.kind === "move-point"
-      ? snapCandidates.filter((candidate) => !candidate.ownerPointIds?.includes(pointerAction.pointId))
-      : snapCandidates;
+    let candidates = snapCandidates;
+    if (pointerAction?.kind === "move-point") {
+      candidates = candidates.filter((candidate) => !candidate.ownerPointIds?.includes(pointerAction.pointId));
+    } else if (pointerAction?.kind === "move-center") {
+      const movingPointIds = new Set(pointerAction.pointIds);
+      candidates = candidates.filter((candidate) => !candidate.ownerPointIds?.some((id) => movingPointIds.has(id)));
+    }
     const snapped = snapSketchPoint({ x: local.x, z: local.y }, {
       precisionStep: snapStep(snap),
       gridStep,
@@ -755,7 +769,7 @@ export function SketchWorkspace({
       return;
     }
     const magnetic = pointerAction
-      ? pointerAction.kind === "bezier" || pointerAction.kind === "move-point" || pointerAction.kind === "move-handle"
+      ? pointerAction.kind === "bezier" || pointerAction.kind === "move-point" || pointerAction.kind === "move-center" || pointerAction.kind === "move-handle"
       : tool !== "select";
     const point = pointFromEvent(event, magnetic);
     setHover(point);
@@ -806,6 +820,9 @@ export function SketchWorkspace({
       });
     } else if (action.kind === "move-point") {
       onMovePoint(action.pointId, action.current);
+    } else if (action.kind === "move-center") {
+      const delta = { x: action.current.x - action.origin.x, z: action.current.z - action.origin.z };
+      if (Math.hypot(delta.x, delta.z) > screenUnit * 0.1) onMovePoints(action.pointIds, delta);
     } else if (action.kind === "move-handle") {
       onMoveHandle(action.pointId, action.handle, action.current);
     } else if (action.kind === "move-dimension") {
@@ -1055,15 +1072,47 @@ export function SketchWorkspace({
               />
             )) : paths.some((path) => path.closed) ? <path d={paths.filter((path) => path.closed).map(pathData).join(" ")} pointerEvents="none" /> : null}
           </g>
-          {snapToGeometry ? (
-            <g className="sketch-center-points" pointerEvents="none">
-              {centerSnapCandidates.map((center) => (
-                <g key={center.id} transform={`translate(${center.x} ${center.z})`}>
-                  <circle r={6 * screenUnit} />
-                  <line x1={-4 * screenUnit} y1={0} x2={4 * screenUnit} y2={0} />
-                  <line x1={0} y1={-4 * screenUnit} x2={0} y2={4 * screenUnit} />
-                </g>
-              ))}
+          {snapToGeometry || tool === "select" ? (
+            <g className="sketch-center-points">
+              {centerSnapCandidates.map((center) => {
+                const pointIds = center.ownerPointIds ?? [];
+                const movable = pointIds.length > 0 && pointIds.every((id) => {
+                  const point = pointById.get(id);
+                  return point && !point.projectionId && !fixedPointIds.has(id);
+                });
+                const dragging = pointerAction?.kind === "move-center" && pointerAction.centerId === center.id;
+                return (
+                  <g
+                    key={center.id}
+                    data-sketch-entity="center"
+                    className={`${tool === "select" ? movable ? "movable" : "locked" : ""} ${dragging ? "dragging" : ""}`}
+                    transform={`translate(${center.x} ${center.z})`}
+                    pointerEvents={tool === "select" ? "auto" : "none"}
+                    onPointerDown={(event) => {
+                      if (isPanGesture(event)) {
+                        beginPan(event);
+                        return;
+                      }
+                      if (event.button !== 0 || tool !== "select" || !movable) return;
+                      const point = pointFromEvent(event, false);
+                      if (!point) return;
+                      beginEntityDrag(event, {
+                        kind: "move-center",
+                        pointerId: event.pointerId,
+                        centerId: center.id,
+                        pointIds,
+                        origin: point,
+                        current: point,
+                      });
+                    }}
+                  >
+                    <title>{movable ? "Drag to move this closed profile" : "Fixed or projected profiles cannot be moved"}</title>
+                    <circle r={6 * screenUnit} />
+                    <line x1={-4 * screenUnit} y1={0} x2={4 * screenUnit} y2={0} />
+                    <line x1={0} y1={-4 * screenUnit} x2={0} y2={4 * screenUnit} />
+                  </g>
+                );
+              })}
             </g>
           ) : null}
           {hover?.snap ? (

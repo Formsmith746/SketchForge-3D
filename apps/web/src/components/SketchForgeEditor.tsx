@@ -94,7 +94,7 @@ import { polygonFromPoints, polygonSketchGeometry } from "@/lib/sketchPolygons";
 import { offsetSketchSegments } from "@/lib/sketchOffset";
 import { intersectMeshWithPlane, projectSketchProfileToPlane, type SketchProjectionResult } from "@/lib/sketchProjection";
 import { buildSketchSweepGeometry } from "@/lib/sketchSweep";
-import { reflectionTransform, rotationTransform, transformSketchSelection, translationTransform, type SketchTransformSelection } from "@/lib/sketchTransforms";
+import { reflectionTransform, rotationTransform, transformSketchSelection, translateSketchPoints, translationTransform, type SketchTransformSelection } from "@/lib/sketchTransforms";
 import { projectExportFileName } from "@/lib/exportNames";
 import {
   BASE_CONSTRUCTION_PLANE_POSE,
@@ -102,8 +102,8 @@ import {
   localPointToWorld,
   poseFromWorldOriginAndNormal,
   principalPlanePose,
+  reconcileShapeCenterInConstructionPlane,
   resolveConstructionPlaneAttachment,
-  shapeCenterInConstructionPlane,
   type ConstructionPlanePose,
   type PrincipalPlane,
 } from "@/lib/constructionPlanes";
@@ -412,19 +412,13 @@ function sketchShapeWithPlanePose(shape: WorkplaneShape, constructionPlaneId: st
   });
 }
 
-function shapePlacementChanged(shape: WorkplaneShape, previous?: WorkplaneShape) {
-  return Boolean(previous && (
-    Math.abs(shape.x - previous.x) > 1e-9
-    || Math.abs(shape.z - previous.z) > 1e-9
-    || Math.abs((shape.elevation ?? 0) - (previous.elevation ?? 0)) > 1e-9
-  ));
-}
-
 function refreshConstructionPlaneShapes(shapes: WorkplaneShape[], previousShapes: WorkplaneShape[] = []) {
   const withUpdatedSketchCenters = shapes.map((shape) => {
-    if (!shape.sketchPlane || !shapePlacementChanged(shape, previousShapes.find((previous) => previous.id === shape.id))) return shape;
+    if (!shape.sketchPlane) return shape;
+    const previous = previousShapes.find((candidate) => candidate.id === shape.id);
     const pose = constructionPlanePoseById(shape.sketchPlane.constructionPlaneId, shapes, shape.sketchPlane.pose);
-    const localCenter = shapeCenterInConstructionPlane(shape, pose);
+    const localCenter = reconcileShapeCenterInConstructionPlane(shape, previous, pose, shape.sketchPlane.localCenter);
+    if (localCenter.every((value, index) => value === shape.sketchPlane?.localCenter[index])) return shape;
     return { ...shape, sketchPlane: { ...shape.sketchPlane, pose, localCenter } };
   });
   const refreshPlanes = (entries: WorkplaneShape[]) => entries.map((shape) => {
@@ -7163,6 +7157,19 @@ export function SketchForgeEditor({
     commitSketchProfile(result.profile, result.conflicts.length ? "Point moved with constraint conflicts" : "Sketch point moved");
   }, [commitSketchProfile, sketchProfile]);
 
+  const moveSketchPoints = useCallback((ids: string[], delta: { x: number; z: number }) => {
+    const pointIds = new Set(ids);
+    if (sketchProfile.points.some((point) => pointIds.has(point.id) && point.projectionId)) {
+      setNotice("Projected profiles cannot be moved");
+      return;
+    }
+    if ((sketchProfile.constraints ?? []).some((constraint) => constraint.kind === "fixed" && pointIds.has(constraint.pointId))) {
+      setNotice("Profiles with fixed points cannot be moved");
+      return;
+    }
+    commitSketchProfile(translateSketchPoints(sketchProfile, ids, delta), "Sketch profile moved");
+  }, [commitSketchProfile, sketchProfile]);
+
   const moveSketchDimension = useCallback((segmentId: string, offset: { x: number; z: number }) => {
     if (!sketchProfile.segments.some((segment) => segment.id === segmentId)) return;
     commitSketchProfile({
@@ -7771,8 +7778,9 @@ export function SketchForgeEditor({
             return current;
           }
           interactionHistoryChangedRef.current = true;
-          shapesRef.current = next;
-          return next;
+          const refreshed = refreshConstructionPlaneShapes(next, current);
+          shapesRef.current = refreshed;
+          return refreshed;
         });
         return;
       }
@@ -9948,6 +9956,7 @@ export function SketchForgeEditor({
             onDeletePoint={deleteSketchPoint}
             onDeleteSegment={deleteSketchSegment}
             onMovePoint={moveSketchPoint}
+            onMovePoints={moveSketchPoints}
             onMoveHandle={moveSketchHandle}
             onMoveDimension={moveSketchDimension}
             onInsertPoint={insertSketchPoint}

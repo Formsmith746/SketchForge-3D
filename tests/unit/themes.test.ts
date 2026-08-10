@@ -6,7 +6,6 @@ describe("theme presets", () => {
     expect(THEME_PRESET_OPTIONS.map((option) => option.value)).toEqual([
       "sketchforge",
       "light",
-      "dark",
       "solidworks",
       "inventor",
       "custom",
@@ -17,11 +16,11 @@ describe("theme presets", () => {
       ui: { background: "#101820", primary: "#0e69f1" },
       viewport: { background: "#101820", gridAxis: "#65c9df" },
     });
+    expect(defaultThemes.dark).toBeUndefined();
   });
 
   it("uses app dark mode only for the current preset so legacy presets are not overridden", () => {
     expect(appColorModeForThemePreset("sketchforge")).toBe("dark");
-    expect(appColorModeForThemePreset("dark")).toBe("light");
     expect(appColorModeForThemePreset("solidworks")).toBe("light");
     expect(appColorModeForThemePreset("custom")).toBe("light");
   });

@@ -230,6 +230,22 @@ export function shapeCenterInConstructionPlane(source: ConstructionPlaneSourceSh
   return worldPointToLocal(pose, [source.x, (source.elevation ?? 0) + source.height / 2, source.z]);
 }
 
+export function reconcileShapeCenterInConstructionPlane(
+  source: ConstructionPlaneSourceShape,
+  previous: ConstructionPlaneSourceShape | undefined,
+  pose: ConstructionPlanePose,
+  localCenter: Vector3Like,
+): Vector3Tuple {
+  if (!previous || (
+    Math.abs(source.x - previous.x) <= 1e-9
+    && Math.abs(source.z - previous.z) <= 1e-9
+    && Math.abs((source.elevation ?? 0) - (previous.elevation ?? 0)) <= 1e-9
+  )) {
+    return [localCenter[0], localCenter[1], localCenter[2]];
+  }
+  return shapeCenterInConstructionPlane(source, pose);
+}
+
 function normalizedCoordinate(value: number, dimension: number) {
   return Math.abs(dimension) < EPSILON ? 0 : value / dimension;
 }

@@ -70,7 +70,8 @@ const VALID_THEME_IDS = new Set([...Object.keys(defaultThemes), "custom"]);
 export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWorkspaceSettings = DEFAULT_WORKPLANE_WORKSPACE): WorkplaneWorkspaceSettings {
   const candidate = value && typeof value === "object" ? (value as Partial<WorkplaneWorkspaceSettings>) : {};
   const units = stringOrDefault(candidate.units, fallback.units);
-  const themeId = VALID_THEME_IDS.has(candidate.themeId ?? "") ? candidate.themeId : fallback.themeId ?? "light";
+  const fallbackThemeId = VALID_THEME_IDS.has(fallback.themeId ?? "") ? fallback.themeId : "light";
+  const themeId = VALID_THEME_IDS.has(candidate.themeId ?? "") ? candidate.themeId : fallbackThemeId;
   const customTheme = themeOrDefault(candidate.customTheme, fallback.customTheme);
   return {
     width: numberOrDefault(candidate.width, fallback.width),

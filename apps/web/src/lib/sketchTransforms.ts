@@ -38,6 +38,28 @@ export function translationTransform(deltaX: number, deltaZ: number): SketchAffi
   return { a: 1, b: 0, c: 0, d: 1, tx: deltaX, tz: deltaZ };
 }
 
+export function translateSketchPoints(
+  profile: SketchProfile,
+  pointIds: readonly string[],
+  delta: Point2D,
+): SketchProfile {
+  if (pointIds.length === 0 || Math.abs(delta.x) <= Number.EPSILON && Math.abs(delta.z) <= Number.EPSILON) return profile;
+  const selectedPointIds = new Set(pointIds);
+  const translate = (point: Point2D) => ({ x: point.x + delta.x, z: point.z + delta.z });
+  return {
+    ...profile,
+    points: profile.points.map((point) => selectedPointIds.has(point.id) ? {
+      ...point,
+      ...translate(point),
+      handleIn: point.handleIn ? translate(point.handleIn) : undefined,
+      handleOut: point.handleOut ? translate(point.handleOut) : undefined,
+    } : point),
+    constraints: profile.constraints?.map((constraint) => constraint.kind === "fixed" && selectedPointIds.has(constraint.pointId)
+      ? { ...constraint, ...translate(constraint) }
+      : constraint),
+  };
+}
+
 export function rotationTransform(angleRadians: number, center: Point2D = { x: 0, z: 0 }): SketchAffineTransform {
   const cosine = Math.cos(angleRadians);
   const sine = Math.sin(angleRadians);
