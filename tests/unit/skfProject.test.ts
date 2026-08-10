@@ -261,6 +261,31 @@ describe("SketchForge .skf project packages", () => {
     expect(restored.shapes[0].edgeTreatmentHistory?.[0].before.kind).toBe("box");
   });
 
+  it("repairs duplicate descendant IDs from legacy shallow-copied groups during export", async () => {
+    const roof = shape("roundRoof", "round-roof-shared-child");
+    const box = shape("box", "box-shared-child");
+    const original = shape("mesh", "group-original", { groupedShapes: [roof, box] });
+    const duplicate = { ...original, id: "group-copy", x: 30 };
+    const history = [
+      editorHistoryEntry([original], [original.id]),
+      editorHistoryEntry([original, duplicate], [duplicate.id]),
+    ];
+
+    const exported = await exportSkfProject(input([original, duplicate], { history, historyIndex: 1 }));
+    const restored = await importSkfProject(exported);
+    const collectIds = (entry: WorkplaneShape): string[] => [
+      entry.id,
+      ...(entry.groupedShapes ?? []).flatMap(collectIds),
+    ];
+    const restoredIds = restored.shapes.flatMap(collectIds);
+
+    expect(original.groupedShapes?.[0].id).toBe(duplicate.groupedShapes?.[0].id);
+    expect(restored.shapes.map((entry) => entry.id)).toEqual(["group-original", "group-copy"]);
+    expect(new Set(restoredIds).size).toBe(restoredIds.length);
+    expect(restored.history).toHaveLength(2);
+    expect(restored.historyIndex).toBe(1);
+  });
+
   it("preserves every silently packaged undo and redo action", async () => {
     const created = shape("box", "history-box", { width: 20, depth: 20, x: 0 });
     const resized = { ...created, width: 30 };

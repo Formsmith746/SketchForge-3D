@@ -365,6 +365,52 @@ function assertUniqueRuntimeObjectIds(shapes: WorkplaneShape[], stateLabel: stri
   shapes.forEach(visit);
 }
 
+function repairDuplicateGroupedObjectIds(shapes: WorkplaneShape[]) {
+  const rootIds = new Set<string>();
+  for (const shape of shapes) {
+    if (!shape.id || rootIds.has(shape.id)) {
+      throw new Error(`Project state contains duplicate root object ID '${shape.id || "(empty)"}'`);
+    }
+    rootIds.add(shape.id);
+  }
+
+  const reservedIds = new Set<string>();
+  const collectIds = (shape: WorkplaneShape) => {
+    if (shape.id) reservedIds.add(shape.id);
+    shape.groupedShapes?.forEach(collectIds);
+  };
+  shapes.forEach(collectIds);
+
+  const seenIds = new Set(rootIds);
+  let repairedIndex = 0;
+  const freshRepairId = (shape: WorkplaneShape) => {
+    let candidate = "";
+    do {
+      repairedIndex += 1;
+      candidate = `${shape.kind || "object"}-repaired-${repairedIndex}`;
+    } while (reservedIds.has(candidate) || seenIds.has(candidate));
+    reservedIds.add(candidate);
+    return candidate;
+  };
+
+  const repairChild = (shape: WorkplaneShape): WorkplaneShape => {
+    const id = shape.id && !seenIds.has(shape.id) ? shape.id : freshRepairId(shape);
+    seenIds.add(id);
+    const groupedShapes = shape.groupedShapes?.map(repairChild);
+    const childrenChanged = groupedShapes?.some((child, index) => child !== shape.groupedShapes?.[index]) ?? false;
+    if (id === shape.id && !childrenChanged) {
+      return shape;
+    }
+    return { ...shape, id, ...(groupedShapes ? { groupedShapes } : {}) };
+  };
+
+  return shapes.map((shape) => {
+    const groupedShapes = shape.groupedShapes?.map(repairChild);
+    const childrenChanged = groupedShapes?.some((child, index) => child !== shape.groupedShapes?.[index]) ?? false;
+    return childrenChanged ? { ...shape, groupedShapes } : shape;
+  });
+}
+
 function referencedSourceAssetIds(states: WorkplaneShape[][]) {
   const ids = new Set<string>();
   const visit = (shape: WorkplaneShape) => {
@@ -646,15 +692,17 @@ function unzipAsync(bytes: Uint8Array) {
 export async function exportSkfProject(input: SkfProjectExportInput) {
   const hydrated = hydrateEditorHistoryState(input.shapes, input.history, input.historyIndex);
   if (hydrated.entries.length > SKF_LIMITS.states) throw new Error("Project has too many undo states for the .skf format");
+  const exportEntries = hydrated.entries.map((entry) =>
+    editorHistoryEntry(repairDuplicateGroupedObjectIds(entry.shapes), entry.selectedIds));
   const builder = new SkfArchiveBuilder();
-  const stateShapes = hydrated.entries.map((entry) => entry.shapes);
+  const stateShapes = exportEntries.map((entry) => entry.shapes);
   await builder.addSources(input.assets, referencedSourceAssetIds(stateShapes));
   const sourceAssetsByArchiveId = new Map(builder.assets.filter((asset) => asset.kind === "source").map((asset) => [asset.id, asset]));
   const states: SkfStateV1[] = [];
   const stateIdByFingerprint = new Map<string, string>();
   const historyEntries: SkfProjectDocumentV1["history"]["entries"] = [];
 
-  for (const entry of hydrated.entries) {
+  for (const entry of exportEntries) {
     let stateId = stateIdByFingerprint.get(entry.fingerprint);
     if (!stateId) {
       stateId = `state-${states.length + 1}`;

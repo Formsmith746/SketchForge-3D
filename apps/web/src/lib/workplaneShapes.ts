@@ -1,3 +1,4 @@
+import { createLocalId } from "@/lib/localIds";
 import type { WorkplaneShape } from "@/types/sketchforge";
 
 export function normalizeDegrees(value: number) {
@@ -19,6 +20,14 @@ export function cleanRotationDegrees(value: number, precision = 1) {
 
 export function cleanNearZero(value: number, epsilon = 0.005) {
   return Math.abs(value) < epsilon ? 0 : value;
+}
+
+export function cloneWorkplaneShapeTreeWithFreshIds(shape: WorkplaneShape, suffix: string): WorkplaneShape {
+  return {
+    ...shape,
+    id: createLocalId(`${shape.id}-${suffix}`),
+    groupedShapes: shape.groupedShapes?.map((child) => cloneWorkplaneShapeTreeWithFreshIds(child, suffix)),
+  };
 }
 
 export function shapeWidth(shape: WorkplaneShape) {

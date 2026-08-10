@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WorkplaneShape } from "@/types/sketchforge";
 import {
   canonicalizeShape,
+  cloneWorkplaneShapeTreeWithFreshIds,
   cleanNearZero,
   cleanRotationDegrees,
   fallbackSolidColor,
@@ -96,6 +97,34 @@ describe("workplane shape helpers", () => {
     expect(canonical.mirrorY).toBe(true);
     expect(canonical.groupedShapes?.[0].rotation).toBe(0);
     expect(canonical.groupedShapes?.[0].mirrorZ).toBeUndefined();
+  });
+
+  it("assigns fresh object IDs throughout duplicated group trees", () => {
+    const original = shape({
+      id: "outer-group",
+      kind: "mesh",
+      groupedShapes: [
+        shape({ id: "round-roof-child", kind: "roundRoof" }),
+        shape({
+          id: "nested-group",
+          kind: "mesh",
+          groupedShapes: [shape({ id: "nested-box" })],
+        }),
+      ],
+    });
+
+    const duplicate = cloneWorkplaneShapeTreeWithFreshIds(original, "copy");
+    const collectIds = (entry: WorkplaneShape): string[] => [
+      entry.id,
+      ...(entry.groupedShapes ?? []).flatMap(collectIds),
+    ];
+    const originalIds = collectIds(original);
+    const duplicateIds = collectIds(duplicate);
+
+    expect(new Set(duplicateIds).size).toBe(duplicateIds.length);
+    expect(duplicateIds.every((id) => !originalIds.includes(id))).toBe(true);
+    expect(original.groupedShapes?.[0].id).toBe("round-roof-child");
+    expect(duplicate.groupedShapes?.[0].kind).toBe("roundRoof");
   });
 
   it("keeps shallow equality strict for shape payload references", () => {
