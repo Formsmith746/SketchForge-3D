@@ -8,6 +8,9 @@ services:
       - "${SKETCHFORGE_PORT:-3000}:3000"
     environment:
       SKETCHFORGE_SHARED_PROJECTS_DIR: /data/projects
+      SKETCHFORGE_UPDATE_TRIGGER_URL: "${SKETCHFORGE_UPDATE_TRIGGER_URL:-}"
+      SKETCHFORGE_UPDATE_ADMIN_KEY: "${SKETCHFORGE_UPDATE_ADMIN_KEY:-}"
+      SKETCHFORGE_UPDATE_TRIGGER_TOKEN: "${SKETCHFORGE_UPDATE_TRIGGER_TOKEN:-}"
     volumes:
       - "${SKETCHFORGE_SHARED_PROJECTS_VOLUME:-sketchforge-shared-projects}:/data/projects"
     restart: unless-stopped

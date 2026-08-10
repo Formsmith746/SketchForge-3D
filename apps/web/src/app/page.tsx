@@ -1,9 +1,12 @@
 "use client";
 
-import { Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, HomeIcon, List, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, HomeIcon, List, Palette, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SketchForgeEditor, importedShapeFromStl, importedShapeFromSvg } from "@/components/SketchForgeEditor";
+import ChallengesDashboard from "@/components/official/ChallengesDashboard";
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
+import type { AppUpdateStatus } from "@/lib/appUpdates";
+import { isChallengeTutorialId, type ChallengeTutorialId } from "@/lib/challenges";
 import { hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { createLocalId } from "@/lib/localIds";
 import {
@@ -21,7 +24,7 @@ import type { GridSize, ProjectAsset, WorkplaneShape, WorkplaneWorkspaceSettings
 
 type AppView = "dashboard" | "editor";
 type ViewMode = "grid" | "list";
-type DashboardSection = "home" | "shared" | "challenges";
+type DashboardSection = "home" | "shared" | "challenges" | "customization";
 type DownloadMode = "browser" | "folder";
 
 type DashboardProject = {
@@ -108,8 +111,11 @@ const PROJECT_SHAPE_RESOURCES_STORE_NAME = "projectShapeResources";
 const DOWNLOAD_MODE_STORAGE_KEY = "sketchForge.downloadMode";
 const DOWNLOAD_FOLDER_STORAGE_KEY = "sketchForge.downloadFolder";
 const THEME_STORAGE_KEY = "sketchForge.defaultTheme";
+const ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY = "sketchForge.activeChallengeTutorial";
+const DISMISSED_UPDATE_VERSION_STORAGE_KEY = "sketchForge.dismissedUpdateVersion";
 const PROJECT_ACCENTS: DashboardProject["accent"][] = ["cyan", "green", "gold", "red"];
 const STATIC_EXPORT_BUILD = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
+const SOURCE_CODE_URL = process.env.NEXT_PUBLIC_SOURCE_CODE_URL?.trim() || "https://github.com/Formsmith746/SketchForge-3D";
 const EDITOR_SKELETON_MIN_DURATION_MS = 320;
 const knownProjectResourceKeys = new Map<string, Set<string>>();
 
@@ -526,6 +532,7 @@ export default function Home() {
   const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
   const [sharedProjectsEnabled, setSharedProjectsEnabled] = useState(false);
   const [sharedProjectsLoading, setSharedProjectsLoading] = useState(false);
+  const [activeChallengeTutorial, setActiveChallengeTutorial] = useState<ChallengeTutorialId | null>(null);
   const [projectShapesById, setProjectShapesById] = useState<Record<string, ProjectShapeCacheEntry>>({});
   const projectsJsonRef = useRef("");
   const dashboardImportInputRef = useRef<HTMLInputElement | null>(null);
@@ -581,6 +588,14 @@ export default function Home() {
       const requestedProjectId = params.get("project");
       if (requestedProjectId && storedProjects.some((project) => project.id === requestedProjectId)) {
         setActiveProjectId(requestedProjectId);
+        try {
+          const storedChallenge = JSON.parse(window.localStorage.getItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY) ?? "null") as { projectId?: string; tutorial?: ChallengeTutorialId } | null;
+          if (storedChallenge?.projectId === requestedProjectId && isChallengeTutorialId(storedChallenge.tutorial)) {
+            setActiveChallengeTutorial(storedChallenge.tutorial);
+          }
+        } catch {
+          window.localStorage.removeItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY);
+        }
       }
       startEditorTransition();
       setEditorStarted(true);
@@ -723,7 +738,7 @@ export default function Home() {
     return sortMode === "name" ? [...filtered].sort((a, b) => a.name.localeCompare(b.name)) : [...filtered].sort((a, b) => b.updatedAt - a.updatedAt);
   }, [query, sharedProjects, sortMode]);
 
-  const openEditor = (projectId: string | null, options: { allowMissingFromStorage?: boolean } = {}) => {
+  const openEditor = (projectId: string | null, options: { allowMissingFromStorage?: boolean; challengeTutorial?: ChallengeTutorialId | null } = {}) => {
     if (projectId && typeof window !== "undefined" && !options.allowMissingFromStorage) {
       const storedProjects = readProjects();
       const storedProject = storedProjects.find((project) => project.id === projectId);
@@ -739,6 +754,25 @@ export default function Home() {
       setProjects((current) => current.map((project) => (project.id === projectId ? { ...project, updatedAt: Date.now() } : project)));
     }
     startEditorTransition();
+    let nextChallengeTutorial = options.challengeTutorial ?? null;
+    if (typeof window !== "undefined" && projectId) {
+      if (nextChallengeTutorial) {
+        window.localStorage.setItem(
+          ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY,
+          JSON.stringify({ projectId, tutorial: nextChallengeTutorial }),
+        );
+      } else {
+        try {
+          const storedChallenge = JSON.parse(window.localStorage.getItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY) ?? "null") as { projectId?: string; tutorial?: ChallengeTutorialId } | null;
+          if (storedChallenge?.projectId === projectId && isChallengeTutorialId(storedChallenge.tutorial)) {
+            nextChallengeTutorial = storedChallenge.tutorial;
+          }
+        } catch {
+          window.localStorage.removeItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY);
+        }
+      }
+    }
+    setActiveChallengeTutorial(nextChallengeTutorial);
     setActiveProjectId(projectId);
     setEditorStarted(true);
     setView("editor");
@@ -906,7 +940,7 @@ export default function Home() {
     });
   }, []);
 
-  const createAndOpenProject = (name?: string) => {
+  const createAndOpenProject = (name?: string, challengeTutorial: ChallengeTutorialId | null = null) => {
     const project = newProject(name ?? `Untitled design ${projects.length + 1}`, projects.length);
     setProjectShapesById((current) => ({
       ...current,
@@ -920,7 +954,7 @@ export default function Home() {
       setDashboardNotice("Could not prepare project shape storage");
     });
     setProjects((current) => [project, ...current]);
-    openEditor(project.id, { allowMissingFromStorage: true });
+    openEditor(project.id, { allowMissingFromStorage: true, challengeTutorial });
   };
 
   const openSkfProjectFromFile = useCallback(async (file: File, sharedProject?: SharedProject) => {
@@ -1101,6 +1135,7 @@ export default function Home() {
       setProjects((current) => current.map((project) => (project.id === activeProjectId ? { ...project, updatedAt: Date.now() } : project)));
     }
     setDashboardSection("home");
+    setActiveChallengeTutorial(null);
     setEditorLoading(false);
     setView("dashboard");
     if (typeof window !== "undefined") {
@@ -1187,12 +1222,17 @@ export default function Home() {
           viewMode={viewMode}
           onCloseSettings={() => setSettingsOpen(false)}
           onCreate={() => createAndOpenProject()}
+          onStartChallenge={(challenge) => createAndOpenProject(challenge === "nameplate" ? "Personalized Nameplate" : "Key Tag", challenge)}
           onDeleteProject={deleteProject}
           onDownloadFolderChange={setDownloadFolder}
           onDownloadModeChange={setDownloadMode}
           onImportFile={() => dashboardImportInputRef.current?.click()}
           onChallenges={() => {
             setDashboardSection("challenges");
+            setDashboardNotice("");
+          }}
+          onCustomization={() => {
+            setDashboardSection("customization");
             setDashboardNotice("");
           }}
           onDashboardHome={() => setDashboardSection("home")}
@@ -1235,6 +1275,11 @@ export default function Home() {
             projectModifiedAt={activeProject?.updatedAt}
             projectRevision={activeProjectShapeEntry?.revision ?? activeProject?.revision ?? 0}
             sharedProjectsEnabled={sharedProjectsEnabled}
+            challengeTutorial={activeChallengeTutorial}
+            onChallengeTutorialFinish={() => {
+              setActiveChallengeTutorial(null);
+              window.localStorage.removeItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY);
+            }}
             resolvedTheme={resolvedTheme}
             onThemePreferenceChange={setThemePreference}
           />
@@ -1330,11 +1375,13 @@ function Dashboard({
   viewMode,
   onCloseSettings,
   onCreate,
+  onStartChallenge,
   onDeleteProject,
   onDownloadFolderChange,
   onDownloadModeChange,
   onImportFile,
   onChallenges,
+  onCustomization,
   onDashboardHome,
   onOpenSharedProject,
   onOpenProject,
@@ -1362,11 +1409,13 @@ function Dashboard({
   viewMode: ViewMode;
   onCloseSettings: () => void;
   onCreate: () => void;
+  onStartChallenge: (challenge: ChallengeTutorialId) => void;
   onDeleteProject: (projectId: string) => void;
   onDownloadFolderChange: (value: string) => void;
   onDownloadModeChange: (value: DownloadMode) => void;
   onImportFile: () => void;
   onChallenges: () => void;
+  onCustomization: () => void;
   onDashboardHome: () => void;
   onOpenSharedProject: (project: SharedProject) => void;
   onOpenProject: (projectId: string) => void;
@@ -1383,6 +1432,13 @@ function Dashboard({
   const [projectPendingDeleteId, setProjectPendingDeleteId] = useState<string | null>(null);
   const [projectPendingRenameId, setProjectPendingRenameId] = useState<string | null>(null);
   const [projectNameDraft, setProjectNameDraft] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<AppUpdateStatus | null>(null);
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const [updatePromptOpen, setUpdatePromptOpen] = useState(false);
+  const [updateKey, setUpdateKey] = useState("");
+  const [updateStarting, setUpdateStarting] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState("");
+  const updateCheckedRef = useRef(false);
   const projectPendingDelete = projects.find((project) => project.id === projectPendingDeleteId) ?? null;
   const projectPendingRename = projects.find((project) => project.id === projectPendingRenameId) ?? null;
 
@@ -1413,6 +1469,79 @@ function Dashboard({
     if (!projectPendingRename || !projectNameDraft.trim()) return;
     onRenameProject(projectPendingRename.id, projectNameDraft);
     closeProjectRename();
+  };
+
+  const checkForUpdates = useCallback(async (force: boolean, alwaysPrompt: boolean) => {
+    if (staticExportBuild) return;
+    setUpdateChecking(true);
+    setUpdateMessage("");
+    try {
+      const response = await fetch(`/api/app-update${force ? "?force=1" : ""}`, { cache: "no-store" });
+      const payload = await response.json() as AppUpdateStatus & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not check for updates");
+      setUpdateStatus(payload);
+      if (payload.updateAvailable && payload.latestVersion) {
+        const dismissedVersion = window.localStorage.getItem(DISMISSED_UPDATE_VERSION_STORAGE_KEY);
+        if (alwaysPrompt || dismissedVersion !== payload.latestVersion) {
+          onCloseSettings();
+          setUpdatePromptOpen(true);
+        }
+      } else if (alwaysPrompt && !payload.checkError) {
+        setUpdateMessage("SketchForge is up to date.");
+      }
+    } catch (error) {
+      setUpdateMessage(error instanceof Error ? error.message : "Could not check for updates");
+    } finally {
+      setUpdateChecking(false);
+    }
+  }, [onCloseSettings, staticExportBuild]);
+
+  useEffect(() => {
+    if (staticExportBuild || updateCheckedRef.current) return;
+    updateCheckedRef.current = true;
+    void checkForUpdates(false, false);
+  }, [checkForUpdates, staticExportBuild]);
+
+  const dismissUpdate = () => {
+    if (updateStatus?.latestVersion) {
+      window.localStorage.setItem(DISMISSED_UPDATE_VERSION_STORAGE_KEY, updateStatus.latestVersion);
+    }
+    setUpdatePromptOpen(false);
+    setUpdateKey("");
+    setUpdateMessage("");
+  };
+
+  const requestUpdate = async () => {
+    if (!updateStatus?.updateAvailable) return;
+    if (!updateStatus.installationReady) {
+      window.open(updateStatus.updateUrl, "_blank", "noopener,noreferrer");
+      dismissUpdate();
+      return;
+    }
+    if (updateStatus.requiresUpdateKey && !updateKey.trim()) {
+      setUpdateMessage("Enter the server update key to continue.");
+      return;
+    }
+
+    setUpdateStarting(true);
+    setUpdateMessage("");
+    try {
+      const response = await fetch("/api/app-update", {
+        method: "POST",
+        headers: { "x-sketchforge-update-key": updateKey.trim() },
+      });
+      const payload = await response.json() as { accepted?: boolean; error?: string; updateUrl?: string };
+      if (!response.ok || !payload.accepted) throw new Error(payload.error || "Could not start the update");
+      if (updateStatus.latestVersion) {
+        window.localStorage.setItem(DISMISSED_UPDATE_VERSION_STORAGE_KEY, updateStatus.latestVersion);
+      }
+      setUpdateMessage("Update started. The server may briefly go offline; reopen this page after it restarts.");
+      setUpdateKey("");
+    } catch (error) {
+      setUpdateMessage(error instanceof Error ? error.message : "Could not start the update");
+    } finally {
+      setUpdateStarting(false);
+    }
   };
 
   return (
@@ -1449,15 +1578,23 @@ function Dashboard({
               <SlidersHorizontal size={20} />
               <span>Challenges</span>
             </button>
+            <button className={`dashboard-nav-item ${dashboardSection === "customization" ? "active" : ""}`} type="button" aria-label="Customization" title="Customization" onClick={onCustomization}>
+              <Palette size={20} />
+              <span>Customization</span>
+            </button>
           </div>
-          <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
-            <Settings size={20} />
-            <span>Settings</span>
-          </button>
+          <div className="dashboard-sidebar-footer">
+            <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
+              <Settings size={20} />
+              <span>Settings</span>
+            </button>
+          </div>
         </aside>
 
-        <section className="dashboard-main" aria-label={dashboardSection === "challenges" ? "Challenges" : dashboardSection === "shared" ? "Shared projects" : "Dashboard"}>
+        <section className="dashboard-main" aria-label={dashboardSection === "challenges" ? "Challenges" : dashboardSection === "shared" ? "Shared projects" : dashboardSection === "customization" ? "Customization" : "Dashboard"}>
           {dashboardSection === "challenges" ? (
+            <ChallengesDashboard onStartChallenge={onStartChallenge} />
+          ) : dashboardSection === "customization" ? (
             <div className="dashboard-coming-soon" role="status">
               <strong>Coming soon</strong>
             </div>
@@ -1662,6 +1799,49 @@ function Dashboard({
         </section>
       ) : null}
 
+      {updatePromptOpen && updateStatus?.updateAvailable && updateStatus.latestVersion ? (
+        <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="app-update-title">
+          <div className="dashboard-confirm-dialog dashboard-update-dialog">
+            <header>
+              <strong id="app-update-title">SketchForge {updateStatus.latestVersion} is available</strong>
+              <button type="button" aria-label="Dismiss update" onClick={dismissUpdate} disabled={updateStarting}>
+                <X size={18} />
+              </button>
+            </header>
+            <div className="dashboard-update-copy">
+              <p>Do you want to update from version {updateStatus.currentVersion}?</p>
+              <div className="dashboard-update-safety">
+                Your projects are kept. Private projects stay in this browser, and Docker shared projects remain in the persistent <code>/data/projects</code> volume.
+              </div>
+              {!updateStatus.installationReady ? (
+                <div className="dashboard-update-note">One-click installation is not configured on this server. Continue to the safe update guide.</div>
+              ) : null}
+              {updateStatus.requiresUpdateKey ? (
+                <label className="dashboard-update-key">
+                  <span>Server update key</span>
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={updateKey}
+                    onChange={(event) => setUpdateKey(event.currentTarget.value)}
+                    disabled={updateStarting}
+                  />
+                </label>
+              ) : null}
+              {updateMessage ? <div className="dashboard-update-message" role="status">{updateMessage}</div> : null}
+            </div>
+            <div className="dashboard-confirm-actions">
+              <button className="dashboard-confirm-cancel" type="button" onClick={dismissUpdate} disabled={updateStarting}>
+                Not now
+              </button>
+              <button className="dashboard-confirm-save" type="button" onClick={() => void requestUpdate()} disabled={updateStarting}>
+                {updateStarting ? "Starting…" : updateStatus.installationReady ? "Update" : "Open update guide"}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {settingsOpen ? (
         <section className="dashboard-settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
           <header>
@@ -1692,6 +1872,46 @@ function Dashboard({
           <div className="dashboard-version-row">
             <span>SketchForge version</span>
             <strong>{SKF_CREATED_WITH_VERSION}</strong>
+          </div>
+          <section className="dashboard-update-settings" aria-label="Software updates">
+            <div>
+              <strong>Software updates</strong>
+              <span>Updates are checked automatically but are never installed without your approval.</span>
+            </div>
+            {staticExportBuild ? (
+              <span className="dashboard-update-status">Managed by the website owner</span>
+            ) : updateStatus?.checkError ? (
+              <span className="dashboard-update-status error">{updateStatus.checkError}</span>
+            ) : updateStatus?.updateAvailable && updateStatus.latestVersion ? (
+              <button
+                className="dashboard-update-available"
+                type="button"
+                onClick={() => {
+                  onCloseSettings();
+                  setUpdateMessage("");
+                  setUpdatePromptOpen(true);
+                }}
+              >
+                Update to {updateStatus.latestVersion}
+              </button>
+            ) : updateStatus ? (
+              <span className="dashboard-update-status ready">Up to date</span>
+            ) : null}
+            {!staticExportBuild ? (
+              <button className="dashboard-check-update" type="button" onClick={() => void checkForUpdates(true, true)} disabled={updateChecking}>
+                <RefreshCw size={15} className={updateChecking ? "spin" : ""} />
+                <span>{updateChecking ? "Checking…" : "Check for updates"}</span>
+              </button>
+            ) : null}
+            {updateMessage && settingsOpen ? <span className="dashboard-update-status" role="status">{updateMessage}</span> : null}
+          </section>
+          <div className="dashboard-version-row">
+            <span>License</span>
+            <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">AGPLv3</a>
+          </div>
+          <div className="dashboard-version-row">
+            <span>Corresponding source</span>
+            <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer">View source</a>
           </div>
         </section>
       ) : null}

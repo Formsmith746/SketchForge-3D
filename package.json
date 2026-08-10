@@ -1,8 +1,8 @@
 {
   "name": "sketchforge",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "private": true,
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "copy:occt": "node scripts/copy-occt-wasm.mjs",
     "predev": "npm run copy:occt",

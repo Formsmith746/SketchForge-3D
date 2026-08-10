@@ -16,6 +16,7 @@ import gentilisBoldFontJson from "three/examples/fonts/gentilis_bold.typeface.js
 import helvetikerBoldFontJson from "three/examples/fonts/helvetiker_bold.typeface.json";
 import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json";
 import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
+import type { ChallengeTutorialId } from "@/lib/challenges";
 import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
 import { sphereTessellation } from "@/lib/sphereTessellation";
@@ -106,6 +107,7 @@ import {
   type ConstructionPlanePose,
   type PrincipalPlane,
 } from "@/lib/constructionPlanes";
+import { exportMeshesToObj } from "@/lib/objExport";
 import { attachProjectAsset, dedupeProjectAssets, MAX_PROJECT_ASSET_BYTES, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
 import { findSketchOutlineIntersection } from "@/lib/sketchProfileValidation";
 import { cadSketchProfileForRegions, cadSketchRegions, cadSketchSelectableRegions, selectedCadSketchRegions } from "@/lib/sketchCadProfile";
@@ -114,6 +116,7 @@ import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketc
 import { exportSkfProject, SKF_MEDIA_TYPE } from "@/lib/skfProject";
 import { makeShapeFromAsset, sceneShape, toolbarShapeAssets, type ToolbarShapeAsset } from "@/lib/shapeCatalog";
 import { importedShapeFromStl, importExtensionSupported } from "@/lib/stlImport";
+import { exportMeshesToStl } from "@/lib/stlExport";
 import { exportMeshesTo3mf, importedShapeFrom3mf } from "@/lib/threeMf";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
@@ -140,7 +143,7 @@ import {
 } from "@/lib/sketchforgeMcpProtocol";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
-import { appColorModeForThemePreset, customThemeWithDefaults, defaultThemes, THEME_PRESET_OPTIONS, type AppTheme } from "@/lib/themes";
+import { appColorModeForThemePreset, customThemeWithDefaults, defaultThemes, THEME_PRESET_OPTIONS } from "@/lib/themes";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, SketchDimensionAnchor, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 export { importedShapeFrom3mf, importedShapeFromStl, importedShapeFromSvg };
@@ -857,6 +860,7 @@ function ensureSketchCadWorker(): Worker {
       pending.reject(new Error("The OpenCascade sketch worker failed to start"));
     });
     sketchCadPending.clear();
+    worker.terminate();
     sketchCadWorker = null;
   };
   sketchCadWorker = worker;
@@ -891,6 +895,7 @@ async function cadShapeFromSketchProfile(profile: SketchProfile, height: number,
       rotation: 0,
     }),
     sketchProfile: cloneSketchProfile(profile),
+    sketchOperation: "extrude",
     edgeTreatments: undefined,
     edgeTreatmentHistory: undefined,
     cadDisplayEdges: undefined,
@@ -898,7 +903,7 @@ async function cadShapeFromSketchProfile(profile: SketchProfile, height: number,
   });
   const shape = shapeFromCadMesh(source, response.positions, response.normals, response.indices, response.brep);
   if (!shape) throw new Error("OpenCascade returned an empty sketch solid");
-  return { ...shape, sketchProfile: cloneSketchProfile(profile) };
+  return { ...shape, sketchProfile: cloneSketchProfile(profile), sketchOperation: "extrude" as const };
 }
 
 function cleanModelDimension(value: number) {
@@ -2668,7 +2673,10 @@ function cadModifierPrimitiveForShape(shape: WorkplaneShape): CadModifierPrimiti
 }
 
 function bakeShapeTransformIntoMesh(shape: WorkplaneShape): WorkplaneShape {
-  if (!shapeHasTransformToBake(shape)) {
+  // Rotation is a non-destructive transform for editable text. Baking it would
+  // change the shape to `kind: "mesh"`, hiding the Text and Font controls even
+  // though the user never grouped or otherwise converted the object.
+  if (shape.kind === "text" || !shapeHasTransformToBake(shape)) {
     return shape;
   }
 
@@ -2862,53 +2870,6 @@ async function importedShapeFromImage(file: File): Promise<WorkplaneShape> {
     locked: false,
     hidden: false,
   };
-}
-
-function normalFor(a: Vec3, b: Vec3, c: Vec3): Vec3 {
-  const ux = b[0] - a[0];
-  const uy = b[1] - a[1];
-  const uz = b[2] - a[2];
-  const vx = c[0] - a[0];
-  const vy = c[1] - a[1];
-  const vz = c[2] - a[2];
-  const nx = uy * vz - uz * vy;
-  const ny = uz * vx - ux * vz;
-  const nz = ux * vy - uy * vx;
-  const length = Math.hypot(nx, ny, nz) || 1;
-  return [nx / length, ny / length, nz / length];
-}
-
-function toStl(meshes: MeshData[]) {
-  const lines = ["solid sketchforge_design"];
-  meshes.forEach((mesh) => {
-    mesh.faces.forEach(([ai, bi, ci]) => {
-      const a = mesh.vertices[ai];
-      const b = mesh.vertices[bi];
-      const c = mesh.vertices[ci];
-      const n = normalFor(a, b, c);
-      lines.push(`  facet normal ${n[0]} ${n[1]} ${n[2]}`);
-      lines.push("    outer loop");
-      lines.push(`      vertex ${a[0]} ${a[1]} ${a[2]}`);
-      lines.push(`      vertex ${b[0]} ${b[1]} ${b[2]}`);
-      lines.push(`      vertex ${c[0]} ${c[1]} ${c[2]}`);
-      lines.push("    endloop");
-      lines.push("  endfacet");
-    });
-  });
-  lines.push("endsolid sketchforge_design");
-  return lines.join("\n");
-}
-
-function toObj(meshes: MeshData[]) {
-  const lines = ["# SketchForge OBJ export"];
-  let offset = 1;
-  meshes.forEach((mesh) => {
-    lines.push(`o ${mesh.name}`);
-    mesh.vertices.forEach(([x, y, z]) => lines.push(`v ${x} ${y} ${z}`));
-    mesh.faces.forEach(([a, b, c]) => lines.push(`f ${a + offset} ${b + offset} ${c + offset}`));
-    offset += mesh.vertices.length;
-  });
-  return lines.join("\n");
 }
 
 async function toSvg(shapes: WorkplaneShape[], title: string) {
@@ -3521,6 +3482,12 @@ function separateMeshParts(shape: WorkplaneShape) {
   return components
     .map((component, index) => meshComponentShape(shape, mesh, component, index, components.length))
     .filter((part): part is WorkplaneShape => Boolean(part));
+}
+
+function cadModifierSourceParts(shape: WorkplaneShape) {
+  if (shape.kind !== "text" || shape.importedMesh || shape.cadBrep) return [shape];
+  const glyphParts = separateMeshParts(shape);
+  return glyphParts.length > 1 ? glyphParts : [shape];
 }
 
 function separablePartCount(shape: WorkplaneShape) {
@@ -5684,6 +5651,8 @@ export function SketchForgeEditor({
   projectModifiedAt = Date.now(),
   projectRevision = 0,
   sharedProjectsEnabled = false,
+  challengeTutorial = null,
+  onChallengeTutorialFinish,
   resolvedTheme = "light",
   onThemePreferenceChange,
 }: {
@@ -5727,6 +5696,8 @@ export function SketchForgeEditor({
   projectModifiedAt?: number;
   projectRevision?: number;
   sharedProjectsEnabled?: boolean;
+  challengeTutorial?: ChallengeTutorialId | null;
+  onChallengeTutorialFinish?: () => void;
   resolvedTheme?: ResolvedAppTheme;
   onThemePreferenceChange?: (preference: AppThemePreference) => void;
 } = {}) {
@@ -8103,7 +8074,9 @@ export function SketchForgeEditor({
     invalidateCadModifierSession();
     const appliedEdgeTreatmentCount = edgeTreatmentFeatureCount(selectedShape);
     const hasAppliedEdgeTreatment = Boolean(selectedShape.importedMesh && selectedShape.edgeTreatments?.length);
-    const sourceParts = selectedShape.groupedShapes?.length && !hasAppliedEdgeTreatment ? restoreGroupedChildren(selectedShape) : [selectedShape];
+    const sourceParts = (selectedShape.groupedShapes?.length && !hasAppliedEdgeTreatment
+      ? restoreGroupedChildren(selectedShape)
+      : [selectedShape]).flatMap(cadModifierSourceParts);
     const partInputs: Array<{ shape: WorkplaneShape; mesh?: MeshData; brep?: string; brepTransform?: number[]; primitive?: CadModifierPrimitivePart }> = sourceParts.map((shape) => {
       const frame = shape.cadBrepFrame;
       const preserveNeedsRetessellation = preservesEdgeTreatmentSize(shape) && Boolean(frame) && (
@@ -8176,7 +8149,9 @@ export function SketchForgeEditor({
     }
     const appliedEdgeTreatmentCount = edgeTreatmentFeatureCount(shape);
     const hasAppliedEdgeTreatment = Boolean(shape.importedMesh && shape.edgeTreatments?.length);
-    const sourceParts = shape.groupedShapes?.length && !hasAppliedEdgeTreatment ? restoreGroupedChildren(shape) : [shape];
+    const sourceParts = (shape.groupedShapes?.length && !hasAppliedEdgeTreatment
+      ? restoreGroupedChildren(shape)
+      : [shape]).flatMap(cadModifierSourceParts);
     const partInputs: Array<{ shape: WorkplaneShape; mesh?: MeshData; brep?: string; brepTransform?: number[]; primitive?: CadModifierPrimitivePart }> = sourceParts.map((partShape) => {
       const frame = partShape.cadBrepFrame;
       const preserveNeedsRetessellation = preservesEdgeTreatmentSize(partShape) && Boolean(frame) && (
@@ -8749,8 +8724,7 @@ export function SketchForgeEditor({
         let shape: WorkplaneShape;
         if (kind === "sketch") {
           const profile = defaultMcpSketchProfile(width, depth);
-          const extruded = await shapeFromSketchProfile(profile, height);
-          if (!extruded) throw new Error("Could not create the sketch profile");
+          const extruded = await cadShapeFromSketchProfile(profile, height);
           shape = canonicalizeShape({
             ...extruded,
             name,
@@ -8762,7 +8736,7 @@ export function SketchForgeEditor({
             rotationX: mcpNumber(params.rotationX, 0),
             rotationZ: mcpNumber(params.rotationZ, 0),
           });
-        } else if (kind === "box" || kind === "cylinder") {
+        } else if (kind === "box" || kind === "cylinder" || kind === "text") {
           shape = sceneShape({
             name,
             kind,
@@ -8778,9 +8752,13 @@ export function SketchForgeEditor({
             rotationX: mcpNumber(params.rotationX, 0),
             rotationZ: mcpNumber(params.rotationZ, 0),
             sides: kind === "cylinder" ? Math.max(3, Math.floor(mcpNumber(params.sides, 96))) : undefined,
+            text: kind === "text" ? mcpString(params.text, "TEXT") : undefined,
+            font: kind === "text" ? mcpString(params.font, "Multilanguage") : undefined,
+            bevel: kind === "text" ? Math.max(0, mcpNumber(params.bevel, 0)) : undefined,
+            segments: kind === "text" ? Math.max(1, Math.floor(mcpNumber(params.segments, 2))) : undefined,
           });
         } else {
-          throw new Error("MCP create_shape currently supports box, cube, cylinder, and sketch");
+          throw new Error("MCP create_shape currently supports box, cube, cylinder, text, and sketch");
         }
         const committedShape = canonicalizeShape(bakeShapeTransformIntoMesh(shape));
         commitShapes([...currentShapes(), committedShape], committedShape.id, `${committedShape.name} added by MCP`);
@@ -8860,6 +8838,9 @@ export function SketchForgeEditor({
         if (typeof params.color === "string") patch.color = params.color;
         if (typeof params.name === "string") patch.name = params.name;
         if (typeof params.hole === "boolean") patch.hole = params.hole;
+        if (typeof params.text === "string") patch.text = params.text;
+        if (typeof params.font === "string") patch.font = params.font;
+        if (typeof params.bevel === "number" && Number.isFinite(params.bevel)) patch.bevel = Math.max(0, params.bevel);
         const nextShapes = currentShapes().map((shape) => {
           if (shape.id !== target.id) return shape;
           const patched = { ...shape, ...cleanShapePatch(patch) };
@@ -9321,12 +9302,12 @@ export function SketchForgeEditor({
       return;
     }
     if (format === "stl") {
-      void downloadTextFile(projectExportFileName(exportName, "stl"), toStl(meshes), "model/stl")
+      void downloadTextFile(projectExportFileName(exportName, "stl"), exportMeshesToStl(meshes), "model/stl")
         .then((result) => finishNotice("STL", result))
         .catch((error: unknown) => failNotice("STL", error));
       return;
     }
-    void downloadTextFile(projectExportFileName(exportName, "obj"), toObj(meshes), "text/plain")
+    void downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(meshes), "text/plain")
       .then((result) => finishNotice("OBJ", result))
       .catch((error: unknown) => failNotice("OBJ", error));
   }, [hasSelection, projectName, selectedShapes, shapes]);
@@ -10058,6 +10039,8 @@ export function SketchForgeEditor({
           modifierEdges={edgeModifier?.edges.filter((edge) => modifierAvailableEdgeIds.includes(edge.id)) ?? []}
           selectedModifierEdgeIds={edgeModifier?.selectedEdgeIds ?? []}
           onModifierEdgeToggle={toggleModifierEdge}
+          challengeTutorial={challengeTutorial}
+          onChallengeTutorialFinish={onChallengeTutorialFinish}
           resolvedTheme={resolvedTheme}
           />
         )}
@@ -10672,7 +10655,15 @@ function SecondaryToolbar({
     const { icon: Icon, action, enabled, label } = tool;
     const active = "active" in tool && Boolean(tool.active);
     return (
-      <button className={`toolbar-icon ${enabled ? "" : "disabled"} ${active ? "active" : ""}`} key={label} aria-label={label} title={label} onClick={action} disabled={!enabled}>
+      <button
+        className={`toolbar-icon ${enabled ? "" : "disabled"} ${active ? "active" : ""}`}
+        key={label}
+        data-sketchforge-tool={label === "Fillet" ? "fillet" : undefined}
+        aria-label={label}
+        title={label}
+        onClick={action}
+        disabled={!enabled}
+      >
         <Icon />
       </button>
     );

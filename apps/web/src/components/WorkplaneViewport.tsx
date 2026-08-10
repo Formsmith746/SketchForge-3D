@@ -21,8 +21,11 @@ import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
 import { MoveDimensionOverlay } from "@/components/workplane/MoveDimensionOverlay";
 import { ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
+import { KeyTagTutorialPanel } from "@/components/workplane/KeyTagTutorialPanel";
+import { NameplateTutorialPanel } from "@/components/workplane/NameplateTutorialPanel";
 import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettingsModal";
 import type { ResolvedAppTheme } from "@/lib/appTheme";
+import type { ChallengeTutorialId } from "@/lib/challenges";
 import { cadModifierPrimitiveForBakedShape, cadTransformFromMatrix, cadTransformToMatrix } from "@/lib/cadBakeMetadata";
 import { createGearGeometry } from "@/lib/gearGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
@@ -209,6 +212,8 @@ type WorkplaneViewportProps = {
   modifierEdges?: CadModifierEdge[];
   selectedModifierEdgeIds?: number[];
   onModifierEdgeToggle?: (id: number, singleEdge: boolean) => void;
+  challengeTutorial?: ChallengeTutorialId | null;
+  onChallengeTutorialFinish?: () => void;
   resolvedTheme?: ResolvedAppTheme;
 };
 
@@ -2238,6 +2243,8 @@ export function WorkplaneViewport({
   modifierEdges = [],
   selectedModifierEdgeIds = [],
   onModifierEdgeToggle,
+  challengeTutorial = null,
+  onChallengeTutorialFinish,
   resolvedTheme = "light",
 }: WorkplaneViewportProps) {
   const [snapOpen, setSnapOpen] = useState(false);
@@ -2273,6 +2280,12 @@ export function WorkplaneViewport({
   );
   const [moveDimensionOverlay, setMoveDimensionOverlay] = useState<MoveDimensionOverlayState | null>(null);
   const [moveDimensionsEnabled, setMoveDimensionsEnabled] = useState(true);
+  const [challengeTutorialCollapsed, setChallengeTutorialCollapsed] = useState(false);
+
+  useEffect(() => {
+    setChallengeTutorialCollapsed(false);
+  }, [challengeTutorial]);
+
   const hostRef = useRef<HTMLDivElement | null>(null);
   const threeRef = useRef<ThreeState | null>(null);
   const shapesRef = useRef(shapes);
@@ -3272,7 +3285,7 @@ export function WorkplaneViewport({
       return [];
     }
     return shapesRef.current
-      .filter((shape) => !shape.hidden)
+      .filter((shape) => !shape.hidden && shape.kind !== "constructionPlane" && !shape.imagePlate)
       .filter((shape) => {
         const bounds = shapeScreenBounds(state, shape);
         return bounds ? boundsIntersectRect(bounds, rect) : false;
@@ -3831,7 +3844,12 @@ export function WorkplaneViewport({
     state.raycaster.layers.set(RENDER_LAYER_SHAPES);
 
     const intersections = state.raycaster.intersectObjects(state.shapeLayer.children, true);
-    const hit = intersections.find((entry) => typeof entry.object.userData.shapeId === "string");
+    const hit = intersections.find((entry) => {
+      const shapeId = entry.object.userData.shapeId;
+      if (typeof shapeId !== "string") return false;
+      const shape = shapesRef.current.find((candidate) => candidate.id === shapeId);
+      return shape ? shape.kind !== "constructionPlane" && !shape.imagePlate : false;
+    });
     if (hit) {
       return hit.object.userData.shapeId as string;
     }
@@ -3839,7 +3857,7 @@ export function WorkplaneViewport({
     let nearestId: string | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
     shapesRef.current.forEach((shape) => {
-      if (shape.kind === "constructionPlane") return;
+      if (shape.kind === "constructionPlane" || shape.imagePlate) return;
       const center = new THREE.Vector3(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z).project(state.camera);
       const screenX = rect.left + ((center.x + 1) / 2) * rect.width;
       const screenY = rect.top + ((1 - center.y) / 2) * rect.height;
@@ -4825,7 +4843,7 @@ export function WorkplaneViewport({
   }, [onWorkplaneModeChange, resetView, rulerToolsOpen, setPlacementWorkplaneAtSelection, setRulerActive, togglePlacementWorkplane, toggleProjection, zoomCamera]);
 
   return (
-    <main className="workplane-stage">
+    <main className={`workplane-stage ${challengeTutorial ? `key-tag-tutorial-active ${challengeTutorialCollapsed ? "key-tag-tutorial-collapsed" : ""}` : ""}`}>
       <div className="view-cube" aria-label="View orientation cube" onPointerDown={(event) => event.stopPropagation()}>
         <div className="view-cube-inner" ref={viewCubeRef}>
           <button type="button" className="cube-face cube-top" aria-label="Bottom view" onClick={() => setViewCubeFace("bottom")}>BOTTOM</button>
@@ -5010,6 +5028,20 @@ export function WorkplaneViewport({
           onMoveDimensionsEnabledChange={changeMoveDimensionsEnabled}
           onMakeDefault={makeWorkspaceDefault}
           onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
+
+      {challengeTutorial === "key-tag" ? (
+        <KeyTagTutorialPanel
+          onFinish={onChallengeTutorialFinish}
+          collapsed={challengeTutorialCollapsed}
+          onCollapsedChange={setChallengeTutorialCollapsed}
+        />
+      ) : challengeTutorial === "nameplate" ? (
+        <NameplateTutorialPanel
+          onFinish={onChallengeTutorialFinish}
+          collapsed={challengeTutorialCollapsed}
+          onCollapsedChange={setChallengeTutorialCollapsed}
         />
       ) : null}
     </main>
