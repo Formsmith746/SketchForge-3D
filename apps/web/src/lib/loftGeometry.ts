@@ -38,9 +38,6 @@ export function isPolygonLoftShape(kind: LoftProfileShape) {
   return kind === "Triangle" || kind === "Pentagon" || kind === "Hexagon";
 }
 
-// Top width/depth are independent absolute sizes (mirroring the original loftmorph tool's
-// per-end Size X/Y inputs), falling back to the shape's own width/depth when unset -- the same
-// "independent end, sane default" pattern this codebase already uses for cone's topRadius.
 export function normalizeLoftTopSize(value: number | undefined, fallback: number) {
   return Math.max(0.01, Number.isFinite(value) ? (value as number) : fallback);
 }
@@ -63,23 +60,14 @@ export function loftSettings(shape: Pick<WorkplaneShape,
   };
 }
 
-// ---- ported math (mirrors loftmorph's buildGeometry(P) and its helpers) ----
-// Reference: https://github.com/hbehrensj/loftmorph (index.html, smootherstep/rot2/basePoint/
-// baseCorners/shapePoint/shapeCorners/buildAngles/ringAt/buildGeometry). Two deliberate
-// deviations from a literal port:
-// This app is Y-up while the reference is Z-up; remapping in-plane (x, y) and height into
-// (x, height, y) is a single-axis-swap (odd permutation), which flips triangle winding, so every
-// face's vertex order below is mirrored relative to the reference to keep outward-facing normals
-// (required for the Manifold CSG boolean pipeline).
+// Math ported from https://github.com/hbehrensj/loftmorph. This app is Y-up and the reference is
+// Z-up, so in-plane (x, y) maps to (x, height, z) -- an axis swap that flips winding, so faces
+// below are wound opposite the reference to keep outward normals for the Manifold CSG pipeline.
 //
-// Note on odd-sided polygons (Triangle/Pentagon): their bounding box is NOT centered on the
-// origin even though the polygon itself is -- e.g. an equilateral triangle pointing up has its
-// apex farther from center than its base is, same as a real triangle. That's correct and must
-// stay that way: the origin is the shape's true circumcenter (equidistant from every vertex),
-// which is what `shapePoint` rotates the shape around below. Recentring the *bounding box*
-// instead (an earlier version of this file did) moves the circumcenter away from the origin, so
-// rotating about the origin then swings the whole shape around a point that isn't its own
-// center -- the rotation sliders visibly orbit off-axis instead of spinning in place.
+// Triangle/Pentagon are centered on their true circumcenter (origin), not their bounding box --
+// an equilateral triangle's apex is farther from center than its base, same as a real triangle.
+// Don't "fix" that by recentring the bbox: it moves the circumcenter off-origin, so rotation then
+// orbits the whole shape around a point that isn't its own center instead of spinning in place.
 const NGON_SIDES: Record<string, number> = { Triangle: 3, Pentagon: 5, Hexagon: 6 };
 
 function smootherstep(t: number) {
@@ -133,11 +121,8 @@ function shapeCorners(kind: LoftProfileShape, halfX: number, halfY: number, rota
   return baseCorners(kind, halfX, halfY).map((c) => c + rotation);
 }
 
-// Faithful port of the reference's buildAngles: merges both ends' corner angles into a sorted,
-// deduplicated set of "anchor" angles, then distributes the remaining requested segment count
-// proportionally across the arcs between anchors (largest-remainder rounding) so every corner of
-// both end-shapes lands exactly on a ring vertex at every layer, regardless of segment count or
-// which two shapes are being morphed between.
+// Merges both ends' corner angles into anchors, then spreads the remaining segments across the
+// arcs between them (largest-remainder rounding) so every corner lands on a ring vertex.
 function buildAngles(bottomCorners: number[], topCorners: number[], segments: number): number[] {
   const TWO_PI = 2 * Math.PI;
   const raw = bottomCorners
