@@ -28,6 +28,7 @@ import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
 import type { ChallengeTutorialId } from "@/lib/challenges";
 import { cadModifierPrimitiveForBakedShape, cadTransformFromMatrix, cadTransformToMatrix } from "@/lib/cadBakeMetadata";
 import { createGearGeometry } from "@/lib/gearGeometry";
+import { createLoftGeometry } from "@/lib/loftGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { createMoveDimensionOverlay, type MoveDimensionAxis, type MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
 import {
@@ -108,6 +109,7 @@ const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "polygon",
   "icosahedron",
   "mesh",
+  "loft",
 ]);
 const fontLoader = new FontLoader();
 const textFonts: Record<string, Font> = {
@@ -823,6 +825,14 @@ function rulerShapeTopologyKey(shape: WorkplaneShape): string {
     gearType: shape.gearType,
     helixAngle: shape.helixAngle,
     helixQuality: shape.helixQuality,
+    loftBottomShape: shape.loftBottomShape,
+    loftTopShape: shape.loftTopShape,
+    loftTopWidth: shape.loftTopWidth,
+    loftTopDepth: shape.loftTopDepth,
+    loftBottomRotation: shape.loftBottomRotation,
+    loftTopRotation: shape.loftTopRotation,
+    loftSegments: shape.loftSegments,
+    loftLayers: shape.loftLayers,
     text: shape.text,
     font: shape.font,
     mesh: [positions.length, positionSample],
@@ -933,6 +943,14 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     gearType: shape.gearType,
     helixAngle: shape.helixAngle,
     helixQuality: shape.helixQuality,
+    loftBottomShape: shape.loftBottomShape,
+    loftTopShape: shape.loftTopShape,
+    loftTopWidth: shape.loftTopWidth,
+    loftTopDepth: shape.loftTopDepth,
+    loftBottomRotation: shape.loftBottomRotation,
+    loftTopRotation: shape.loftTopRotation,
+    loftSegments: shape.loftSegments,
+    loftLayers: shape.loftLayers,
     text: shape.text,
     font: shape.font,
   });
@@ -7175,6 +7193,21 @@ function createShapeObject(
         helixQuality: shape.helixQuality,
       })), material, shape);
       break;
+    case "loft":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createLoftGeometry({
+        width,
+        depth,
+        height,
+        bottomShape: shape.loftBottomShape,
+        topShape: shape.loftTopShape,
+        topWidth: shape.loftTopWidth,
+        topDepth: shape.loftTopDepth,
+        bottomRotation: shape.loftBottomRotation,
+        topRotation: shape.loftTopRotation,
+        segments: shape.loftSegments,
+        layers: shape.loftLayers,
+      })), material, shape);
+      break;
     case "wedge":
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createWedgeGeometry(width, height, depth)), material, shape);
       break;
@@ -7296,7 +7329,7 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
   const complexEdges =
     shape.kind === "mesh" ||
     Boolean(shape.importedMesh) ||
-    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "gear", "wedge"].includes(shape.kind);
+    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "gear", "wedge", "loft"].includes(shape.kind);
   const importedTriangleCount = shape.importedMesh?.triangleCount ?? 0;
   const skipHeavyImportedEdges = Boolean(shape.importedMesh) && importedTriangleCount > IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT;
   if ((group.userData.showEdges || complexEdges) && !skipHeavyImportedEdges) {

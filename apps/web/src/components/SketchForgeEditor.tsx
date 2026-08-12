@@ -21,6 +21,7 @@ import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import { createGearGeometry } from "@/lib/gearGeometry";
+import { createLoftGeometry } from "@/lib/loftGeometry";
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import {
   ToolbarAlignIcon,
@@ -2176,6 +2177,21 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         gearType: shape.gearType,
         helixAngle: shape.helixAngle,
         helixQuality: shape.helixQuality,
+      });
+      break;
+    case "loft":
+      geometry = createLoftGeometry({
+        width,
+        depth,
+        height,
+        bottomShape: shape.loftBottomShape,
+        topShape: shape.loftTopShape,
+        topWidth: shape.loftTopWidth,
+        topDepth: shape.loftTopDepth,
+        bottomRotation: shape.loftBottomRotation,
+        topRotation: shape.loftTopRotation,
+        segments: shape.loftSegments,
+        layers: shape.loftLayers,
       });
       break;
     case "wedge":
