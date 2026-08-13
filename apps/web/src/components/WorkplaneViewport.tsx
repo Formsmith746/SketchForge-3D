@@ -66,8 +66,10 @@ import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, MeasurementAc
 import type { CadModifierEdge } from "@/lib/cadModifierTypes";
 import {
   createRotationRingSet,
+  ROTATION_RING_AXES,
   targetRingOpacities,
   updateRotationRingSet,
+  type RotationRingAxis,
   type RotationRingSet,
 } from "@/lib/rotationRings";
 import {
@@ -2291,6 +2293,7 @@ export function WorkplaneViewport({
     setPreferClassicRotateHandlesState(preferClassic);
     setPreferClassicRotateHandles(preferClassic);
   }, []);
+  const hoveredRingAxisRef = useRef<RotationRingAxis | null>(null);
 
   useEffect(() => {
     setChallengeTutorialCollapsed(false);
@@ -2834,12 +2837,19 @@ export function WorkplaneViewport({
           false,
           placementWorkplaneRef.current,
         );
+        const activeTransform = transformRef.current;
+        const activeRingAxis: RotationRingAxis | null =
+          activeTransform && activeTransform.kind === "rotate" && activeTransform.handleKey.startsWith("rotate-ring-")
+            ? (activeTransform.rotationAxis as RotationRingAxis)
+            : null;
         syncRotationRings(
           state,
           previewShapes,
           renderSelectionIds(),
           rotationModeRef.current === "rings" && !workplaneModeRef.current,
           controlsChanged,
+          hoveredRingAxisRef.current,
+          activeRingAxis,
           placementWorkplaneRef.current,
         );
         syncAlignOverlay(state, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
@@ -3937,7 +3947,7 @@ export function WorkplaneViewport({
 
   const pickTransformHandle = useCallback((clientX: number, clientY: number) => {
     const state = threeRef.current;
-    if (!state || selectedIdsRef.current.length !== 1) {
+    if (!state || selectedIdsRef.current.length === 0) {
       return null;
     }
 
@@ -3953,8 +3963,16 @@ export function WorkplaneViewport({
       return null;
     }
 
+    // Rotation rings work for any selection size (single or multi). Every other
+    // transform-handle mesh requires a single-shape selection because its
+    // hit-test object is bound to a specific shape id.
+    const isRotationRing = typeof hit.object.userData.rotationRingAxis === "string";
+    if (!isRotationRing && selectedIdsRef.current.length !== 1) {
+      return null;
+    }
+
     return {
-      id: hit.object.userData.shapeId as string,
+      id: (hit.object.userData.shapeId as string | undefined) ?? selectedIdsRef.current[0],
       kind: hit.object.userData.transformHandle as TransformHandleKind,
       handleKey: (hit.object.userData.transformHandleKey as string | undefined) ?? (hit.object.userData.transformHandle as string),
       planeY: typeof hit.object.userData.transformPlaneY === "number" ? (hit.object.userData.transformPlaneY as number) : 0,
@@ -4328,6 +4346,25 @@ export function WorkplaneViewport({
         return;
       }
 
+      if (
+        rotationModeRef.current === "rings" &&
+        !dragRef.current &&
+        !marqueeRef.current &&
+        selectedIdsRef.current.length > 0
+      ) {
+        const hit = pickTransformHandle(event.clientX, event.clientY);
+        const nextHover: RotationRingAxis | null =
+          hit && hit.kind === "rotate" && hit.handleKey.startsWith("rotate-ring-")
+            ? (rotationAxisForHandle(hit.handleKey) as RotationRingAxis)
+            : null;
+        if (nextHover !== hoveredRingAxisRef.current) {
+          hoveredRingAxisRef.current = nextHover;
+          if (threeRef.current) {
+            threeRef.current.needsRender = true;
+          }
+        }
+      }
+
       const marquee = marqueeRef.current;
       if (marquee) {
         const state = threeRef.current;
@@ -4395,7 +4432,7 @@ export function WorkplaneViewport({
         threeRef.current.needsRender = true;
       }
     },
-    [pickPlacementSurface, setMarqueeFromState, toPlacementWorkplanePoint, toRawPlanePoint, updateModifierEdgeHover, updateRulerHover, updateTransform],
+    [pickPlacementSurface, pickTransformHandle, setMarqueeFromState, toPlacementWorkplanePoint, toRawPlanePoint, updateModifierEdgeHover, updateRulerHover, updateTransform],
   );
 
   const handlePointerLeave = useCallback(() => {
@@ -4403,6 +4440,12 @@ export function WorkplaneViewport({
       syncWorkplaneHoverPreview(threeRef.current, null, workspaceRef.current, resolvedThemeRef.current);
     }
     if (modifierActiveRef.current) clearModifierEdgeHover();
+    if (hoveredRingAxisRef.current !== null) {
+      hoveredRingAxisRef.current = null;
+      if (threeRef.current) {
+        threeRef.current.needsRender = true;
+      }
+    }
   }, [clearModifierEdgeHover]);
 
   const finishDrag = useCallback(
@@ -4920,6 +4963,7 @@ export function WorkplaneViewport({
               showRotationWheel={activeRotationWheel}
               hideSelectionChrome={activeTransformKind === "rotate"}
               hideDimensionMarks={false}
+              hideCornerRotateHandles={rotationMode === "rings"}
               rotationWheelAxis={rotationWheelAxis}
               pinnedRotationWheelView={pinnedRotationWheelView}
               onBeginCameraDrag={beginCameraDragFromOverlay}
@@ -5095,8 +5139,14 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
   modifierLayer.layers.set(RENDER_LAYER_MODIFIERS);
   const rotationRingSet = createRotationRingSet();
   rotationRingSet.group.layers.set(RENDER_LAYER_HELPERS);
-  for (const axis of ["x", "y", "z"] as const) {
-    rotationRingSet.rings[axis].mesh.layers.set(RENDER_LAYER_HELPERS);
+  for (const axis of ROTATION_RING_AXES) {
+    const mesh = rotationRingSet.rings[axis].mesh;
+    mesh.layers.set(RENDER_LAYER_HELPERS);
+    // Tag as a transform handle so pickTransformHandle raycast can find it —
+    // shapeId is written per selection in syncRotationRings.
+    mesh.userData.transformHandle = "rotate";
+    mesh.userData.transformHandleKey = `rotate-ring-${axis}`;
+    mesh.userData.rotationRingAxis = axis;
   }
   helperLayer.add(rotationRingSet.group);
   scene.add(workplaneLayer, workplanePreviewLayer, shapeLayer, helperLayer, moveDimensionLayer, modifierLayer);
@@ -6174,28 +6224,39 @@ function syncRotationRings(
   selectedIds: string[],
   ringsEnabled: boolean,
   cameraMoving: boolean,
+  hoveredAxis: RotationRingAxis | null,
+  activeAxis: RotationRingAxis | null,
   workplane: PlacementWorkplane = horizontalPlacementWorkplane(),
 ) {
   const now = performance.now();
   const deltaMs = state.rotationRingsLastSync === 0 ? 0 : now - state.rotationRingsLastSync;
   state.rotationRingsLastSync = now;
 
-  if (!ringsEnabled || selectedIds.length < 1) {
-    if (state.rotationRingSet.group.visible) {
-      state.rotationRingSet.group.visible = false;
-      state.needsRender = true;
+  const setRingsHidden = () => {
+    if (!state.rotationRingSet.group.visible) return;
+    state.rotationRingSet.group.visible = false;
+    for (const axis of ROTATION_RING_AXES) {
+      state.rotationRingSet.rings[axis].mesh.visible = false;
     }
+    state.needsRender = true;
+  };
+  if (!ringsEnabled || selectedIds.length < 1) {
+    setRingsHidden();
     state.rotationRingsAnimating = false;
     return;
   }
   const frame = selectionFrameForShapes(shapes, selectedIds, workplane);
   if (!frame) {
-    if (state.rotationRingSet.group.visible) {
-      state.rotationRingSet.group.visible = false;
-      state.needsRender = true;
-    }
+    setRingsHidden();
     state.rotationRingsAnimating = false;
     return;
+  }
+
+  // Bind ring meshes to the first selected shape id so pickTransformHandle's
+  // synthesized handle points at a real shape.
+  const primaryId = selectedIds[0];
+  for (const axis of ROTATION_RING_AXES) {
+    state.rotationRingSet.rings[axis].mesh.userData.shapeId = primaryId;
   }
 
   const boundingSphereRadius = 0.5 * Math.hypot(frame.width, frame.height, frame.depth);
@@ -6203,6 +6264,9 @@ function syncRotationRings(
   const viewportHeightPx = Math.max(1, canvas.clientHeight);
   const wasVisible = state.rotationRingSet.group.visible;
   state.rotationRingSet.group.visible = true;
+  for (const axis of ROTATION_RING_AXES) {
+    state.rotationRingSet.rings[axis].mesh.visible = true;
+  }
   updateRotationRingSet(state.rotationRingSet, {
     frameCenter: frame.center,
     frameXAxis: frame.xAxis,
@@ -6211,17 +6275,17 @@ function syncRotationRings(
     boundingSphereRadius,
     camera: state.camera,
     viewportHeightPx,
-    activeAxis: null,
-    hoveredAxis: null,
+    activeAxis,
+    hoveredAxis,
     cameraMoving,
     deltaMs,
   });
   // Track whether opacities are still easing toward their targets so the
   // animate loop keeps ticking until convergence — otherwise the ease stalls
   // between the 96 ms overlay-sync interval.
-  const targets = targetRingOpacities({ activeAxis: null, hoveredAxis: null, cameraMoving });
+  const targets = targetRingOpacities({ activeAxis, hoveredAxis, cameraMoving });
   state.rotationRingsAnimating = false;
-  for (const axis of ["x", "y", "z"] as const) {
+  for (const axis of ROTATION_RING_AXES) {
     const opacity = state.rotationRingSet.rings[axis].mesh.material.opacity;
     if (Math.abs(opacity - targets[axis]) > 0.005) {
       state.rotationRingsAnimating = true;

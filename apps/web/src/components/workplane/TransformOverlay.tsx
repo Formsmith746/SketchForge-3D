@@ -30,6 +30,7 @@ export function TransformOverlay({
   showRotationWheel,
   hideSelectionChrome,
   hideDimensionMarks,
+  hideCornerRotateHandles,
   rotationWheelAxis,
   pinnedRotationWheelView,
   onBeginCameraDrag,
@@ -236,7 +237,7 @@ export function TransformOverlay({
           }}
         />
       ))}
-      {box.rotateHandles.map((handle) => (
+      {hideCornerRotateHandles ? null : box.rotateHandles.map((handle) => (
         <button
           key={handle.key}
           className={`rotate-handle ${handle.className}`}
