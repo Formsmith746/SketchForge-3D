@@ -64,6 +64,17 @@ import {
 } from "@/components/workplane/TransformOverlay";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, MeasurementAccuracy, ShapeAsset, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 import type { CadModifierEdge } from "@/lib/cadModifierTypes";
+import {
+  createRotationRingSet,
+  targetRingOpacities,
+  updateRotationRingSet,
+  type RotationRingSet,
+} from "@/lib/rotationRings";
+import {
+  readPreferClassicRotateHandles,
+  setPreferClassicRotateHandles,
+  useRotationMode,
+} from "@/lib/useRotationMode";
 
 const WORKPLANE_WIDTH = 200;
 const WORKPLANE_DEPTH = 140;
@@ -273,6 +284,9 @@ type ThreeState = {
   lastOverlaySync: number;
   lastViewCubeSync: number;
   rotationHandleSides: RotationHandleSides | null;
+  rotationRingSet: RotationRingSet;
+  rotationRingsLastSync: number;
+  rotationRingsAnimating: boolean;
   disposeInteractionListeners: () => void;
   resize: () => void;
 };
@@ -2262,6 +2276,21 @@ export function WorkplaneViewport({
   const [moveDimensionOverlay, setMoveDimensionOverlay] = useState<MoveDimensionOverlayState | null>(null);
   const [moveDimensionsEnabled, setMoveDimensionsEnabled] = useState(true);
   const [challengeTutorialCollapsed, setChallengeTutorialCollapsed] = useState(false);
+  const rotationMode = useRotationMode();
+  const rotationModeRef = useRef(rotationMode);
+  useEffect(() => {
+    rotationModeRef.current = rotationMode;
+    if (threeRef.current) {
+      threeRef.current.needsRender = true;
+    }
+  }, [rotationMode]);
+  const [preferClassicRotateHandles, setPreferClassicRotateHandlesState] = useState(() =>
+    readPreferClassicRotateHandles(),
+  );
+  const changePreferClassicRotateHandles = useCallback((preferClassic: boolean) => {
+    setPreferClassicRotateHandlesState(preferClassic);
+    setPreferClassicRotateHandles(preferClassic);
+  }, []);
 
   useEffect(() => {
     setChallengeTutorialCollapsed(false);
@@ -2779,7 +2808,7 @@ export function WorkplaneViewport({
       const now = performance.now();
       const controlsChanged = state.controls.update();
       const cameraSettled = state.wasCameraMoving && !controlsChanged;
-      if (!controlsChanged && !state.needsRender && !cameraSettled) {
+      if (!controlsChanged && !state.needsRender && !cameraSettled && !state.rotationRingsAnimating) {
         return;
       }
       constrainCamera(state, workspaceRef.current);
@@ -2792,7 +2821,7 @@ export function WorkplaneViewport({
         syncViewCube(state, viewCubeRef.current);
         state.lastViewCubeSync = now;
       }
-      if (controlsChanged || cameraSettled || state.needsRender || now - state.lastOverlaySync > 96) {
+      if (controlsChanged || cameraSettled || state.needsRender || state.rotationRingsAnimating || now - state.lastOverlaySync > 96) {
         const previewShapes = previewShapesForDrag(shapesRef.current, dragRef.current);
         syncTransformOverlay(
           state,
@@ -2803,6 +2832,14 @@ export function WorkplaneViewport({
           workspaceRef.current.accuracy,
           Boolean(transformRef.current || dragRef.current),
           false,
+          placementWorkplaneRef.current,
+        );
+        syncRotationRings(
+          state,
+          previewShapes,
+          renderSelectionIds(),
+          rotationModeRef.current === "rings" && !workplaneModeRef.current,
+          controlsChanged,
           placementWorkplaneRef.current,
         );
         syncAlignOverlay(state, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
@@ -2849,6 +2886,7 @@ export function WorkplaneViewport({
       }
       disposeChildren(state.shapeLayer);
       state.shapeRecords.clear();
+      state.rotationRingSet.dispose();
       disposeChildren(state.helperLayer);
       disposeChildren(state.moveDimensionLayer);
       disposeChildren(state.modifierLayer);
@@ -4951,10 +4989,12 @@ export function WorkplaneViewport({
           snap={snap}
           themePreference={themePreference}
           moveDimensionsEnabled={moveDimensionsEnabled}
+          preferClassicRotateHandles={preferClassicRotateHandles}
           onWorkspaceChange={setWorkspace}
           onSnapChange={setSnap}
           onThemePreferenceChange={onThemePreferenceChange}
           onMoveDimensionsEnabledChange={changeMoveDimensionsEnabled}
+          onPreferClassicRotateHandlesChange={changePreferClassicRotateHandles}
           onMakeDefault={makeWorkspaceDefault}
           onClose={() => setSettingsOpen(false)}
         />
@@ -5053,6 +5093,12 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
   const modifierLayer = new THREE.Group();
   modifierLayer.name = "EdgeModifier";
   modifierLayer.layers.set(RENDER_LAYER_MODIFIERS);
+  const rotationRingSet = createRotationRingSet();
+  rotationRingSet.group.layers.set(RENDER_LAYER_HELPERS);
+  for (const axis of ["x", "y", "z"] as const) {
+    rotationRingSet.rings[axis].mesh.layers.set(RENDER_LAYER_HELPERS);
+  }
+  helperLayer.add(rotationRingSet.group);
   scene.add(workplaneLayer, workplanePreviewLayer, shapeLayer, helperLayer, moveDimensionLayer, modifierLayer);
 
   const raycaster = new THREE.Raycaster();
@@ -5100,6 +5146,9 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
     lastOverlaySync: 0,
     lastViewCubeSync: 0,
     rotationHandleSides: null,
+    rotationRingSet,
+    rotationRingsLastSync: 0,
+    rotationRingsAnimating: false,
     disposeInteractionListeners: () => {},
     resize,
   };
@@ -6117,6 +6166,69 @@ function updateTransformOverlayDom(state: ThreeState, next: TransformOverlayStat
     element.style.setProperty("--overlay-y", `${handle.y}px`);
     element.style.setProperty("--rotate-handle-angle", `${handle.angle}deg`);
   });
+}
+
+function syncRotationRings(
+  state: ThreeState,
+  shapes: WorkplaneShape[],
+  selectedIds: string[],
+  ringsEnabled: boolean,
+  cameraMoving: boolean,
+  workplane: PlacementWorkplane = horizontalPlacementWorkplane(),
+) {
+  const now = performance.now();
+  const deltaMs = state.rotationRingsLastSync === 0 ? 0 : now - state.rotationRingsLastSync;
+  state.rotationRingsLastSync = now;
+
+  if (!ringsEnabled || selectedIds.length < 1) {
+    if (state.rotationRingSet.group.visible) {
+      state.rotationRingSet.group.visible = false;
+      state.needsRender = true;
+    }
+    state.rotationRingsAnimating = false;
+    return;
+  }
+  const frame = selectionFrameForShapes(shapes, selectedIds, workplane);
+  if (!frame) {
+    if (state.rotationRingSet.group.visible) {
+      state.rotationRingSet.group.visible = false;
+      state.needsRender = true;
+    }
+    state.rotationRingsAnimating = false;
+    return;
+  }
+
+  const boundingSphereRadius = 0.5 * Math.hypot(frame.width, frame.height, frame.depth);
+  const canvas = state.renderer.domElement;
+  const viewportHeightPx = Math.max(1, canvas.clientHeight);
+  const wasVisible = state.rotationRingSet.group.visible;
+  state.rotationRingSet.group.visible = true;
+  updateRotationRingSet(state.rotationRingSet, {
+    frameCenter: frame.center,
+    frameXAxis: frame.xAxis,
+    frameYAxis: frame.yAxis,
+    frameZAxis: frame.zAxis,
+    boundingSphereRadius,
+    camera: state.camera,
+    viewportHeightPx,
+    activeAxis: null,
+    hoveredAxis: null,
+    cameraMoving,
+    deltaMs,
+  });
+  // Track whether opacities are still easing toward their targets so the
+  // animate loop keeps ticking until convergence — otherwise the ease stalls
+  // between the 96 ms overlay-sync interval.
+  const targets = targetRingOpacities({ activeAxis: null, hoveredAxis: null, cameraMoving });
+  state.rotationRingsAnimating = false;
+  for (const axis of ["x", "y", "z"] as const) {
+    const opacity = state.rotationRingSet.rings[axis].mesh.material.opacity;
+    if (Math.abs(opacity - targets[axis]) > 0.005) {
+      state.rotationRingsAnimating = true;
+      break;
+    }
+  }
+  if (!wasVisible) state.needsRender = true;
 }
 
 function syncTransformOverlay(

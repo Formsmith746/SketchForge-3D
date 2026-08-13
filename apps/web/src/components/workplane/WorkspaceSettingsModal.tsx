@@ -49,10 +49,12 @@ export function WorkspaceSettingsModal({
   snap,
   themePreference,
   moveDimensionsEnabled,
+  preferClassicRotateHandles,
   onWorkspaceChange,
   onSnapChange,
   onThemePreferenceChange,
   onMoveDimensionsEnabledChange,
+  onPreferClassicRotateHandlesChange,
   onMakeDefault,
   onClose,
 }: {
@@ -60,10 +62,12 @@ export function WorkspaceSettingsModal({
   snap: GridSize;
   themePreference: AppThemePreference;
   moveDimensionsEnabled: boolean;
+  preferClassicRotateHandles: boolean;
   onWorkspaceChange: (next: WorkspaceSettings) => void;
   onSnapChange: (next: GridSize) => void;
   onThemePreferenceChange?: (preference: AppThemePreference) => void;
   onMoveDimensionsEnabledChange: (enabled: boolean) => void;
+  onPreferClassicRotateHandlesChange: (preferClassic: boolean) => void;
   onMakeDefault: () => void;
   onClose: () => void;
 }) {
@@ -201,6 +205,11 @@ export function WorkspaceSettingsModal({
                     label="Show movement dimensions"
                     checked={moveDimensionsEnabled}
                     onChange={onMoveDimensionsEnabledChange}
+                  />
+                  <WorkspaceToggle
+                    label="Use classic rotate handles"
+                    checked={preferClassicRotateHandles}
+                    onChange={onPreferClassicRotateHandlesChange}
                   />
                   <WorkspaceToggle label="Show shadows" checked={workspace.showShadows} onChange={(showShadows) => patchWorkspace({ showShadows })} />
                   <WorkspaceToggle
