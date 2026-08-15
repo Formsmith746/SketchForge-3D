@@ -26,6 +26,10 @@
     {
       "pattern": "www.sketchforge3d.com",
       "custom_domain": true
+    },
+    {
+      "pattern": "pcb.sketchforge3d.com",
+      "custom_domain": true
     }
   ],
   "assets": {
