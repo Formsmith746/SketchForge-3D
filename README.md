@@ -38,6 +38,7 @@ No login. No server project storage. No heavyweight CAD install just to make a u
 - **2D Sketching & Parametric Profiles** - draw parametric lines, bezier curves, circles, rectangles, polygons, and text with constraints, distance dimensions, region selections, and revolve/extrude/sweep operations.
 - **Local-first projects** - designs live in browser storage with generated project thumbnails.
 - **Real 3D workplane** - grid, camera controls, snap settings, transform handles, outlines, and inspector controls.
+- **Associative construction planes** - create offset, angled, flipped, face-attached, and midplanes for sketches away from the base workplane.
 - **Primitive shape library** - boxes, cylinders, spheres, cones, pyramids, wedges, text, roofs, half spheres, torus shapes, tubes, and more.
 - **Solid and hole workflow** - turn shapes into cutters and group them into final geometry.
 - **Boolean Intersection** - keep only the geometry where selected solid and hole shapes overlap.
@@ -50,6 +51,17 @@ No login. No server project storage. No heavyweight CAD install just to make a u
 ### Camera projection shortcut
 
 Press **O** in the editor to switch between perspective and orthographic projection. The current view direction and framing are preserved when switching.
+
+### Construction planes
+
+Open **Geometry > Workplane** to choose the active sketch plane or create a persistent construction plane:
+
+- **Offset** creates an XY, XZ, or YZ plane with an optional normal offset, local-X angle, and flipped normal.
+- **Angle** rotates a new associative plane from the base XZ plane or an existing construction plane.
+- **Mid-plane** creates a plane halfway between two parallel source planes, with an optional normal offset.
+- **Associative face plane** creates a plane from a model face that follows the source object's movement, rotation, and resizing.
+
+New angle and midplanes remain linked to their source planes. Select any listed plane as the active sketch plane before starting an extrude, revolve, or sweep sketch.
 
 ## Demo
 

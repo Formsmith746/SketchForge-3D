@@ -203,14 +203,90 @@ export function poseFromWorldOriginAndNormal(
 
 export const constructionPlanePoseFromNormal = poseFromWorldOriginAndNormal;
 
-export function principalPlanePose(plane: PrincipalPlane, normalOffset = 0): ConstructionPlanePose {
+export function angledConstructionPlanePose(
+  basePose: ConstructionPlanePose,
+  angleDegrees: number,
+): ConstructionPlanePose {
+  // Local X is the hinge axis; local Y remains the plane normal.
+  const angleQuaternion = quaternionFromEulerXYZDegrees(angleDegrees, 0, 0);
+  return {
+    origin: [...basePose.origin],
+    quaternion: multiplyQuaternions(basePose.quaternion, angleQuaternion),
+  };
+}
+
+export function flipConstructionPlanePose(pose: ConstructionPlanePose): ConstructionPlanePose {
+  const flipQuaternion = quaternionFromEulerXYZDegrees(180, 0, 0);
+  return {
+    origin: [...pose.origin],
+    quaternion: multiplyQuaternions(pose.quaternion, flipQuaternion),
+  };
+}
+
+export function offsetConstructionPlanePose(
+  pose: ConstructionPlanePose,
+  offset: number,
+): ConstructionPlanePose {
+  const normal = localDirectionToWorld(pose, [0, 1, 0]);
+  return {
+    origin: [
+      pose.origin[0] + normal[0] * offset,
+      pose.origin[1] + normal[1] * offset,
+      pose.origin[2] + normal[2] * offset,
+    ],
+    quaternion: [...pose.quaternion],
+  };
+}
+
+export function constructionPlanePosesAreParallel(
+  poseA: ConstructionPlanePose,
+  poseB: ConstructionPlanePose,
+) {
+  const normalA = localDirectionToWorld(poseA, [0, 1, 0]);
+  const normalB = localDirectionToWorld(poseB, [0, 1, 0]);
+  const dotProduct = normalA[0] * normalB[0] + normalA[1] * normalB[1] + normalA[2] * normalB[2];
+  return Math.abs(dotProduct) >= 0.999;
+}
+
+export function midplaneConstructionPlanePose(
+  poseA: ConstructionPlanePose,
+  poseB: ConstructionPlanePose,
+  offset = 0,
+): ConstructionPlanePose {
+  const midOrigin: Vector3Tuple = [
+    (poseA.origin[0] + poseB.origin[0]) / 2,
+    (poseA.origin[1] + poseB.origin[1]) / 2,
+    (poseA.origin[2] + poseB.origin[2]) / 2,
+  ];
+  let basePose: ConstructionPlanePose = {
+    origin: midOrigin,
+    quaternion: [...poseA.quaternion],
+  };
+  if (offset !== 0) basePose = offsetConstructionPlanePose(basePose, offset);
+  return basePose;
+}
+
+export function principalPlanePose(
+  plane: PrincipalPlane,
+  normalOffset = 0,
+  angleDegrees = 0,
+  flipped = false,
+): ConstructionPlanePose {
+  let base: ConstructionPlanePose;
   if (plane === "xz") {
-    return poseFromWorldOriginAndNormal([0, normalOffset, 0], [0, 1, 0]);
+    base = poseFromWorldOriginAndNormal([0, normalOffset, 0], [0, 1, 0]);
+  } else if (plane === "xy") {
+    base = poseFromWorldOriginAndNormal([0, 0, normalOffset], [0, 0, 1]);
+  } else {
+    base = poseFromWorldOriginAndNormal([normalOffset, 0, 0], [1, 0, 0]);
   }
-  if (plane === "xy") {
-    return poseFromWorldOriginAndNormal([0, 0, normalOffset], [0, 0, 1]);
+  if (angleDegrees !== 0) {
+    base = angledConstructionPlanePose(base, angleDegrees);
   }
-  return poseFromWorldOriginAndNormal([normalOffset, 0, 0], [1, 0, 0]);
+  if (flipped) {
+    base = flipConstructionPlanePose(base);
+  }
+  return base;
 }
 
 export const principalConstructionPlanePose = principalPlanePose;
@@ -269,9 +345,12 @@ export function constructionPlaneAttachmentFromWorldPose(
 export function resolveConstructionPlaneAttachment(
   attachment: ConstructionPlaneAttachment,
   source: ConstructionPlaneSourceShape,
+  offset = 0,
+  angleDegrees = 0,
+  flipped = false,
 ): ConstructionPlanePose {
   const sourcePose = sourceShapePose(source);
-  return {
+  let basePose: ConstructionPlanePose = {
     origin: localPointToWorld(sourcePose, [
       attachment.normalizedOrigin[0] * source.width,
       attachment.normalizedOrigin[1] * source.height,
@@ -279,6 +358,14 @@ export function resolveConstructionPlaneAttachment(
     ]),
     quaternion: multiplyQuaternions(sourcePose.quaternion, attachment.localQuaternion),
   };
+  if (offset !== 0) basePose = offsetConstructionPlanePose(basePose, offset);
+  if (angleDegrees !== 0) {
+    basePose = angledConstructionPlanePose(basePose, angleDegrees);
+  }
+  if (flipped) {
+    basePose = flipConstructionPlanePose(basePose);
+  }
+  return basePose;
 }
 
 export const worldPoseToConstructionPlaneAttachment = constructionPlaneAttachmentFromWorldPose;

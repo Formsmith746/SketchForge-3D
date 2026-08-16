@@ -3471,10 +3471,17 @@ button {
 
 .construction-plane-active,
 .construction-plane-create,
+.construction-plane-midplane,
 .construction-plane-face {
   display: flex;
   flex-direction: column;
   gap: 7px;
+}
+
+.construction-plane-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .construction-plane-active > span,
@@ -3517,10 +3524,37 @@ button {
   border-color: #087fae;
 }
 
+.construction-plane-panel .construction-plane-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.construction-plane-panel input[type="checkbox"] {
+  width: 16px;
+  min-height: 16px;
+  padding: 0;
+}
+
+.construction-plane-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.construction-plane-midplane small {
+  color: #6d8290;
+  font-size: 10px;
+}
+
 .construction-plane-face small {
   color: #6d8290;
   font-size: 10px;
   line-height: 1.4;
+}
+
+.construction-plane-face {
+  padding-top: 12px;
+  border-top: 1px solid #d6e1e8;
 }
 
 .sketch-operation-header,

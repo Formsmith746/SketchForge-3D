@@ -967,11 +967,25 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
     if (plane.kind === "principal") {
       if (plane.principal !== "xy" && plane.principal !== "xz" && plane.principal !== "yz") throw new Error(`${label}.constructionPlane has an unknown principal plane`);
       finiteNumber(plane.offset, `${label}.constructionPlane.offset`);
+      if (plane.angle !== undefined) finiteNumber(plane.angle, `${label}.constructionPlane.angle`);
+      if (plane.flipped !== undefined && typeof plane.flipped !== "boolean") throw new Error(`${label}.constructionPlane.flipped must be a boolean`);
     } else if (plane.kind === "face") {
       stringValue(plane.sourceShapeId, `${label}.constructionPlane.sourceShapeId`);
       const attachment = objectRecord(plane.attachment, `${label}.constructionPlane.attachment`);
       finiteTuple(attachment.normalizedOrigin, 3, `${label}.constructionPlane.attachment.normalizedOrigin`);
       finiteTuple(attachment.localQuaternion, 4, `${label}.constructionPlane.attachment.localQuaternion`);
+      if (plane.offset !== undefined) finiteNumber(plane.offset, `${label}.constructionPlane.offset`);
+      if (plane.angle !== undefined) finiteNumber(plane.angle, `${label}.constructionPlane.angle`);
+      if (plane.flipped !== undefined && typeof plane.flipped !== "boolean") throw new Error(`${label}.constructionPlane.flipped must be a boolean`);
+    } else if (plane.kind === "angle") {
+      stringValue(plane.referencePlaneId, `${label}.constructionPlane.referencePlaneId`);
+      finiteNumber(plane.angle, `${label}.constructionPlane.angle`);
+      if (plane.offset !== undefined) finiteNumber(plane.offset, `${label}.constructionPlane.offset`);
+      if (plane.flipped !== undefined && typeof plane.flipped !== "boolean") throw new Error(`${label}.constructionPlane.flipped must be a boolean`);
+    } else if (plane.kind === "midplane") {
+      stringValue(plane.firstPlaneId, `${label}.constructionPlane.firstPlaneId`);
+      stringValue(plane.secondPlaneId, `${label}.constructionPlane.secondPlaneId`);
+      if (plane.offset !== undefined) finiteNumber(plane.offset, `${label}.constructionPlane.offset`);
     } else {
       throw new Error(`${label}.constructionPlane has an unknown kind`);
     }

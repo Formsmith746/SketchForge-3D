@@ -155,8 +155,10 @@ export type SketchFeature =
   | { kind: "sweep"; sectionSegmentIds: string[]; pathSegmentIds: string[] };
 
 export type ConstructionPlaneDefinition =
-  | { kind: "principal"; principal: PrincipalPlane; offset: number; pose: ConstructionPlanePose }
-  | { kind: "face"; sourceShapeId: string; attachment: ConstructionPlaneAttachment; pose: ConstructionPlanePose };
+  | { kind: "principal"; principal: PrincipalPlane; offset: number; angle?: number; flipped?: boolean; pose: ConstructionPlanePose }
+  | { kind: "face"; sourceShapeId: string; attachment: ConstructionPlaneAttachment; offset?: number; angle?: number; flipped?: boolean; pose: ConstructionPlanePose }
+  | { kind: "angle"; referencePlaneId: string; angle: number; offset?: number; flipped?: boolean; pose: ConstructionPlanePose }
+  | { kind: "midplane"; firstPlaneId: string; secondPlaneId: string; offset?: number; pose: ConstructionPlanePose };
 
 export type SketchPlaneAttachment = {
   constructionPlaneId: string;

@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   BASE_CONSTRUCTION_PLANE_POSE,
+  angledConstructionPlanePose,
   constructionPlaneAttachmentFromWorldPose,
+  constructionPlanePosesAreParallel,
+  flipConstructionPlanePose,
   identityConstructionPlanePose,
   localDirectionToWorld,
   localPointToWorld,
+  midplaneConstructionPlanePose,
   normalizeQuaternion,
+  offsetConstructionPlanePose,
   poseFromWorldOriginAndNormal,
   principalPlanePose,
   quaternionFromEulerXYZDegrees,
@@ -50,6 +55,30 @@ describe("construction plane poses", () => {
     const zAxis = localDirectionToWorld(pose, [0, 0, 1]);
     expect(xAxis[0] * normal[0] + xAxis[1] * normal[1] + xAxis[2] * normal[2]).toBeCloseTo(0);
     expect(zAxis[0] * normal[0] + zAxis[1] * normal[1] + zAxis[2] * normal[2]).toBeCloseTo(0);
+  });
+
+  it("angles and flips a plane around its local X axis", () => {
+    const base = principalPlanePose("xz", 4);
+    const angled = angledConstructionPlanePose(base, 90);
+    const flipped = flipConstructionPlanePose(angled);
+
+    expectVectorClose(angled.origin, [0, 4, 0]);
+    expectVectorClose(localDirectionToWorld(angled, [0, 1, 0]), [0, 0, 1]);
+    expectVectorClose(localDirectionToWorld(flipped, [0, 1, 0]), [0, 0, -1]);
+    expectSameRotation(principalPlanePose("xz", 4, 90, true), flipped);
+  });
+
+  it("offsets a pose along its normal and creates an offset midpoint", () => {
+    const first = principalPlanePose("xz", 2);
+    const second = principalPlanePose("xz", 10, 0, true);
+    const perpendicular = principalPlanePose("xy", 0);
+
+    expect(constructionPlanePosesAreParallel(first, second)).toBe(true);
+    expect(constructionPlanePosesAreParallel(first, perpendicular)).toBe(false);
+    expectVectorClose(offsetConstructionPlanePose(first, 3).origin, [0, 5, 0]);
+    const midpoint = midplaneConstructionPlanePose(first, second, 3);
+    expectVectorClose(midpoint.origin, [0, 9, 0]);
+    expectSameRotation(midpoint, first);
   });
 
   it("roundtrips points and directions through an arbitrary normalized pose", () => {
@@ -154,6 +183,24 @@ describe("construction plane attachments", () => {
     expectVectorClose(resolved.origin, worldPose.origin);
     expectSameRotation(resolved, worldPose);
     expect(Math.hypot(...attachment.localQuaternion)).toBeCloseTo(1);
+  });
+
+  it("applies offset, angle, and flip modifiers to an attachment", () => {
+    const source = {
+      x: 0,
+      z: 0,
+      elevation: 0,
+      height: 10,
+      width: 10,
+      depth: 10,
+      rotation: 0,
+    };
+    const worldPose = principalPlanePose("xz", 5);
+    const attachment = constructionPlaneAttachmentFromWorldPose(worldPose, source);
+    const resolved = resolveConstructionPlaneAttachment(attachment, source, 2, 90, true);
+
+    expectVectorClose(resolved.origin, [0, 7, 0]);
+    expectVectorClose(localDirectionToWorld(resolved, [0, 1, 0]), [0, 0, -1]);
   });
 
   it("follows source translation, rotation, and resize using normalized local coordinates", () => {

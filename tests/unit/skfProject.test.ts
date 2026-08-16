@@ -137,7 +137,17 @@ describe("SketchForge .skf project packages", () => {
     const pose: ConstructionPlanePose = { origin: [12, 4, -3], quaternion: [0, 0, 0, 1] };
     const plane = shape("constructionPlane", "plane-1", {
       name: "Offset XZ plane",
-      constructionPlane: { kind: "principal", principal: "xz", offset: 4, pose },
+      constructionPlane: { kind: "principal", principal: "xz", offset: 4, angle: 15, flipped: true, pose },
+      locked: true,
+      height: 0.1,
+    });
+    const anglePlane = shape("constructionPlane", "angle-plane-1", {
+      constructionPlane: { kind: "angle", referencePlaneId: plane.id, angle: 35, offset: 2, flipped: false, pose },
+      locked: true,
+      height: 0.1,
+    });
+    const midplane = shape("constructionPlane", "midplane-1", {
+      constructionPlane: { kind: "midplane", firstPlaneId: "construction-plane-base", secondPlaneId: plane.id, offset: -1, pose },
       locked: true,
       height: 0.1,
     });
@@ -156,11 +166,35 @@ describe("SketchForge .skf project packages", () => {
       sketchPlane: { constructionPlaneId: plane.id, pose, localCenter: [5, 8, 5] },
     });
 
-    const restored = await importSkfProject(await exportSkfProject(input([plane, sketch])));
+    const restored = await importSkfProject(await exportSkfProject(input([plane, anglePlane, midplane, sketch])));
 
-    expect(restored.shapes).toEqual([canonicalizeShape(plane), canonicalizeShape(sketch)]);
+    expect(restored.shapes).toEqual([canonicalizeShape(plane), canonicalizeShape(anglePlane), canonicalizeShape(midplane), canonicalizeShape(sketch)]);
     expect(restored.shapes[0].constructionPlane?.kind).toBe("principal");
-    expect(restored.shapes[1].sketchPlane?.constructionPlaneId).toBe("plane-1");
+    expect(restored.shapes[1].constructionPlane?.kind).toBe("angle");
+    expect(restored.shapes[2].constructionPlane?.kind).toBe("midplane");
+    expect(restored.shapes[3].sketchPlane?.constructionPlaneId).toBe("plane-1");
+  });
+
+  it("validates angle and midplane construction plane fields", async () => {
+    const pose: ConstructionPlanePose = { origin: [0, 0, 0], quaternion: [0, 0, 0, 1] };
+    const anglePlane = shape("constructionPlane", "angle-plane", {
+      constructionPlane: { kind: "angle", referencePlaneId: "construction-plane-base", angle: 30, pose },
+    });
+    const midplane = shape("constructionPlane", "midplane", {
+      constructionPlane: { kind: "midplane", firstPlaneId: "construction-plane-base", secondPlaneId: anglePlane.id, offset: 0, pose },
+    });
+    const exported = await exportSkfProject(input([anglePlane, midplane]));
+    const invalidAngle = mutateProject(exported, (document) => {
+      const node = document.states.flatMap((state) => state.nodes).find((entry) => entry.objectId === anglePlane.id);
+      if (node) (node.definition.constructionPlane as { angle: unknown }).angle = "invalid";
+    });
+    const invalidMidplane = mutateProject(exported, (document) => {
+      const node = document.states.flatMap((state) => state.nodes).find((entry) => entry.objectId === midplane.id);
+      if (node) (node.definition.constructionPlane as { firstPlaneId: unknown }).firstPlaneId = "";
+    });
+
+    await expect(importSkfProject(invalidAngle)).rejects.toThrow("constructionPlane.angle must be a finite number");
+    await expect(importSkfProject(invalidMidplane)).rejects.toThrow("constructionPlane.firstPlaneId must be a non-empty string");
   });
 
   it("preserves an oriented placement workplane", async () => {

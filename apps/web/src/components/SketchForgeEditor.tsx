@@ -98,8 +98,13 @@ import { reflectionTransform, rotationTransform, transformSketchSelection, trans
 import { projectExportFileName } from "@/lib/exportNames";
 import {
   BASE_CONSTRUCTION_PLANE_POSE,
+  angledConstructionPlanePose,
   constructionPlaneAttachmentFromWorldPose,
+  constructionPlanePosesAreParallel,
+  flipConstructionPlanePose,
   localPointToWorld,
+  midplaneConstructionPlanePose,
+  offsetConstructionPlanePose,
   poseFromWorldOriginAndNormal,
   principalPlanePose,
   reconcileShapeCenterInConstructionPlane,
@@ -334,18 +339,57 @@ function planeEulerDegrees(pose: ConstructionPlanePose) {
   };
 }
 
-function resolvedConstructionPlanePose(plane: WorkplaneShape, shapes: WorkplaneShape[]): ConstructionPlanePose | null {
+function modifiedConstructionPlanePose(pose: ConstructionPlanePose, offset = 0, angle = 0, flipped = false) {
+  let resolved = offset ? offsetConstructionPlanePose(pose, offset) : pose;
+  if (angle) resolved = angledConstructionPlanePose(resolved, angle);
+  if (flipped) resolved = flipConstructionPlanePose(resolved);
+  return resolved;
+}
+
+function referencedConstructionPlanePose(
+  id: string,
+  shapes: WorkplaneShape[],
+  resolving: ReadonlySet<string>,
+): ConstructionPlanePose | null {
+  if (id === BASE_CONSTRUCTION_PLANE_ID) return BASE_CONSTRUCTION_PLANE_POSE;
+  const plane = shapes.find((shape) => shape.id === id && shape.kind === "constructionPlane");
+  if (!plane || resolving.has(plane.id)) return null;
+  return resolvedConstructionPlanePose(plane, shapes, resolving) ?? plane.constructionPlane?.pose ?? null;
+}
+
+function resolvedConstructionPlanePose(
+  plane: WorkplaneShape,
+  shapes: WorkplaneShape[],
+  resolving: ReadonlySet<string> = new Set(),
+): ConstructionPlanePose | null {
   const definition = plane.constructionPlane;
   if (!definition) return null;
-  if (definition.kind === "principal") return principalPlanePose(definition.principal, definition.offset);
-  const source = shapes.find((shape) => shape.id === definition.sourceShapeId);
-  return source ? resolveConstructionPlaneAttachment(definition.attachment, source) : definition.pose;
+  if (resolving.has(plane.id)) return null;
+  const nextResolving = new Set(resolving).add(plane.id);
+  if (definition.kind === "principal") {
+    return principalPlanePose(definition.principal, definition.offset, definition.angle ?? 0, definition.flipped ?? false);
+  }
+  if (definition.kind === "face") {
+    const source = shapes.find((shape) => shape.id === definition.sourceShapeId);
+    return source
+      ? resolveConstructionPlaneAttachment(definition.attachment, source, definition.offset ?? 0, definition.angle ?? 0, definition.flipped ?? false)
+      : definition.pose;
+  }
+  if (definition.kind === "angle") {
+    const reference = referencedConstructionPlanePose(definition.referencePlaneId, shapes, nextResolving);
+    return reference
+      ? modifiedConstructionPlanePose(reference, definition.offset ?? 0, definition.angle, definition.flipped ?? false)
+      : definition.pose;
+  }
+  const first = referencedConstructionPlanePose(definition.firstPlaneId, shapes, nextResolving);
+  const second = referencedConstructionPlanePose(definition.secondPlaneId, shapes, nextResolving);
+  return first && second && constructionPlanePosesAreParallel(first, second)
+    ? midplaneConstructionPlanePose(first, second, definition.offset ?? 0)
+    : definition.pose;
 }
 
 function constructionPlanePoseById(id: string, shapes: WorkplaneShape[], fallback = BASE_CONSTRUCTION_PLANE_POSE) {
-  if (id === BASE_CONSTRUCTION_PLANE_ID) return BASE_CONSTRUCTION_PLANE_POSE;
-  const plane = shapes.find((shape) => shape.id === id && shape.kind === "constructionPlane");
-  return plane ? resolvedConstructionPlanePose(plane, shapes) ?? plane.constructionPlane?.pose ?? fallback : fallback;
+  return referencedConstructionPlanePose(id, shapes, new Set()) ?? fallback;
 }
 
 function placementWorkplaneForConstructionPlanePose(pose: ConstructionPlanePose) {
@@ -6535,17 +6579,81 @@ export function SketchForgeEditor({
     [appendHistorySnapshot, selectedIds, syncProjectShapes],
   );
 
-  const createPrincipalConstructionPlane = useCallback((principal: PrincipalPlane, offset: number) => {
+  const createPrincipalConstructionPlane = useCallback((principal: PrincipalPlane, offset: number, angle: number = 0, flipped: boolean = false) => {
     const safeOffset = Number.isFinite(offset) ? Math.max(-1000, Math.min(1000, offset)) : 0;
-    const pose = principalPlanePose(principal, safeOffset);
+    const safeAngle = Number.isFinite(angle) ? angle : 0;
+    const pose = principalPlanePose(principal, safeOffset, safeAngle, flipped);
     const label = principal.toUpperCase();
     const plane = createConstructionPlaneShape(
       `${label} plane${Math.abs(safeOffset) > 0.0001 ? ` (${safeOffset} mm)` : ""}`,
-      { kind: "principal", principal, offset: safeOffset, pose },
+      { kind: "principal", principal, offset: safeOffset, angle: safeAngle, flipped, pose },
       workspaceSettings.width,
       workspaceSettings.depth,
     );
     commitShapes([...shapes, plane], [], `${label} construction plane created and activated`);
+    setActiveConstructionPlaneId(plane.id);
+    setConstructionPlanePanelOpen(false);
+  }, [commitShapes, shapes, workspaceSettings.depth, workspaceSettings.width]);
+
+  const createAngleConstructionPlane = useCallback((referencePlaneId: string, angle: number, offset: number = 0, flipped: boolean = false) => {
+    const referencePlane = referencePlaneId === BASE_CONSTRUCTION_PLANE_ID
+      ? null
+      : shapes.find((shape) => shape.id === referencePlaneId && shape.kind === "constructionPlane" && shape.constructionPlane);
+    if (referencePlaneId !== BASE_CONSTRUCTION_PLANE_ID && !referencePlane) {
+      setNotice("The reference plane is no longer available");
+      return;
+    }
+    const safeOffset = Number.isFinite(offset) ? Math.max(-1000, Math.min(1000, offset)) : 0;
+    const safeAngle = Number.isFinite(angle) ? angle : 0;
+    const pose = modifiedConstructionPlanePose(
+      constructionPlanePoseById(referencePlaneId, shapes),
+      safeOffset,
+      safeAngle,
+      flipped,
+    );
+    const referenceName = referencePlane?.name ?? "Base XZ plane";
+    const plane = createConstructionPlaneShape(
+      `${referenceName} angle plane (${Number(safeAngle.toFixed(2))} deg)`,
+      { kind: "angle", referencePlaneId, angle: safeAngle, offset: safeOffset, flipped, pose },
+      workspaceSettings.width,
+      workspaceSettings.depth,
+    );
+    commitShapes([...shapes, plane], [], `Angle construction plane created from ${referenceName}`);
+    setActiveConstructionPlaneId(plane.id);
+    setConstructionPlanePanelOpen(false);
+  }, [commitShapes, shapes, workspaceSettings.depth, workspaceSettings.width]);
+
+  const createMidplaneConstructionPlane = useCallback((firstPlaneId: string, secondPlaneId: string, offset: number = 0) => {
+    if (firstPlaneId === secondPlaneId) {
+      setNotice("Choose two different source planes");
+      return;
+    }
+    const planeForId = (id: string) => id === BASE_CONSTRUCTION_PLANE_ID
+      ? null
+      : shapes.find((shape) => shape.id === id && shape.kind === "constructionPlane" && shape.constructionPlane);
+    const firstPlane = planeForId(firstPlaneId);
+    const secondPlane = planeForId(secondPlaneId);
+    if ((firstPlaneId !== BASE_CONSTRUCTION_PLANE_ID && !firstPlane) || (secondPlaneId !== BASE_CONSTRUCTION_PLANE_ID && !secondPlane)) {
+      setNotice("One of the source planes is no longer available");
+      return;
+    }
+    const firstPose = constructionPlanePoseById(firstPlaneId, shapes);
+    const secondPose = constructionPlanePoseById(secondPlaneId, shapes);
+    if (!constructionPlanePosesAreParallel(firstPose, secondPose)) {
+      setNotice("Midplanes require two parallel source planes");
+      return;
+    }
+    const safeOffset = Number.isFinite(offset) ? Math.max(-1000, Math.min(1000, offset)) : 0;
+    const pose = midplaneConstructionPlanePose(firstPose, secondPose, safeOffset);
+    const firstName = firstPlane?.name ?? "Base XZ plane";
+    const secondName = secondPlane?.name ?? "Base XZ plane";
+    const plane = createConstructionPlaneShape(
+      `Midplane: ${firstName} / ${secondName}`,
+      { kind: "midplane", firstPlaneId, secondPlaneId, offset: safeOffset, pose },
+      workspaceSettings.width,
+      workspaceSettings.depth,
+    );
+    commitShapes([...shapes, plane], [], `Midplane created between ${firstName} and ${secondName}`);
     setActiveConstructionPlaneId(plane.id);
     setConstructionPlanePanelOpen(false);
   }, [commitShapes, shapes, workspaceSettings.depth, workspaceSettings.width]);
@@ -10058,6 +10166,8 @@ export function SketchForgeEditor({
             planes={constructionPlanes}
             activeId={activeConstructionPlaneId}
             onCreatePrincipal={createPrincipalConstructionPlane}
+            onCreateAnglePlane={createAngleConstructionPlane}
+            onCreateMidplane={createMidplaneConstructionPlane}
             onPickFace={() => {
               setConstructionPlanePanelOpen(false);
               setWorkplaneMode(true);
@@ -10226,19 +10336,35 @@ function ConstructionPlanePanel({
   planes,
   activeId,
   onCreatePrincipal,
+  onCreateAnglePlane,
+  onCreateMidplane,
   onPickFace,
   onActivate,
   onClose,
 }: {
   planes: WorkplaneShape[];
   activeId: string;
-  onCreatePrincipal: (principal: PrincipalPlane, offset: number) => void;
+  onCreatePrincipal: (principal: PrincipalPlane, offset: number, angle?: number, flipped?: boolean) => void;
+  onCreateAnglePlane: (referencePlaneId: string, angle: number, offset?: number, flipped?: boolean) => void;
+  onCreateMidplane: (firstId: string, secondId: string, offset?: number) => void;
   onPickFace: () => void;
   onActivate: (id: string) => void;
   onClose: () => void;
 }) {
+  const [mode, setMode] = useState<"principal" | "angle" | "midplane">("principal");
   const [principal, setPrincipal] = useState<PrincipalPlane>("xz");
+  const [angle, setAngle] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [referencePlaneId, setReferencePlaneId] = useState(BASE_CONSTRUCTION_PLANE_ID);
+  const [angleOffset, setAngleOffset] = useState(0);
+  const [midFirstId, setMidFirstId] = useState(BASE_CONSTRUCTION_PLANE_ID);
+  const [midSecondId, setMidSecondId] = useState(planes[0]?.id ?? "");
+  const [midOffset, setMidOffset] = useState(0);
   const [offset, setOffset] = useState(0);
+  const planeOptions = [
+    { id: BASE_CONSTRUCTION_PLANE_ID, name: "Base XZ plane" },
+    ...planes.map((plane) => ({ id: plane.id, name: plane.name })),
+  ];
   return (
     <aside className="construction-plane-panel" aria-label="Construction planes" onPointerDown={(event) => event.stopPropagation()}>
       <div className="sketch-operation-header">
@@ -10252,15 +10378,49 @@ function ConstructionPlanePanel({
           <button className={activeId === plane.id ? "active" : ""} key={plane.id} type="button" onClick={() => onActivate(plane.id)}>{plane.name}</button>
         ))}
       </div>
-      <div className="construction-plane-create">
-        <label>Principal plane<select value={principal} onChange={(event) => setPrincipal(event.target.value as PrincipalPlane)}>
-          <option value="xz">XZ (top)</option>
-          <option value="xy">XY (front)</option>
-          <option value="yz">YZ (side)</option>
-        </select></label>
-        <label>Normal offset<input type="number" step="0.1" value={offset} onChange={(event) => setOffset(event.currentTarget.valueAsNumber || 0)} /></label>
-        <button className="primary" type="button" onClick={() => onCreatePrincipal(principal, offset)}>Create offset plane</button>
+      <div className="construction-plane-modes" aria-label="Plane creation mode">
+        <button className={mode === "principal" ? "active" : ""} type="button" aria-pressed={mode === "principal"} onClick={() => setMode("principal")}>Offset</button>
+        <button className={mode === "angle" ? "active" : ""} type="button" aria-pressed={mode === "angle"} onClick={() => setMode("angle")}>Angle</button>
+        <button className={mode === "midplane" ? "active" : ""} type="button" aria-pressed={mode === "midplane"} onClick={() => setMode("midplane")}>Mid-plane</button>
       </div>
+      {mode === "principal" ? (
+        <div className="construction-plane-create">
+          <label>Principal plane<select value={principal} onChange={(event) => setPrincipal(event.target.value as PrincipalPlane)}>
+            <option value="xz">XZ (top)</option>
+            <option value="xy">XY (front)</option>
+            <option value="yz">YZ (side)</option>
+          </select></label>
+          <label>Normal offset<input type="number" step="0.1" value={offset} onChange={(event) => setOffset(event.currentTarget.valueAsNumber || 0)} /></label>
+          <label>Angle about local X (deg)<input type="number" step="1" value={angle} onChange={(event) => setAngle(event.currentTarget.valueAsNumber || 0)} /></label>
+          <label className="construction-plane-check"><input type="checkbox" checked={flipped} onChange={(event) => setFlipped(event.currentTarget.checked)} /> Flip normal</label>
+          <button className="primary" type="button" onClick={() => onCreatePrincipal(principal, offset, angle, flipped)}>Create principal plane</button>
+        </div>
+      ) : null}
+      {mode === "angle" ? (
+        <div className="construction-plane-create">
+          <label>Reference plane<select value={referencePlaneId} onChange={(event) => setReferencePlaneId(event.target.value)}>
+            {planeOptions.map((plane) => <option key={plane.id} value={plane.id}>{plane.name}</option>)}
+          </select></label>
+          <label>Angle about local X (deg)<input type="number" step="1" value={angle} onChange={(event) => setAngle(event.currentTarget.valueAsNumber || 0)} /></label>
+          <label>Normal offset<input type="number" step="0.1" value={angleOffset} onChange={(event) => setAngleOffset(event.currentTarget.valueAsNumber || 0)} /></label>
+          <label className="construction-plane-check"><input type="checkbox" checked={flipped} onChange={(event) => setFlipped(event.currentTarget.checked)} /> Flip normal</label>
+          <button className="primary" type="button" onClick={() => onCreateAnglePlane(referencePlaneId, angle, angleOffset, flipped)}>Create angle plane</button>
+        </div>
+      ) : null}
+      {mode === "midplane" ? (
+        <div className="construction-plane-midplane">
+          <label>First plane<select value={midFirstId} onChange={(event) => setMidFirstId(event.target.value)}>
+            {planeOptions.map((plane) => <option key={plane.id} value={plane.id} disabled={plane.id === midSecondId}>{plane.name}</option>)}
+          </select></label>
+          <label>Second plane<select value={midSecondId} onChange={(event) => setMidSecondId(event.target.value)}>
+            <option value="">Select a plane...</option>
+            {planeOptions.map((plane) => <option key={plane.id} value={plane.id} disabled={plane.id === midFirstId}>{plane.name}</option>)}
+          </select></label>
+          <label>Normal offset<input type="number" step="0.1" value={midOffset} onChange={(event) => setMidOffset(event.currentTarget.valueAsNumber || 0)} /></label>
+          <small>Source planes must be parallel.</small>
+          <button className="primary" type="button" disabled={!midSecondId || midFirstId === midSecondId} onClick={() => onCreateMidplane(midFirstId, midSecondId, midOffset)}>Create midplane</button>
+        </div>
+      ) : null}
       <div className="construction-plane-face">
         <span>Associative face plane</span>
         <button type="button" onClick={onPickFace}>Pick a planar model face</button>
