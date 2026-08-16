@@ -1,12 +1,19 @@
-import type { SketchProfile } from "@/types/sketchforge";
+import type { SketchProfile, SketchRevolveSettings } from "@/types/sketchforge";
 
-export type SketchCadBuildRequest = {
-  type: "build";
-  requestId: number;
-  profile: SketchProfile;
-  regionIds?: string[];
-  height: number;
-};
+export type SketchCadBuildRequest =
+  | {
+      type: "build";
+      requestId: number;
+      profile: SketchProfile;
+      regionIds?: string[];
+      height: number;
+    }
+  | {
+      type: "revolve";
+      requestId: number;
+      profile: SketchProfile;
+      settings: Partial<SketchRevolveSettings>;
+    };
 
 export type SketchCadBuildResponse =
   | {

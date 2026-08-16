@@ -755,43 +755,47 @@ async function shapeFromRevolvedSketchProfile(
   settings: Partial<SketchRevolveSettings>,
   existing?: WorkplaneShape | null,
 ) {
-  const runtime = await getManifoldRuntime();
-  const normalizedSettings = normalizeSketchRevolveSettings(settings);
-  const mesh = buildSketchRevolveMesh(runtime, profile, normalizedSettings);
-  return canonicalizeShape({
-    id: existing?.id ?? createLocalId("sketch-revolve"),
-    name: existing?.name ?? "Sketch revolve",
-    kind: "mesh",
-    color: existing?.color ?? "#78b96b",
-    hole: existing?.hole,
-    x: existing?.x ?? 0,
-    z: existing?.z ?? 0,
-    elevation: existing?.elevation ?? 0,
-    size: Math.max(mesh.width, mesh.depth),
-    width: mesh.width,
-    depth: mesh.depth,
-    height: mesh.height,
-    rotation: existing?.rotation ?? 0,
-    rotationX: existing?.rotationX ?? 0,
-    rotationZ: existing?.rotationZ ?? 0,
-    mirrorX: existing?.mirrorX,
-    mirrorY: existing?.mirrorY,
-    mirrorZ: existing?.mirrorZ,
-    importedMesh: {
-      positions: mesh.positions,
-      baseWidth: mesh.width,
-      baseDepth: mesh.depth,
-      baseHeight: mesh.height,
-      triangleCount: mesh.triangleCount,
-      sourceFormat: "json",
-    },
-    sketchProfile: cloneSketchProfile(profile),
-    sketchOperation: "revolve",
-    sketchRevolve: normalizedSettings,
-    sketchPlane: existing?.sketchPlane,
-    locked: existing?.locked ?? false,
-    hidden: existing?.hidden ?? false,
-  } satisfies WorkplaneShape);
+  try {
+    return await cadShapeFromSketchRevolveProfile(profile, settings, existing);
+  } catch {
+    const runtime = await getManifoldRuntime();
+    const normalizedSettings = normalizeSketchRevolveSettings(settings);
+    const mesh = buildSketchRevolveMesh(runtime, profile, normalizedSettings);
+    return canonicalizeShape({
+      id: existing?.id ?? createLocalId("sketch-revolve"),
+      name: existing?.name ?? "Sketch revolve",
+      kind: "mesh",
+      color: existing?.color ?? "#78b96b",
+      hole: existing?.hole,
+      x: existing?.x ?? 0,
+      z: existing?.z ?? 0,
+      elevation: existing?.elevation ?? 0,
+      size: Math.max(mesh.width, mesh.depth),
+      width: mesh.width,
+      depth: mesh.depth,
+      height: mesh.height,
+      rotation: existing?.rotation ?? 0,
+      rotationX: existing?.rotationX ?? 0,
+      rotationZ: existing?.rotationZ ?? 0,
+      mirrorX: existing?.mirrorX,
+      mirrorY: existing?.mirrorY,
+      mirrorZ: existing?.mirrorZ,
+      importedMesh: {
+        positions: mesh.positions,
+        baseWidth: mesh.width,
+        baseDepth: mesh.depth,
+        baseHeight: mesh.height,
+        triangleCount: mesh.triangleCount,
+        sourceFormat: "json",
+      },
+      sketchProfile: cloneSketchProfile(profile),
+      sketchOperation: "revolve",
+      sketchRevolve: normalizedSettings,
+      sketchPlane: existing?.sketchPlane,
+      locked: existing?.locked ?? false,
+      hidden: existing?.hidden ?? false,
+    } satisfies WorkplaneShape);
+  }
 }
 
 function shapeFromSketchSweep(profile: SketchProfile, selectedSegmentIds: readonly string[], existing?: WorkplaneShape | null) {
@@ -942,6 +946,50 @@ async function cadShapeFromSketchProfile(profile: SketchProfile, height: number,
   const shape = shapeFromCadMesh(source, response.positions, response.normals, response.indices, response.brep);
   if (!shape) throw new Error("OpenCascade returned an empty sketch solid");
   return { ...shape, sketchProfile: cloneSketchProfile(profile), sketchOperation: "extrude" as const };
+}
+
+async function cadShapeFromSketchRevolveProfile(
+  profile: SketchProfile,
+  settings: Partial<SketchRevolveSettings>,
+  existing?: WorkplaneShape | null,
+) {
+  const normalizedSettings = normalizeSketchRevolveSettings(settings);
+  const worker = ensureSketchCadWorker();
+  const requestId = ++sketchCadRequestId;
+  const response = await new Promise<SketchCadBuildResponse>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      sketchCadPending.delete(requestId);
+      reject(new Error("OpenCascade timed out while revolving the sketch"));
+    }, 30_000);
+    sketchCadPending.set(requestId, { resolve, reject, timer });
+    worker.postMessage({ type: "revolve", requestId, profile: cloneSketchProfile(profile), settings: normalizedSettings });
+  });
+  if (response.type === "error") throw new Error(response.message);
+  const source = canonicalizeShape({
+    ...(existing ?? {
+      id: createLocalId("sketch-revolve"),
+      name: "Sketch revolve",
+      kind: "mesh" as const,
+      color: "#78b96b",
+      x: 0,
+      z: 0,
+      size: 1,
+      width: 1,
+      depth: 1,
+      height: 1,
+      rotation: 0,
+    }),
+    sketchProfile: cloneSketchProfile(profile),
+    sketchOperation: "revolve",
+    sketchRevolve: normalizedSettings,
+    edgeTreatments: undefined,
+    edgeTreatmentHistory: undefined,
+    cadDisplayEdges: undefined,
+    cadDisplayEdgesVersion: undefined,
+  });
+  const shape = shapeFromCadMesh(source, response.positions, response.normals, response.indices, response.brep);
+  if (!shape) throw new Error("OpenCascade returned an empty revolve solid");
+  return { ...shape, sketchProfile: cloneSketchProfile(profile), sketchOperation: "revolve" as const, sketchRevolve: normalizedSettings };
 }
 
 function cleanModelDimension(value: number) {

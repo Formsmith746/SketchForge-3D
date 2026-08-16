@@ -51,3 +51,6 @@ Thumbs.db
 # Staged occt-wasm runtime (copied from node_modules by scripts/copy-occt-wasm.mjs)
 apps/web/public/occt/
 apps/web/public/assets/occt/
+docs/SKETCHFORGE_USER_MANUAL.md
+implementation_plan.md
+scripts/generate-user-manual.py
