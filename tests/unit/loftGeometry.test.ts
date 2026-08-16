@@ -129,6 +129,47 @@ describe("loft geometry", () => {
     },
   );
 
+  it("matches corners instead of shared lab-frame angles when the ends are rotated relative to each other", () => {
+    // The real bar for the corner-twist fix: a square has 90-degree rotational symmetry, so a
+    // bottom square and a top square rotated 90 degrees apart are, as a *set*, the identical
+    // corner positions -- a correct corner-matcher pairs every bottom corner with its nearest
+    // (here: coincident) top corner, producing a mesh identical to an untwisted 0/0 loft. The old
+    // shared-lab-frame-angle scheme did not have this property (bottom and top were sampled at
+    // the same raw angle regardless of which end's corners actually sat there), so this is exactly
+    // the case that used to bulge/twist instead of connecting corner to corner.
+    const untwisted = createLoftGeometry({
+      width: 30, depth: 30, height: 20, bottomShape: "Rectangle", topShape: "Rectangle",
+      bottomRotation: 0, topRotation: 0, segments: 32, layers: 6,
+    });
+    const rotated90 = createLoftGeometry({
+      width: 30, depth: 30, height: 20, bottomShape: "Rectangle", topShape: "Rectangle",
+      bottomRotation: 0, topRotation: 90, segments: 32, layers: 6,
+    });
+    const a = untwisted.getAttribute("position").array;
+    const b = rotated90.getAttribute("position").array;
+    expect(a.length).toBe(b.length);
+    for (let i = 0; i < a.length; i += 1) {
+      expect(b[i]).toBeCloseTo(a[i], 3);
+    }
+  });
+
+  it("stays a closed, correctly-wound manifold across every shape pair and a spread of relative rotations (smoke test)", () => {
+    const rotationPairs: Array<[number, number]> = [[0, 0], [25, 0], [0, 25], [40, -65], [170, 10]];
+    for (const bottomShape of PROFILE_SHAPES) {
+      for (const topShape of PROFILE_SHAPES) {
+        for (const [bottomRotation, topRotation] of rotationPairs) {
+          const geometry = createLoftGeometry({
+            width: 26, depth: 19, height: 16, bottomShape, topShape, bottomRotation, topRotation,
+            topWidth: 14, topDepth: 21, segments: 24, layers: 5,
+          });
+          const position = geometry.getAttribute("position");
+          expect([...edgeUseCounts(position).values()].every((uses) => uses === 2)).toBe(true);
+          expect(signedVolume(position)).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
   it("omits the Y scale for polygon ends", () => {
     expect(isPolygonLoftShape("Triangle")).toBe(true);
     expect(isPolygonLoftShape("Pentagon")).toBe(true);

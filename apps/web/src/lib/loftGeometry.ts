@@ -121,25 +121,158 @@ function shapeCorners(kind: LoftProfileShape, halfX: number, halfY: number, rota
   return baseCorners(kind, halfX, halfY).map((c) => c + rotation);
 }
 
-// Merges both ends' corner angles into anchors, then spreads the remaining segments across the
-// arcs between them (largest-remainder rounding) so every corner lands on a ring vertex.
-function buildAngles(bottomCorners: number[], topCorners: number[], segments: number): number[] {
+type LoftAngleAnchor = { aBottom: number; aTop: number; aKey: number };
+
+function circularAngleDistance(a: number, b: number) {
   const TWO_PI = 2 * Math.PI;
-  const raw = bottomCorners
-    .concat(topCorners)
-    .map((c) => ((c % TWO_PI) + TWO_PI) % TWO_PI)
-    .sort((a, b) => a - b);
-  const eps = 1e-6;
-  const anchors: number[] = [];
-  for (const a of raw) {
-    if (!anchors.length || Math.abs(a - anchors[anchors.length - 1]) > eps) anchors.push(a);
+  const d = Math.abs(a - b) % TWO_PI;
+  return d > Math.PI ? TWO_PI - d : d;
+}
+
+// Best non-crossing correspondence between the two ends' corners: tries every rotational
+// offset and picks the one minimizing total angular mismatch (DP over a circular subsequence
+// alignment), so a bottom corner lands on the *nearest* top corner instead of wherever the same
+// lab-frame angle happens to fall -- otherwise two same-cornered shapes at different rotations
+// (e.g. two rectangles 25° apart) get walls that twist/bulge instead of connecting corner to
+// corner. Corners that can't be paired (unequal corner counts) fall back via fallbackSmallAngle
+// below. Ported from hbehrensj/loftmorph (commit d91b3df), with that fallback and buildAngles'
+// per-segment wraparound (below) made independent-per-stream -- see their own comments for why.
+function bestMatching(bottomCorners: number[], topCorners: number[]): LoftAngleAnchor[] {
+  const swap = bottomCorners.length > topCorners.length;
+  const small = swap ? topCorners : bottomCorners;
+  const large = swap ? bottomCorners : topCorners;
+  const m = small.length;
+  const M = large.length;
+  if (M === 0) return [];
+
+  let bestCost = Infinity;
+  let bestMatchOf: number[] = new Array(M).fill(-1);
+
+  for (let r = 0; r < M; r += 1) {
+    const largeR = Array.from({ length: M }, (_, k) => large[(r + k) % M]);
+    const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(M + 1).fill(Infinity));
+    const choice: number[][] = Array.from({ length: m + 1 }, () => new Array(M + 1).fill(0));
+    for (let j = 0; j <= M; j += 1) dp[0][j] = 0;
+    for (let i = 1; i <= m; i += 1) {
+      for (let j = 1; j <= M; j += 1) {
+        let val = dp[i][j - 1];
+        let c = 0;
+        const distance = circularAngleDistance(small[i - 1], largeR[j - 1]);
+        const matched = dp[i - 1][j - 1] + distance * distance;
+        if (matched < val) {
+          val = matched;
+          c = 1;
+        }
+        dp[i][j] = val;
+        choice[i][j] = c;
+      }
+    }
+    const cost = dp[m][M];
+    if (cost < bestCost) {
+      const matchOfR = new Array(M).fill(-1);
+      let i = m;
+      let j = M;
+      while (i > 0 && j > 0) {
+        if (choice[i][j] === 1) {
+          matchOfR[j - 1] = i - 1;
+          i -= 1;
+          j -= 1;
+        } else {
+          j -= 1;
+        }
+      }
+      const matchOf = new Array(M).fill(-1);
+      for (let k = 0; k < M; k += 1) matchOf[(r + k) % M] = matchOfR[k];
+      bestCost = cost;
+      bestMatchOf = matchOf;
+    }
   }
-  if (anchors.length >= 2 && Math.abs(anchors[0] + TWO_PI - anchors[anchors.length - 1]) < eps) anchors.pop();
+
+  const smallAngleFor = fallbackSmallAngle(bestMatchOf, small, large);
+
+  const anchors: LoftAngleAnchor[] = [];
+  for (let k = 0; k < M; k += 1) {
+    const largeAngle = large[k];
+    const smallAngle = smallAngleFor(k);
+    anchors.push(
+      swap
+        ? { aBottom: largeAngle, aTop: smallAngle, aKey: largeAngle }
+        : { aBottom: smallAngle, aTop: largeAngle, aKey: largeAngle },
+    );
+  }
+  return anchors;
+}
+
+// For a large-side corner with no match (matchOf[k] === -1, only possible when the two ends
+// have different corner counts), reference implementations fall back to the large corner's own
+// angle -- but copying a value from the *other* end's independent rotation frame verbatim can
+// land far outside the angular range of its matched neighbors, breaking the monotonic ordering
+// ringAt relies on and producing a self-crossing (non-manifold) ring. Interpolating circularly
+// between the nearest matched neighbors keeps the fallback inside that range; when nothing is
+// matched at all (one end has zero corners, e.g. an Oval) there are no neighbors to interpolate
+// from, so every corner keeps the literal large-angle fallback, unchanged from the reference.
+function fallbackSmallAngle(matchOf: number[], small: number[], large: number[]): (k: number) => number {
+  const M = large.length;
+  const matchedIndices: number[] = [];
+  for (let k = 0; k < M; k += 1) if (matchOf[k] !== -1) matchedIndices.push(k);
+  if (matchedIndices.length === 0) return (k) => large[k];
+
+  const TWO_PI = 2 * Math.PI;
+  const circularLerp = (a: number, b: number, t: number) => {
+    let delta = ((b - a + Math.PI) % TWO_PI + TWO_PI) % TWO_PI - Math.PI;
+    return a + delta * t;
+  };
+
+  return (k: number) => {
+    if (matchOf[k] !== -1) return small[matchOf[k]];
+    let prevK = -1;
+    for (let step = 1; step <= M; step += 1) {
+      const idx = (k - step + M) % M;
+      if (matchOf[idx] !== -1) { prevK = idx; break; }
+    }
+    let nextK = -1;
+    for (let step = 1; step <= M; step += 1) {
+      const idx = (k + step) % M;
+      if (matchOf[idx] !== -1) { nextK = idx; break; }
+    }
+    if (prevK === -1 || nextK === -1 || prevK === nextK) return small[matchOf[prevK !== -1 ? prevK : nextK]];
+    const largeSpan = ((large[nextK] - large[prevK]) % TWO_PI + TWO_PI) % TWO_PI || TWO_PI;
+    const largeOffset = ((large[k] - large[prevK]) % TWO_PI + TWO_PI) % TWO_PI;
+    const t = largeOffset / largeSpan;
+    return circularLerp(small[matchOf[prevK]], small[matchOf[nextK]], t);
+  };
+}
+
+function normalizeCorners(corners: number[]): number[] {
+  const TWO_PI = 2 * Math.PI;
+  const sorted = corners.map((c) => ((c % TWO_PI) + TWO_PI) % TWO_PI).sort((a, b) => a - b);
+  const eps = 1e-6;
+  const out: number[] = [];
+  for (const a of sorted) {
+    if (!out.length || Math.abs(a - out[out.length - 1]) > eps) out.push(a);
+  }
+  if (out.length >= 2 && Math.abs(out[0] + TWO_PI - out[out.length - 1]) < eps) out.pop();
+  return out;
+}
+
+// Merges both ends' corners into matched anchors (see bestMatching above), then spreads the
+// remaining segments across the arcs between them (largest-remainder rounding) so every corner
+// lands on a ring vertex. Each anchor -- and each interpolated in-between angle -- carries an
+// independent aBottom/aTop pair, so ringAt below samples each end's own shape function at its own
+// matched angle rather than a single shared lab-frame angle.
+function buildAngles(bottomCorners: number[], topCorners: number[], segments: number): LoftAngleAnchor[] {
+  const TWO_PI = 2 * Math.PI;
+  const bc = normalizeCorners(bottomCorners);
+  const tc = normalizeCorners(topCorners);
+  const anchors = bestMatching(bc, tc);
 
   if (!anchors.length) {
     const n = Math.max(3, Math.round(segments));
-    const angles: number[] = [];
-    for (let i = 0; i < n; i += 1) angles.push((TWO_PI * i) / n);
+    const angles: LoftAngleAnchor[] = [];
+    for (let i = 0; i < n; i += 1) {
+      const a = (TWO_PI * i) / n;
+      angles.push({ aBottom: a, aTop: a, aKey: a });
+    }
     return angles;
   }
 
@@ -149,8 +282,8 @@ function buildAngles(bottomCorners: number[], topCorners: number[], segments: nu
   const arcs: number[] = [];
   let arcSum = 0;
   for (let i = 0; i < m; i += 1) {
-    const lo = anchors[i];
-    const hi = i === m - 1 ? anchors[0] + TWO_PI : anchors[i + 1];
+    const lo = anchors[i].aKey;
+    const hi = i === m - 1 ? anchors[0].aKey + TWO_PI : anchors[i + 1].aKey;
     arcs.push(hi - lo);
     arcSum += hi - lo;
   }
@@ -167,12 +300,30 @@ function buildAngles(bottomCorners: number[], topCorners: number[], segments: nu
   const order = Array.from({ length: m }, (_, i) => i).sort((a, b) => frac[b] - frac[a]);
   for (let i = 0; i < fill - used; i += 1) base[order[i]] += 1;
 
-  const angles: number[] = [];
+  // aKey (whichever of aBottom/aTop is the pre-sorted "large" side) only ever wraps at the
+  // m-1 -> 0 seam, by construction. The *other* stream is an independently-matched sequence and
+  // can have its own forward wrap anywhere in 0..m-1 -- e.g. the corner nearest the seam may
+  // match its best partner just on the far side of 2pi. Advancing each stream by its own forward
+  // (always-increasing) angular delta, per segment, keeps both streams monotonic regardless of
+  // where each one's wrap actually falls, instead of assuming they share the aKey seam.
+  const forwardDelta = (from: number, to: number) => (((to - from) % TWO_PI) + TWO_PI) % TWO_PI;
+
+  const angles: LoftAngleAnchor[] = [];
   for (let i = 0; i < m; i += 1) {
-    const lo = anchors[i];
-    const hi = i === m - 1 ? anchors[0] + TWO_PI : anchors[i + 1];
-    angles.push(lo);
-    for (let k = 1; k <= base[i]; k += 1) angles.push(lo + ((hi - lo) * k) / (base[i] + 1));
+    const current = anchors[i];
+    const next = anchors[(i + 1) % m];
+    const loB = current.aBottom;
+    const hiB = loB + forwardDelta(loB, next.aBottom);
+    const loT = current.aTop;
+    const hiT = loT + forwardDelta(loT, next.aTop);
+    angles.push({ aBottom: loB, aTop: loT, aKey: current.aKey });
+    for (let k = 1; k <= base[i]; k += 1) {
+      angles.push({
+        aBottom: loB + ((hiB - loB) * k) / (base[i] + 1),
+        aTop: loT + ((hiT - loT) * k) / (base[i] + 1),
+        aKey: current.aKey,
+      });
+    }
   }
   return angles;
 }
@@ -236,8 +387,8 @@ export function createLoftGeometry({
     const y = safeHeight * u;
     const ring: number[] = [];
     for (const angle of angles) {
-      const [bx, bz] = shapePoint(bottomShape, angle, bX, bY, bottomRotation);
-      const [tx, tz] = shapePoint(topShape, angle, tX, tY, topRotation);
+      const [bx, bz] = shapePoint(bottomShape, angle.aBottom, bX, bY, bottomRotation);
+      const [tx, tz] = shapePoint(topShape, angle.aTop, tX, tY, topRotation);
       ring.push(push(bx * (1 - blend) + tx * blend, y, bz * (1 - blend) + tz * blend));
     }
     return ring;
