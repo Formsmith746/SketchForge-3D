@@ -29,6 +29,7 @@ import type { ChallengeTutorialId } from "@/lib/challenges";
 import { cadModifierPrimitiveForBakedShape, cadTransformFromMatrix, cadTransformToMatrix } from "@/lib/cadBakeMetadata";
 import { createGearGeometry } from "@/lib/gearGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
+import type { ModelSplitPlane } from "@/lib/modelSplit";
 import { createMoveDimensionOverlay, type MoveDimensionAxis, type MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
 import {
   horizontalPlacementWorkplane,
@@ -181,6 +182,8 @@ type WorkplaneViewportProps = {
   alignReferenceShapes: WorkplaneShape[];
   mirrorMode: boolean;
   mirrorReferenceShapes: WorkplaneShape[];
+  splitActive: boolean;
+  splitPlane: ModelSplitPlane | null;
   placementWorkplane: PlacementWorkplane;
   workplaneMode: boolean;
   theme?: AppTheme;
@@ -266,6 +269,7 @@ type ThreeState = {
   workplanePreviewLayer: THREE.Group;
   shapeLayer: THREE.Group;
   helperLayer: THREE.Group;
+  splitLayer: THREE.Group;
   moveDimensionLayer: THREE.Group;
   modifierLayer: THREE.Group;
   shapeRecords: Map<string, ShapeRenderRecord>;
@@ -2212,6 +2216,8 @@ export function WorkplaneViewport({
   alignReferenceShapes,
   mirrorMode,
   mirrorReferenceShapes,
+  splitActive,
+  splitPlane,
   placementWorkplane,
   workplaneMode,
   theme = defaultThemes.light,
@@ -2320,6 +2326,8 @@ export function WorkplaneViewport({
   const alignAnchorIdRef = useRef(alignAnchorId);
   const alignHandlesRef = useRef(alignHandles);
   const mirrorModeRef = useRef(mirrorMode);
+  const splitActiveRef = useRef(splitActive);
+  const splitPlaneRef = useRef(splitPlane);
   const modifierActiveRef = useRef(modifierActive);
   const modifierPreviewActiveRef = useRef(modifierPreviewActive);
   const modifierEdgesRef = useRef(modifierEdges);
@@ -2329,6 +2337,8 @@ export function WorkplaneViewport({
   const workplaneModeRef = useRef(workplaneMode);
   placementWorkplaneRef.current = placementWorkplane;
   workplaneModeRef.current = workplaneMode;
+  splitActiveRef.current = splitActive;
+  splitPlaneRef.current = splitPlane;
   const perfRef = useRef({
     fps: 0,
     frameMs: 0,
@@ -2340,7 +2350,7 @@ export function WorkplaneViewport({
   const selectedShape = useMemo(() => (interactiveSelectedIds.length === 1 ? shapes.find((shape) => shape.id === interactiveSelectedIds[0]) ?? null : null), [interactiveSelectedIds, shapes]);
   const renderSelectionIds = useCallback(
     (ids = selectedIdsRef.current) => (
-      workplaneModeRef.current || (modifierActiveRef.current && !modifierPreviewActiveRef.current) ? [] : ids
+      workplaneModeRef.current || splitActiveRef.current || (modifierActiveRef.current && !modifierPreviewActiveRef.current) ? [] : ids
     ),
     [],
   );
@@ -2690,6 +2700,43 @@ export function WorkplaneViewport({
     }
   }, [mirrorMode]);
 
+  useLayoutEffect(() => {
+    const state = threeRef.current;
+    rebuildShapes(
+      state,
+      shapesRef.current,
+      renderSelectionIds(),
+      shouldBuildCutPreviews(transformRef.current, dragRef.current),
+      modifierActiveRef.current,
+      placementWorkplaneRef.current,
+    );
+    setSelectionHelpersVisible(state, !splitActive && !workplaneModeRef.current && transformRef.current?.kind !== "rotate");
+    if (splitActive) {
+      clearMoveDimensions();
+      rulerModeRef.current = false;
+      rulerDeleteModeRef.current = false;
+      rulerMoveModeRef.current = false;
+      rulerPointDragRef.current = null;
+      setRulerMode(false);
+      setRulerDeleteMode(false);
+      setRulerMoveMode(false);
+      setRulerToolsOpen(false);
+      setMarqueeRect(null);
+      setHoverMeasureKey(null);
+      setPinnedMeasureKey(null);
+      setEditingDimension(null);
+      setEditingRotation(null);
+      setRotationReadout(null);
+      setActiveRotationWheel(false);
+      setActiveTransformKind(null);
+    }
+    if (state) state.needsRender = true;
+  }, [clearMoveDimensions, renderSelectionIds, splitActive]);
+
+  useEffect(() => {
+    syncSplitPlane(threeRef.current, splitPlane);
+  }, [splitPlane]);
+
   useEffect(() => {
     snapRef.current = snap;
   }, [snap]);
@@ -2826,6 +2873,7 @@ export function WorkplaneViewport({
     perfRef.current.lastSample = performance.now();
     resetCamera(state);
     rebuildShapes(state, shapesRef.current, renderSelectionIds(), true, false, placementWorkplaneRef.current);
+    syncSplitPlane(state, splitPlaneRef.current);
 
     const animate = () => {
       state.animationId = window.requestAnimationFrame(animate);
@@ -2903,6 +2951,7 @@ export function WorkplaneViewport({
       disposeChildren(state.shapeLayer);
       state.shapeRecords.clear();
       disposeChildren(state.helperLayer);
+      disposeChildren(state.splitLayer);
       disposeChildren(state.moveDimensionLayer);
       disposeChildren(state.modifierLayer);
       state.renderer.dispose();
@@ -3996,6 +4045,7 @@ export function WorkplaneViewport({
       if (event.button !== 0 || event.ctrlKey || event.metaKey) {
         return;
       }
+      if (splitActiveRef.current) return;
       clearMoveDimensions();
       const rect = state.renderer.domElement.getBoundingClientRect();
 
@@ -4553,7 +4603,7 @@ export function WorkplaneViewport({
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      if (rulerMoveModeRef.current) return;
+      if (splitActiveRef.current || rulerMoveModeRef.current) return;
       const raw = event.dataTransfer.getData("application/x-sketchforge-shape");
       if (!raw) {
         return;
@@ -4614,6 +4664,7 @@ export function WorkplaneViewport({
   }, []);
 
   const togglePlacementWorkplane = useCallback(() => {
+    if (splitActiveRef.current) return;
     setRulerToolsOpen(false);
     setRulerActive(false);
     rulerDeleteModeRef.current = false;
@@ -4644,6 +4695,7 @@ export function WorkplaneViewport({
   }, [onSetPlacementWorkplane, onWorkplaneModeChange]);
 
   const toggleRulerTools = useCallback(() => {
+    if (splitActiveRef.current) return;
     const next = !rulerToolsOpen;
     setRulerToolsOpen(next);
     setRulerActive(false);
@@ -4657,6 +4709,7 @@ export function WorkplaneViewport({
   }, [onWorkplaneModeChange, rulerToolsOpen, setRulerActive]);
 
   const activateRulerAdd = useCallback(() => {
+    if (splitActiveRef.current) return;
     rulerDeleteModeRef.current = false;
     setRulerDeleteMode(false);
     rulerMoveModeRef.current = false;
@@ -4666,6 +4719,7 @@ export function WorkplaneViewport({
   }, [onWorkplaneModeChange, setRulerActive]);
 
   const activateRulerDelete = useCallback(() => {
+    if (splitActiveRef.current) return;
     setRulerActive(false);
     rulerMoveModeRef.current = false;
     setRulerMoveMode(false);
@@ -4675,6 +4729,7 @@ export function WorkplaneViewport({
   }, [onWorkplaneModeChange, setRulerActive]);
 
   const activateRulerMove = useCallback(() => {
+    if (splitActiveRef.current) return;
     setRulerActive(false);
     rulerDeleteModeRef.current = false;
     setRulerDeleteMode(false);
@@ -4804,6 +4859,7 @@ export function WorkplaneViewport({
       if (isTypingTarget(event.target)) {
         return;
       }
+      if (splitActiveRef.current) return;
 
       const key = event.key.toLowerCase();
       if (event.key === "Escape" && workplaneModeRef.current) {
@@ -4880,6 +4936,7 @@ export function WorkplaneViewport({
                 aria-label="Place workplane"
                 title="Place workplane (W)"
                 aria-pressed={workplaneMode}
+                disabled={splitActive}
                 onClick={togglePlacementWorkplane}
               >
                 <PanelsTopLeft size={25} strokeWidth={2.1} aria-hidden="true" />
@@ -4892,6 +4949,7 @@ export function WorkplaneViewport({
                 title="Ruler tools"
                 aria-expanded={rulerToolsOpen}
                 aria-controls="ruler-tool-popover"
+                disabled={splitActive}
                 onClick={toggleRulerTools}
               >
                 <Ruler size={26} strokeWidth={2.2} aria-hidden="true" />
@@ -4914,7 +4972,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${workplaneMode ? "placing-workplane" : ""} ${rulerMode ? "ruler-mode" : ""} ${rulerDeleteMode ? "ruler-delete-mode" : ""} ${rulerMoveMode ? "ruler-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label="Workplane">
+      <section className={`workplane-wrap ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${rulerMode ? "ruler-mode" : ""} ${rulerDeleteMode ? "ruler-delete-mode" : ""} ${rulerMoveMode ? "ruler-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label="Workplane">
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -4937,15 +4995,15 @@ export function WorkplaneViewport({
               <button type="button" onClick={() => setRendererRetry((value) => value + 1)}>Retry WebGL</button>
             </div>
           ) : null}
-          {!workplaneMode && marqueeRect ? <div className="selection-marquee" style={marqueeRect} /> : null}
-          {!workplaneMode && moveDimensionsEnabled && moveDimensionOverlay ? (
+          {!workplaneMode && !splitActive && marqueeRect ? <div className="selection-marquee" style={marqueeRect} /> : null}
+          {!workplaneMode && !splitActive && moveDimensionsEnabled && moveDimensionOverlay ? (
             <MoveDimensionOverlay
               overlay={moveDimensionOverlay}
               active={moveDimensionOverlay.active}
               onCommit={commitMoveDimension}
             />
           ) : null}
-          {!workplaneMode && transformOverlay && !alignMode && !mirrorMode && !rulerMode && !rulerDeleteMode && !rulerMoveMode && !modifierActive ? (
+          {!workplaneMode && !splitActive && transformOverlay && !alignMode && !mirrorMode && !rulerMode && !rulerDeleteMode && !rulerMoveMode && !modifierActive ? (
             <TransformOverlay
               box={transformOverlay}
               measureKey={pinnedMeasureKey ?? hoverMeasureKey}
@@ -4975,9 +5033,9 @@ export function WorkplaneViewport({
               onCancelRotationEdit={cancelRotationEdit}
             />
           ) : null}
-          {!workplaneMode && alignOverlay ? <AlignOverlay overlay={alignOverlay} onAlign={onAlignSelection} onPreview={onAlignPreview} onPreviewClear={onAlignPreviewClear} /> : null}
-          {!workplaneMode && mirrorOverlay ? <MirrorOverlay overlay={mirrorOverlay} onMirror={onMirrorSelection} onPreview={onMirrorPreview} onPreviewClear={onMirrorPreviewClear} /> : null}
-          {!workplaneMode && rulerOverlay && (rulerOverlay.points.length > 0 || rulerOverlay.hover) ? (
+          {!workplaneMode && !splitActive && alignOverlay ? <AlignOverlay overlay={alignOverlay} onAlign={onAlignSelection} onPreview={onAlignPreview} onPreviewClear={onAlignPreviewClear} /> : null}
+          {!workplaneMode && !splitActive && mirrorOverlay ? <MirrorOverlay overlay={mirrorOverlay} onMirror={onMirrorSelection} onPreview={onMirrorPreview} onPreviewClear={onMirrorPreviewClear} /> : null}
+          {!workplaneMode && !splitActive && rulerOverlay && (rulerOverlay.points.length > 0 || rulerOverlay.hover) ? (
             <RulerOverlay
               overlay={rulerOverlay}
               startPointId={rulerModel.startPointId}
@@ -4993,7 +5051,7 @@ export function WorkplaneViewport({
         </div>
       </section>
 
-      {selectedShape && !modifierActive && !rulerMode && !rulerDeleteMode && !rulerMoveMode ? (
+      {selectedShape && !splitActive && !modifierActive && !rulerMode && !rulerDeleteMode && !rulerMoveMode ? (
         <ShapeInspector
           shape={selectedShape}
           snap={snap}
@@ -5122,13 +5180,16 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
   const helperLayer = new THREE.Group();
   helperLayer.name = "SelectionHelpers";
   helperLayer.layers.set(RENDER_LAYER_HELPERS);
+  const splitLayer = new THREE.Group();
+  splitLayer.name = "SplitPlane";
+  splitLayer.layers.set(RENDER_LAYER_PREVIEWS);
   const moveDimensionLayer = new THREE.Group();
   moveDimensionLayer.name = "MoveDimensions";
   moveDimensionLayer.layers.set(RENDER_LAYER_HELPERS);
   const modifierLayer = new THREE.Group();
   modifierLayer.name = "EdgeModifier";
   modifierLayer.layers.set(RENDER_LAYER_MODIFIERS);
-  scene.add(workplaneLayer, workplanePreviewLayer, shapeLayer, helperLayer, moveDimensionLayer, modifierLayer);
+  scene.add(workplaneLayer, workplanePreviewLayer, shapeLayer, helperLayer, splitLayer, moveDimensionLayer, modifierLayer);
 
   const raycaster = new THREE.Raycaster();
   raycaster.params.Line = { threshold: 1.15 };
@@ -5162,6 +5223,7 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
     workplanePreviewLayer,
     shapeLayer,
     helperLayer,
+    splitLayer,
     moveDimensionLayer,
     modifierLayer,
     shapeRecords: new Map<string, ShapeRenderRecord>(),
@@ -5212,6 +5274,75 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
   };
   rebuildWorkplane(state, DEFAULT_WORKSPACE);
   return state;
+}
+
+function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null) {
+  if (!state) return;
+  disposeChildren(state.splitLayer);
+  if (!plane) {
+    state.splitLayer.visible = false;
+    state.needsRender = true;
+    return;
+  }
+
+  const size = Math.max(10, plane.size);
+  const root = new THREE.Group();
+  root.position.set(...plane.origin);
+  root.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...plane.normal).normalize());
+
+  const surface = new THREE.Mesh(
+    new THREE.PlaneGeometry(size, size),
+    new THREE.MeshBasicMaterial({
+      color: "#13a8d6",
+      transparent: true,
+      opacity: 0.24,
+      side: THREE.DoubleSide,
+      depthTest: false,
+      depthWrite: false,
+    }),
+  );
+  surface.renderOrder = 900;
+  root.add(surface);
+
+  const border = new THREE.LineSegments(
+    new THREE.EdgesGeometry(surface.geometry),
+    new THREE.LineBasicMaterial({ color: "#047ea9", transparent: true, opacity: 0.95, depthTest: false }),
+  );
+  border.renderOrder = 901;
+  root.add(border);
+
+  const crossGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-size / 2, 0, 0), new THREE.Vector3(size / 2, 0, 0),
+    new THREE.Vector3(0, -size / 2, 0), new THREE.Vector3(0, size / 2, 0),
+  ]);
+  const cross = new THREE.LineSegments(
+    crossGeometry,
+    new THREE.LineBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.8, depthTest: false }),
+  );
+  cross.renderOrder = 902;
+  root.add(cross);
+
+  const normalLength = Math.max(8, size * 0.18);
+  const normalGuide = new THREE.ArrowHelper(
+    new THREE.Vector3(0, 0, 1),
+    new THREE.Vector3(0, 0, -normalLength / 2),
+    normalLength,
+    0x047ea9,
+    Math.max(2.5, normalLength * 0.18),
+    Math.max(1.5, normalLength * 0.1),
+  );
+  [normalGuide.line.material, normalGuide.cone.material].forEach((material) => {
+    (Array.isArray(material) ? material : [material]).forEach((entry) => {
+      entry.depthTest = false;
+    });
+  });
+  normalGuide.renderOrder = 903;
+  root.add(normalGuide);
+
+  root.traverse((child) => child.layers.set(RENDER_LAYER_PREVIEWS));
+  state.splitLayer.add(root);
+  state.splitLayer.visible = true;
+  state.needsRender = true;
 }
 
 function resetCamera(state: ThreeState) {

@@ -148,6 +148,17 @@ export function ToolbarMirrorIcon() {
   return <ToolbarCommandImage file="toolbar-mirror.png" className="toolbar-user-art-icon" />;
 }
 
+export function ToolbarSplitIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true" {...props}>
+      <path d="m11 17 13-7 13 7-13 7-13-7Z" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinejoin="round" />
+      <path d="m11 31 13 7 13-7" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinejoin="round" />
+      <path d="M8 24h32" fill="none" stroke="currentColor" strokeWidth="2.7" strokeDasharray="4 3" strokeLinecap="round" />
+      <path d="m11 17v4m26-4v4M11 27v4m26-4v4" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function ToolbarChamferIcon() {
   return <ToolbarCommandImage file="toolbar-chamfer.png" className="toolbar-user-art-icon" />;
 }

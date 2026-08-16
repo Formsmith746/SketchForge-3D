@@ -42,6 +42,7 @@ import {
   ToolbarSnapGridIcon,
   ToolbarSettingsIcon,
   ToolbarShapeAddIcon,
+  ToolbarSplitIcon,
   ToolbarTrashIcon,
   ToolbarUngroupIcon,
   ToolbarUndoIcon,
@@ -51,6 +52,7 @@ import {
 import { WorkplaneViewport } from "./WorkplaneViewport";
 import { SketchWorkspace, type SketchCircleDraft, type SketchMeasurement, type SketchPolygonDraft, type SketchRectDraft, type SketchSelection, type SketchTextDraft, type SketchTool } from "./SketchWorkspace";
 import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
+import { SplitPanel } from "./workplane/SplitPanel";
 import { isHexColor, UI_LABELS, VP_LABELS } from "./workplane/WorkspaceSettingsModal";
 import {
   canonicalizeShape,
@@ -86,6 +88,7 @@ import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatment
 import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { createLocalId } from "@/lib/localIds";
+import { modelSplitPlane, splitPlaneIntersectsPoints, splitShapeFromWorldPositions, type ModelSplitPlane } from "@/lib/modelSplit";
 import { circleFromPoints, circleSketchGeometry } from "@/lib/sketchCircles";
 import { moveConstrainedSketchPoint, pruneSketchParameters, setSketchPointFixed, setSketchSegmentConstraint, setSketchSegmentLength, solveSketchProfile } from "@/lib/sketchConstraints";
 import { rectFromPoints, rectangleSketchGeometry } from "@/lib/sketchRectangles";
@@ -186,6 +189,16 @@ type EdgeModifierSession = {
   error: string | null;
   preview: WorkplaneShape | null;
   componentPreviews: EdgeModifierComponentPreview[];
+};
+type SplitSession = {
+  targetIds: string[];
+  axis: AlignAxis;
+  rotation: number;
+  position: number;
+  pivot: [number, number, number];
+  sourceFingerprint: string;
+  busy: boolean;
+  error: string | null;
 };
 
 type EdgeModifierComponentPreview = {
@@ -4584,6 +4597,158 @@ function manifoldMeshToPositions(mesh: InstanceType<ManifoldToplevel["Mesh"]>) {
   return positions;
 }
 
+type SplitMeshLeaf = { box: THREE.Box3; matrix: THREE.Matrix4 };
+type SplitMeshSnapshot = { mesh: MeshData; leaves: SplitMeshLeaf[] };
+
+function localMeshForSplitShape(shape: WorkplaneShape): MeshData {
+  if (shape.importedMesh) {
+    const positions = resizedImportedMeshPositions(shape);
+    let minY = Number.POSITIVE_INFINITY;
+    for (let index = 1; index < positions.length; index += 3) minY = Math.min(minY, positions[index]);
+    const baseY = Number.isFinite(minY) ? minY : 0;
+    const vertices: Vec3[] = [];
+    const faces: [number, number, number][] = [];
+    for (let index = 0; index < positions.length; index += 3) {
+      vertices.push([positions[index], positions[index + 1] - baseY, positions[index + 2]]);
+    }
+    for (let index = 0; index + 2 < vertices.length; index += 3) {
+      faces.push([index, index + 1, index + 2]);
+    }
+    return { name: sanitizeName(shape.name), vertices, faces };
+  }
+
+  return geometryMeshForShape(shape)
+    ?? (shape.kind === "cylinder" || shape.kind === "tube" || shape.kind === "ring" || shape.kind === "torus"
+      ? cylinderMesh(shape, shape.sides ?? 96)
+      : shape.kind === "cone"
+        ? cylinderMesh(shape, shape.sides ?? 96, shape.baseRadius ? (shape.topRadius ?? 0) / shape.baseRadius : 0)
+        : shape.kind === "sphere" || shape.kind === "halfSphere"
+          ? sphereMesh(shape)
+          : shape.kind === "pyramid"
+            ? cylinderMesh(shape, shape.sides ?? 4, 0)
+            : boxMesh(shape));
+}
+
+function splitShapeOuterMatrix(shape: WorkplaneShape) {
+  return new THREE.Matrix4().compose(
+    new THREE.Vector3(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(
+      THREE.MathUtils.degToRad(shape.rotationX ?? 0),
+      THREE.MathUtils.degToRad(shape.rotation),
+      THREE.MathUtils.degToRad(shape.rotationZ ?? 0),
+      "XYZ",
+    )),
+    new THREE.Vector3(mirrorSign(shape.mirrorX), mirrorSign(shape.mirrorY), mirrorSign(shape.mirrorZ)),
+  );
+}
+
+function transformedSplitMesh(mesh: MeshData, matrix: THREE.Matrix4, reverseWinding: boolean): MeshData {
+  return {
+    ...mesh,
+    vertices: mesh.vertices.map(([x, y, z]) => {
+      const point = new THREE.Vector3(x, y, z).applyMatrix4(matrix);
+      return [point.x, point.y, point.z] as Vec3;
+    }),
+    faces: reverseWinding
+      ? mesh.faces.map(([a, b, c]) => [a, c, b] as [number, number, number])
+      : mesh.faces,
+  };
+}
+
+function splitMeshSnapshot(shape: WorkplaneShape): SplitMeshSnapshot {
+  if (shape.groupedShapes?.length && !shape.importedMesh) {
+    const children = shape.groupedShapes.filter((child) => !child.hidden).map(splitMeshSnapshot);
+    const content: MeshData = { name: sanitizeName(shape.name), vertices: [], faces: [] };
+    children.forEach((child) => appendMeshData(content.vertices, content.faces, child.mesh));
+    const contentBounds = new THREE.Box3();
+    children.forEach((child) => child.leaves.forEach((leaf) => {
+      contentBounds.union(leaf.box.clone().applyMatrix4(leaf.matrix));
+    }));
+    if (content.vertices.length === 0 || contentBounds.isEmpty()) return { mesh: content, leaves: [] };
+
+    const contentSize = contentBounds.getSize(new THREE.Vector3());
+    const contentMatrix = new THREE.Matrix4()
+      .makeTranslation(0, -shape.height / 2, 0)
+      .multiply(new THREE.Matrix4().makeScale(
+        shapeWidth(shape) / Math.max(0.001, contentSize.x),
+        shape.height / Math.max(0.001, contentSize.y),
+        shapeDepth(shape) / Math.max(0.001, contentSize.z),
+      ));
+    const matrix = splitShapeOuterMatrix(shape).multiply(contentMatrix);
+    return {
+      mesh: transformedSplitMesh(content, matrix, mirroredAxisCount(shape) % 2 === 1),
+      leaves: children.flatMap((child) => child.leaves.map((leaf) => ({
+        box: leaf.box,
+        matrix: matrix.clone().multiply(leaf.matrix),
+      }))),
+    };
+  }
+
+  const localMesh = localMeshForSplitShape(shape);
+  const localBox = new THREE.Box3().setFromPoints(localMesh.vertices.map(([x, y, z]) => new THREE.Vector3(x, y, z)));
+  const matrix = splitShapeOuterMatrix(shape).multiply(new THREE.Matrix4().makeTranslation(0, -shape.height / 2, 0));
+  return {
+    mesh: transformedSplitMesh(localMesh, matrix, mirroredAxisCount(shape) % 2 === 1),
+    leaves: localBox.isEmpty() ? [] : [{ box: localBox, matrix }],
+  };
+}
+
+function meshForSplitShape(shape: WorkplaneShape) {
+  return splitMeshSnapshot(shape).mesh;
+}
+
+async function splitShapeByPlane(shape: WorkplaneShape, plane: Pick<ModelSplitPlane, "axis" | "normal" | "position">) {
+  const created: ManifoldSolid[] = [];
+  try {
+    const runtime = await getManifoldRuntime();
+    const sourceMesh = meshDataToManifoldMesh(runtime, meshForSplitShape(shape));
+    let solid: ManifoldSolid;
+    try {
+      solid = runtime.Manifold.ofMesh(sourceMesh);
+    } finally {
+      disposeManifold(sourceMesh);
+    }
+    if (!solid || solid.status() !== "NoError" || solid.numTri() < 1) return null;
+    created.push(solid);
+    const [positive, negative] = solid.splitByPlane(plane.normal, plane.position);
+    created.push(positive, negative);
+    if (
+      positive.status() !== "NoError" || negative.status() !== "NoError"
+      || positive.numTri() < 1 || negative.numTri() < 1
+    ) {
+      return null;
+    }
+
+    const positiveMesh = positive.getMesh();
+    const negativeMesh = negative.getMesh();
+    try {
+      const label = plane.axis.toUpperCase();
+      const positiveShape = splitShapeFromWorldPositions(
+        shape,
+        manifoldMeshToPositions(positiveMesh),
+        createLocalId(`${shape.id}-split-positive`),
+        `${shape.name} (${label}+)`,
+      );
+      const negativeShape = splitShapeFromWorldPositions(
+        shape,
+        manifoldMeshToPositions(negativeMesh),
+        createLocalId(`${shape.id}-split-negative`),
+        `${shape.name} (${label}-)`,
+      );
+      return positiveShape && negativeShape
+        ? [canonicalizeShape(positiveShape), canonicalizeShape(negativeShape)] as [WorkplaneShape, WorkplaneShape]
+        : null;
+    } finally {
+      disposeManifold(positiveMesh);
+      disposeManifold(negativeMesh);
+    }
+  } catch {
+    return null;
+  } finally {
+    Array.from(new Set(created)).forEach(disposeManifold);
+  }
+}
+
 function positionsInteriorTriangleCount(positions: number[], cutters: WorkplaneShape[], strictInterior = false) {
   let count = 0;
   for (let i = 0; i + 8 < positions.length; i += 9) {
@@ -5825,12 +5990,16 @@ export function SketchForgeEditor({
   const [alignPreview, setAlignPreview] = useState<{ axis: AlignAxis; target: AlignTarget } | null>(null);
   const [mirrorMode, setMirrorMode] = useState(false);
   const [mirrorPreviewAxis, setMirrorPreviewAxis] = useState<AlignAxis | null>(null);
+  const [splitSession, setSplitSession] = useState<SplitSession | null>(null);
   const [activeMode, setActiveMode] = useState("3D Design");
   const [notice, setNotice] = useState("Ready");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const projectFileInputRef = useRef<HTMLInputElement | null>(null);
   const sketchImageInputRef = useRef<HTMLInputElement | null>(null);
   const booleanAutomationRunRef = useRef<string | null>(null);
+  const splitRunRef = useRef(0);
+  const splitProjectIdRef = useRef(projectId ?? null);
+  splitProjectIdRef.current = projectId ?? null;
   const projectHydratingRef = useRef(false);
 
   const activeTheme = useMemo(() => {
@@ -6284,6 +6453,20 @@ export function SketchForgeEditor({
   const selectedShapes = useMemo(() => shapes.filter((shape) => selectedIds.includes(shape.id)), [selectedIds, shapes]);
   const selectedShape = selectedShapes.at(-1) ?? null;
   const hasSelection = selectedShapes.length > 0;
+  const canSplitSelection = useMemo(
+    () => selectedShapes.length > 0 && selectedShapes.every((shape) => !shape.locked && !shape.hole && !shape.hidden && shape.kind !== "constructionPlane"),
+    [selectedShapes],
+  );
+  const splitTargetKey = splitSession?.targetIds.join("\0") ?? "";
+  const splitTargetShapes = useMemo(
+    () => splitSession ? shapes.filter((shape) => splitSession.targetIds.includes(shape.id)) : [],
+    [shapes, splitTargetKey],
+  );
+  const splitTargetPoints = useMemo(() => splitTargetShapes.flatMap((shape) => meshForSplitShape(shape).vertices), [splitTargetShapes]);
+  const splitPlane = useMemo(
+    () => splitSession ? modelSplitPlane(splitTargetPoints, splitSession.axis, splitSession.position, splitSession.rotation) : null,
+    [splitSession?.axis, splitSession?.position, splitSession?.rotation, splitTargetPoints],
+  );
   const constructionPlanes = useMemo(() => shapes.filter((shape) => shape.kind === "constructionPlane" && shape.constructionPlane), [shapes]);
   const activeConstructionPlane = useMemo(
     () => constructionPlanes.find((plane) => plane.id === activeConstructionPlaneId) ?? null,
@@ -6429,6 +6612,18 @@ export function SketchForgeEditor({
       setMirrorPreviewAxis(null);
     }
   }, [alignAnchorId, selectedIds, selectedShapes.length]);
+
+  useEffect(() => {
+    if (!splitSession) return;
+    const sameTargets = splitSession.targetIds.length === selectedIds.length
+      && splitSession.targetIds.every((id) => selectedIds.includes(id))
+      && splitTargetShapes.length === splitSession.targetIds.length;
+    const sceneUnchanged = projectShapesFingerprint(shapes) === splitSession.sourceFingerprint;
+    if (sameTargets && sceneUnchanged) return;
+    splitRunRef.current += 1;
+    setSplitSession(null);
+    setNotice("Split cancelled because the selection or model changed");
+  }, [selectedIds, shapes, splitSession, splitTargetShapes.length]);
 
   const syncProjectShapes = useCallback(
     (nextShapes: WorkplaneShape[], force = false) => {
@@ -8173,6 +8368,175 @@ export function SketchForgeEditor({
     setMirrorPreviewAxis(null);
   }, []);
 
+  const cancelSplit = useCallback(() => {
+    splitRunRef.current += 1;
+    setSplitSession(null);
+    setNotice("Split cancelled");
+  }, []);
+
+  const toggleSplitMode = useCallback(() => {
+    if (splitSession) {
+      cancelSplit();
+      return;
+    }
+    if (!canSplitSelection) {
+      setNotice("Select one or more visible, unlocked solid objects to split");
+      return;
+    }
+    const targetPoints = selectedShapes.flatMap((shape) => meshForSplitShape(shape).vertices);
+    const plane = modelSplitPlane(targetPoints, "y");
+    if (!plane) {
+      setNotice("The selection has no printable geometry to split");
+      return;
+    }
+    invalidateCadModifierSession();
+    splitRunRef.current += 1;
+    setAlignMode(false);
+    setAlignAnchorId(null);
+    setAlignPreview(null);
+    setMirrorMode(false);
+    setMirrorPreviewAxis(null);
+    setWorkplaneMode(false);
+    setConstructionPlanePanelOpen(false);
+    setSplitSession({
+      targetIds: selectedShapes.map((shape) => shape.id),
+      axis: plane.axis,
+      rotation: 0,
+      position: plane.position,
+      pivot: plane.origin,
+      sourceFingerprint: projectShapesFingerprint(shapesRef.current),
+      busy: false,
+      error: null,
+    });
+    setNotice("Split: position the plane, then apply");
+  }, [cancelSplit, canSplitSelection, invalidateCadModifierSession, selectedShapes, splitSession]);
+
+  const changeSplitAxis = useCallback((axis: AlignAxis) => {
+    const plane = modelSplitPlane(splitTargetPoints, axis);
+    if (!plane) return;
+    setSplitSession((current) => current && !current.busy ? {
+      ...current,
+      axis,
+      rotation: 0,
+      position: plane.position,
+      pivot: plane.origin,
+      error: null,
+    } : current);
+  }, [splitTargetPoints]);
+
+  const changeSplitPosition = useCallback((position: number) => {
+    setSplitSession((current) => {
+      if (!current || current.busy) return current;
+      const plane = modelSplitPlane(splitTargetPoints, current.axis, position, current.rotation);
+      return plane ? { ...current, position: plane.position, pivot: plane.origin, error: null } : current;
+    });
+  }, [splitTargetPoints]);
+
+  const changeSplitRotation = useCallback((rotation: number) => {
+    const nextRotation = Math.max(-180, Math.min(180, rotation));
+    setSplitSession((current) => {
+      if (!current || current.busy) return current;
+      const centeredPlane = modelSplitPlane(splitTargetPoints, current.axis, undefined, nextRotation);
+      if (!centeredPlane) return current;
+      const position = centeredPlane.normal[0] * current.pivot[0]
+        + centeredPlane.normal[1] * current.pivot[1]
+        + centeredPlane.normal[2] * current.pivot[2];
+      const plane = modelSplitPlane(splitTargetPoints, current.axis, position, nextRotation);
+      return plane ? { ...current, rotation: nextRotation, position: plane.position, error: null } : current;
+    });
+  }, [splitTargetPoints]);
+
+  const applySplit = useCallback(async () => {
+    const session = splitSession;
+    const plane = splitPlane;
+    if (!session || !plane || session.busy) return;
+    const sourceProjectId = splitProjectIdRef.current;
+    const sourceContextIsCurrent = () => {
+      const currentSelection = selectedIdsRef.current;
+      return splitProjectIdRef.current === sourceProjectId
+        && currentSelection.length === session.targetIds.length
+        && session.targetIds.every((id) => currentSelection.includes(id))
+        && projectShapesFingerprint(shapesRef.current) === session.sourceFingerprint;
+    };
+    if (!sourceContextIsCurrent()) {
+      splitRunRef.current += 1;
+      setSplitSession(null);
+      setNotice("Split cancelled because the project, selection, or model changed");
+      return;
+    }
+
+    const runId = splitRunRef.current + 1;
+    splitRunRef.current = runId;
+    setSplitSession({ ...session, busy: true, error: null });
+    const replacements = new Map<string, WorkplaneShape[]>();
+    let splitCount = 0;
+    for (const shape of splitTargetShapes) {
+      const points = meshForSplitShape(shape).vertices;
+      if (!splitPlaneIntersectsPoints(points, plane.normal, plane.position)) continue;
+      const parts = await splitShapeByPlane(shape, plane);
+      if (splitRunRef.current !== runId) return;
+      if (!sourceContextIsCurrent()) {
+        splitRunRef.current += 1;
+        setSplitSession(null);
+        setNotice("Split cancelled because the project, selection, or model changed while processing");
+        return;
+      }
+      if (!parts) {
+        setSplitSession((current) => current ? {
+          ...current,
+          busy: false,
+          error: `Could not split ${shape.name}. The object may be open or non-manifold.`,
+        } : current);
+        setNotice(`Could not split ${shape.name}`);
+        return;
+      }
+      replacements.set(shape.id, parts);
+      splitCount += 1;
+    }
+
+    if (splitRunRef.current !== runId) return;
+    if (!sourceContextIsCurrent()) {
+      splitRunRef.current += 1;
+      setSplitSession(null);
+      setNotice("Split cancelled because the project, selection, or model changed while processing");
+      return;
+    }
+    if (splitCount === 0) {
+      setSplitSession((current) => current ? { ...current, busy: false, error: "Move the plane through at least one selected object." } : current);
+      setNotice("The split plane does not cross the selection");
+      return;
+    }
+
+    const nextShapes = shapesRef.current.flatMap((shape) => replacements.get(shape.id) ?? [shape]);
+    const nextSelection = [...replacements.values()].flat().map((shape) => shape.id);
+    setSplitSession(null);
+    commitShapes(
+      nextShapes,
+      nextSelection,
+      `Split ${splitCount} object${splitCount === 1 ? "" : "s"} into ${nextSelection.length} bodies`,
+    );
+  }, [commitShapes, splitPlane, splitSession, splitTargetShapes]);
+
+  useEffect(() => {
+    if (!splitSession) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        cancelSplit();
+        return;
+      }
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (event.key === "Enter" && !target?.closest("input, select, textarea, button, [contenteditable='true']")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void applySplit();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [applySplit, cancelSplit, splitSession]);
+
   const postCadModifierRequest = useCallback((request: CadModifierWorkerPayload, transfer: Transferable[] = []) => {
     const worker = cadModifierWorkerRef.current ?? cadModifierWorkerRestartRef.current();
     if (!worker) return null;
@@ -9776,6 +10140,8 @@ export function SketchForgeEditor({
       const key = event.key.toLowerCase();
       const shortcut = event.ctrlKey || event.metaKey;
 
+      if (splitSession) return;
+
       if (sketchActive && toolbarMode === "sketch") {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -9948,6 +10314,7 @@ export function SketchForgeEditor({
     sketchUndo,
     setSelectionHoleMode,
     showHidden,
+    splitSession,
     toggleAlignMode,
     toggleHidden,
     toggleMirrorMode,
@@ -9962,13 +10329,14 @@ export function SketchForgeEditor({
       <SecondaryToolbar
         toolbarMode={toolbarMode}
         onToolbarModeChange={(mode) => {
+          if (splitSession) cancelSplit();
           setToolbarMode(mode);
           setWorkplaneMode(false);
           setTopPanel(null);
           setMenuOpen(false);
         }}
-        canUndo={!projectInteractionActive && (historyIndex > 0 || Boolean(edgeModifier))}
-        canRedo={!projectInteractionActive && historyIndex < history.length - 1}
+        canUndo={!splitSession && !projectInteractionActive && (historyIndex > 0 || Boolean(edgeModifier))}
+        canRedo={!splitSession && !projectInteractionActive && historyIndex < history.length - 1}
         canGroup={selectedShapes.length > 1 && selectedShapes.every((shape) => !shape.locked)}
         canIntersect={selectedShapes.some((shape) => !shape.locked && !shape.hole) && selectedShapes.some((shape) => !shape.locked && Boolean(shape.hole))}
         canUngroup={selectedShapes.some((shape) => Boolean(shape.groupedShapes?.length))}
@@ -9981,6 +10349,8 @@ export function SketchForgeEditor({
         canEdgeModify={selectedShapes.length === 1 && Boolean(selectedShape && !selectedShape.locked && !selectedShape.hole)}
         edgeModifierKind={edgeModifier?.kind ?? null}
         mirrorMode={mirrorMode}
+        canSplit={canSplitSelection}
+        splitMode={Boolean(splitSession)}
         sketchActive={sketchActive}
         sketchOperation={sketchOperation}
         sketchTool={sketchTool}
@@ -10023,6 +10393,7 @@ export function SketchForgeEditor({
         onIntersect={intersectSelected}
         onFillet={() => edgeModifier?.kind === "fillet" ? cancelEdgeModifier() : startEdgeModifier("fillet")}
         onMirror={toggleMirrorMode}
+        onSplit={toggleSplitMode}
         onPaste={pasteShape}
         onRedo={redo}
         onSnap={snapSelected}
@@ -10175,6 +10546,8 @@ export function SketchForgeEditor({
           alignReferenceShapes={shapes}
           mirrorMode={mirrorMode}
           mirrorReferenceShapes={shapes}
+          splitActive={Boolean(splitSession)}
+          splitPlane={splitPlane}
           placementWorkplane={placementWorkplane}
           workplaneMode={workplaneMode}
           initialSnap={snapGrid}
@@ -10234,6 +10607,24 @@ export function SketchForgeEditor({
           />
         ) : null}
       </div>
+      {splitSession && splitPlane ? (
+        <SplitPanel
+          axis={splitSession.axis}
+          rotation={splitSession.rotation}
+          position={splitPlane.position}
+          min={splitPlane.min}
+          max={splitPlane.max}
+          targetCount={splitTargetShapes.length}
+          workspace={workspaceSettings}
+          busy={splitSession.busy}
+          error={splitSession.error}
+          onAxisChange={changeSplitAxis}
+          onRotationChange={changeSplitRotation}
+          onPositionChange={changeSplitPosition}
+          onApply={() => void applySplit()}
+          onCancel={cancelSplit}
+        />
+      ) : null}
       {edgeModifier ? (
         <EdgeModifierPanel
           kind={edgeModifier.kind}
@@ -10627,6 +11018,7 @@ function SecondaryToolbar({
   edgeModifierKind,
   canGroup,
   canIntersect,
+  canSplit,
   canRedo,
   canUngroup,
   canUndo,
@@ -10635,6 +11027,7 @@ function SecondaryToolbar({
   hiddenShapeCount,
   selectionHidden,
   mirrorMode,
+  splitMode,
   sketchActive,
   sketchOperation,
   sketchTool,
@@ -10671,6 +11064,7 @@ function SecondaryToolbar({
   onIntersect,
   onFillet,
   onMirror,
+  onSplit,
   onPaste,
   onRedo,
   onSnap,
@@ -10691,6 +11085,7 @@ function SecondaryToolbar({
   edgeModifierKind: CadModifierKind | null;
   canGroup: boolean;
   canIntersect: boolean;
+  canSplit: boolean;
   canRedo: boolean;
   canUngroup: boolean;
   canUndo: boolean;
@@ -10699,6 +11094,7 @@ function SecondaryToolbar({
   hiddenShapeCount: number;
   selectionHidden: boolean;
   mirrorMode: boolean;
+  splitMode: boolean;
   sketchActive: boolean;
   sketchOperation: SketchOperation;
   sketchTool: SketchTool;
@@ -10735,6 +11131,7 @@ function SecondaryToolbar({
   onIntersect: () => void;
   onFillet: () => void;
   onMirror: () => void;
+  onSplit: () => void;
   onPaste: () => void;
   onRedo: () => void;
   onSnap: () => void;
@@ -10833,11 +11230,12 @@ function SecondaryToolbar({
     onTopPanel(null);
     setVisibilityOpen(true);
   };
+  const geometryActionsEnabled = !splitMode;
   const leftTools = [
-    { label: "Copy", icon: ToolbarCopyIcon, action: onCopy, enabled: hasSelection },
-    { label: "Paste", icon: ToolbarPasteIcon, action: onPaste, enabled: hasClipboard },
-    { label: "Duplicate", icon: ToolbarDuplicateIcon, action: onDuplicate, enabled: hasSelection },
-    { label: "Delete", icon: ToolbarTrashIcon, action: onDelete, enabled: hasSelection },
+    { label: "Copy", icon: ToolbarCopyIcon, action: onCopy, enabled: hasSelection && geometryActionsEnabled },
+    { label: "Paste", icon: ToolbarPasteIcon, action: onPaste, enabled: hasClipboard && geometryActionsEnabled },
+    { label: "Duplicate", icon: ToolbarDuplicateIcon, action: onDuplicate, enabled: hasSelection && geometryActionsEnabled },
+    { label: "Delete", icon: ToolbarTrashIcon, action: onDelete, enabled: hasSelection && geometryActionsEnabled },
     { label: "Undo", icon: ToolbarUndoIcon, action: onUndo, enabled: canUndo },
     { label: "Redo", icon: ToolbarRedoIcon, action: onRedo, enabled: canRedo },
   ];
@@ -10849,24 +11247,25 @@ function SecondaryToolbar({
         setVisibilityOpen(false);
         onToggleHidden();
       },
-      enabled: hasSelection,
+      enabled: hasSelection && geometryActionsEnabled,
     },
   ];
   const combineTools = [
-    { label: "Group", icon: ToolbarGroupIcon, action: onGroup, enabled: canGroup },
-    { label: "Ungroup", icon: ToolbarUngroupIcon, action: onUngroup, enabled: canUngroup },
-    { label: "Boolean Intersection", icon: ToolbarIntersectionIcon, action: onIntersect, enabled: canIntersect },
+    { label: "Group", icon: ToolbarGroupIcon, action: onGroup, enabled: canGroup && geometryActionsEnabled },
+    { label: "Ungroup", icon: ToolbarUngroupIcon, action: onUngroup, enabled: canUngroup && geometryActionsEnabled },
+    { label: "Boolean Intersection", icon: ToolbarIntersectionIcon, action: onIntersect, enabled: canIntersect && geometryActionsEnabled },
   ];
   const modifyTools = [
-    { label: "Align", icon: ToolbarAlignIcon, action: onAlign, enabled: canAlign, active: alignMode },
-    { label: "Mirror", icon: ToolbarMirrorIcon, action: onMirror, enabled: hasSelection, active: mirrorMode },
-    { label: "Snap to grid", icon: ToolbarSnapGridIcon, action: onSnap, enabled: hasSelection },
-    { label: "Chamfer", icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify, active: edgeModifierKind === "chamfer" },
-    { label: "Fillet", icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },
+    { label: "Align", icon: ToolbarAlignIcon, action: onAlign, enabled: canAlign && geometryActionsEnabled, active: alignMode },
+    { label: "Mirror", icon: ToolbarMirrorIcon, action: onMirror, enabled: hasSelection && geometryActionsEnabled, active: mirrorMode },
+    { label: "Slice / Split", icon: ToolbarSplitIcon, action: onSplit, enabled: splitMode || canSplit, active: splitMode },
+    { label: "Snap to grid", icon: ToolbarSnapGridIcon, action: onSnap, enabled: hasSelection && geometryActionsEnabled },
+    { label: "Chamfer", icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify && geometryActionsEnabled, active: edgeModifierKind === "chamfer" },
+    { label: "Fillet", icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify && geometryActionsEnabled, active: edgeModifierKind === "fillet" },
   ];
   const arrangeTools = [
-    { label: "Workplane", icon: ToolbarWorkplaneIcon, action: onWorkplaneTool, enabled: true, active: workplaneMode },
-    { label: "Drop to workplane", icon: ToolbarDropToWorkplaneIcon, action: onDropToWorkplane, enabled: hasSelection },
+    { label: "Workplane", icon: ToolbarWorkplaneIcon, action: onWorkplaneTool, enabled: geometryActionsEnabled, active: workplaneMode },
+    { label: "Drop to workplane", icon: ToolbarDropToWorkplaneIcon, action: onDropToWorkplane, enabled: hasSelection && geometryActionsEnabled },
   ];
   const renderToolButton = (tool: (typeof leftTools)[number] | (typeof visibilityTools)[number] | (typeof combineTools)[number] | (typeof modifyTools)[number] | (typeof arrangeTools)[number]) => {
     const { icon: Icon, action, enabled, label } = tool;
@@ -10877,6 +11276,7 @@ function SecondaryToolbar({
         key={label}
         data-sketchforge-tool={label === "Fillet" ? "fillet" : undefined}
         aria-label={label}
+        aria-pressed={"active" in tool ? active : undefined}
         title={label}
         onClick={action}
         disabled={!enabled}
@@ -10919,6 +11319,7 @@ function SecondaryToolbar({
               className={`shape-menu-trigger ${shapesOpen ? "active" : ""}`}
               aria-label="Add shape"
               aria-expanded={shapesOpen}
+              disabled={splitMode}
               onClick={() => {
                 setVisibilityOpen(false);
                 setShapesOpen((value) => !value);
@@ -11028,7 +11429,7 @@ function SecondaryToolbar({
                 className="visibility-dropdown-action"
                 type="button"
                 role="menuitem"
-                disabled={hiddenShapeCount === 0}
+                disabled={hiddenShapeCount === 0 || splitMode}
                 onClick={() => {
                   setVisibilityOpen(false);
                   onShowHidden();
@@ -11061,7 +11462,7 @@ function SecondaryToolbar({
       <div className="toolbar-section toolbar-actions-section">
         <div className="toolbar-section-label">Manage</div>
         <div className="action-buttons">
-          <button className="action-icon-button" aria-label="Import" title="Import" onClick={() => onTopPanel("import")}>
+          <button className="action-icon-button" aria-label="Import" title="Import" disabled={splitMode} onClick={() => onTopPanel("import")}>
             <ToolbarImportIcon />
           </button>
           <button className="action-icon-button" aria-label="Export" title="Export" onClick={() => onTopPanel("export")}>
