@@ -88,6 +88,7 @@ import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatment
 import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { createLocalId } from "@/lib/localIds";
+import { unionSplitManifoldComponents } from "@/lib/manifoldSplit";
 import { modelSplitPlane, splitPlaneIntersectsPoints, splitShapeFromWorldPositions, type ModelSplitPlane } from "@/lib/modelSplit";
 import { circleFromPoints, circleSketchGeometry } from "@/lib/sketchCircles";
 import { moveConstrainedSketchPoint, pruneSketchParameters, setSketchPointFixed, setSketchSegmentConstraint, setSketchSegmentLength, solveSketchProfile } from "@/lib/sketchConstraints";
@@ -4742,15 +4743,23 @@ async function splitShapeByPlane(shape: WorkplaneShape, plane: Pick<ModelSplitPl
     } finally {
       disposeManifold(sourceMesh);
     }
-    if (!solid || solid.status() !== "NoError" || solid.numTri() < 1) return null;
+    if (!solid || solid.status() !== "NoError" || solid.numTri() < 1) {
+      return { parts: null, error: `The source mesh could not form a closed solid (${solid?.status() ?? "empty"}).` };
+    }
     created.push(solid);
+    const normalized = unionSplitManifoldComponents(runtime, solid);
+    created.push(...normalized.created);
+    if (!normalized.solid) {
+      return { parts: null, error: "Overlapping or disconnected components could not be combined into a valid split body." };
+    }
+    solid = normalized.solid;
     const [positive, negative] = solid.splitByPlane(plane.normal, plane.position);
     created.push(positive, negative);
     if (
       positive.status() !== "NoError" || negative.status() !== "NoError"
       || positive.numTri() < 1 || negative.numTri() < 1
     ) {
-      return null;
+      return { parts: null, error: "The split plane produced an empty or invalid half. Move the plane farther inside the model." };
     }
 
     const positiveMesh = positive.getMesh();
@@ -4770,14 +4779,15 @@ async function splitShapeByPlane(shape: WorkplaneShape, plane: Pick<ModelSplitPl
         `${shape.name} (${label}-)`,
       );
       return positiveShape && negativeShape
-        ? [canonicalizeShape(positiveShape), canonicalizeShape(negativeShape)] as [WorkplaneShape, WorkplaneShape]
-        : null;
+        ? { parts: [canonicalizeShape(positiveShape), canonicalizeShape(negativeShape)] as [WorkplaneShape, WorkplaneShape] }
+        : { parts: null, error: "The split completed, but one output mesh could not be stored." };
     } finally {
       disposeManifold(positiveMesh);
       disposeManifold(negativeMesh);
     }
-  } catch {
-    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return { parts: null, error: message ? `Split kernel error: ${message}` : "The split kernel could not process this model." };
   } finally {
     Array.from(new Set(created)).forEach(disposeManifold);
   }
@@ -8527,7 +8537,7 @@ export function SketchForgeEditor({
     for (const shape of splitTargetShapes) {
       const points = meshForSplitShape(shape).vertices;
       if (!splitPlaneIntersectsPoints(points, plane.normal, plane.position)) continue;
-      const parts = await splitShapeByPlane(shape, plane);
+      const result = await splitShapeByPlane(shape, plane);
       if (splitRunRef.current !== runId) return;
       if (!sourceContextIsCurrent()) {
         splitRunRef.current += 1;
@@ -8535,16 +8545,16 @@ export function SketchForgeEditor({
         setNotice("Split cancelled because the project, selection, or model changed while processing");
         return;
       }
-      if (!parts) {
+      if (!result.parts) {
         setSplitSession((current) => current ? {
           ...current,
           busy: false,
-          error: `Could not split ${shape.name}. The object may be open or non-manifold.`,
+          error: `Could not split ${shape.name}. ${result.error ?? "The model could not be divided at this plane."}`,
         } : current);
         setNotice(`Could not split ${shape.name}`);
         return;
       }
-      replacements.set(shape.id, parts);
+      replacements.set(shape.id, result.parts);
       splitCount += 1;
     }
 
