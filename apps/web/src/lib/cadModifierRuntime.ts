@@ -1,11 +1,121 @@
 import type { CadModifierEdge } from "@/lib/cadModifierTypes";
+import type { CadModifierMeshPart } from "@/lib/cadModifierTypes";
 
 export const CAD_MODIFIER_RUNTIME_BASE = "/occt";
-export const CAD_MODIFIER_REQUEST_TIMEOUT_MS = 30_000;
+export const CAD_MODIFIER_REQUEST_TIMEOUT_MS = 60_000;
 export const CAD_MODIFIER_MAX_PREPARE_TIMEOUT_MS = 180_000;
 export const CAD_MODIFIER_MAX_SHARP_ANGLE = 90;
+export const CAD_MODIFIER_MIN_AMOUNT = 0.001;
+
+const CAD_MODIFIER_FIT_HALVING_STEPS = 8;
+const CAD_MODIFIER_FIT_REFINEMENT_STEPS = 8;
 
 export type CadModifierRequestPhase = "prepare" | "preview";
+
+export function cadModifierMeshFallbackParts(parts: CadModifierMeshPart[]) {
+  return parts.map((part): CadModifierMeshPart => {
+    if ((!part.brep && !part.step) || !part.positions || !part.indices) return part;
+    return {
+      positions: part.positions,
+      indices: part.indices,
+      hole: part.hole,
+    };
+  });
+}
+
+export function serializeOptionalCadModifierBreps<T>(
+  result: T,
+  components: T[],
+  serialize: (shape: T) => string,
+) {
+  try {
+    return {
+      brep: serialize(result),
+      componentBreps: components.map(serialize),
+      failed: false,
+    };
+  } catch {
+    return {
+      brep: undefined,
+      componentBreps: components.map(() => undefined),
+      failed: true,
+    };
+  }
+}
+
+export type FittedCadModifierResult<T> = {
+  value: T;
+  amount: number;
+  adjusted: boolean;
+};
+
+export function fitCadModifierAmount<T>(
+  requestedAmount: number,
+  attempt: (amount: number, retryOrder: boolean) => T,
+  release: (value: T) => void,
+  shouldRetry: (error: unknown) => boolean = () => true,
+): FittedCadModifierResult<T> {
+  const requested = Math.max(CAD_MODIFIER_MIN_AMOUNT, requestedAmount);
+  let initialError: unknown;
+  try {
+    return { value: attempt(requested, true), amount: requested, adjusted: false };
+  } catch (error) {
+    if (!shouldRetry(error)) throw error;
+    initialError = error;
+  }
+
+  const normalizedAmount = (value: number) => Math.max(
+    CAD_MODIFIER_MIN_AMOUNT,
+    Math.floor((value + Number.EPSILON) / CAD_MODIFIER_MIN_AMOUNT) * CAD_MODIFIER_MIN_AMOUNT,
+  );
+  let failedAmount = requested;
+  let fitted: FittedCadModifierResult<T> | null = null;
+
+  for (let step = 0; step < CAD_MODIFIER_FIT_HALVING_STEPS; step += 1) {
+    const candidateAmount = normalizedAmount(failedAmount / 2);
+    if (candidateAmount >= failedAmount - Number.EPSILON) break;
+    try {
+      fitted = { value: attempt(candidateAmount, true), amount: candidateAmount, adjusted: true };
+      break;
+    } catch (error) {
+      if (!shouldRetry(error)) throw error;
+      failedAmount = candidateAmount;
+      if (candidateAmount <= CAD_MODIFIER_MIN_AMOUNT) break;
+    }
+  }
+
+  if (!fitted && failedAmount > CAD_MODIFIER_MIN_AMOUNT) {
+    try {
+      fitted = {
+        value: attempt(CAD_MODIFIER_MIN_AMOUNT, true),
+        amount: CAD_MODIFIER_MIN_AMOUNT,
+        adjusted: true,
+      };
+    } catch (error) {
+      if (!shouldRetry(error)) throw error;
+    }
+  }
+
+  if (!fitted) throw initialError;
+
+  for (let step = 0; step < CAD_MODIFIER_FIT_REFINEMENT_STEPS; step += 1) {
+    const candidateAmount = normalizedAmount((fitted.amount + failedAmount) / 2);
+    if (candidateAmount <= fitted.amount || candidateAmount >= failedAmount) break;
+    try {
+      const value = attempt(candidateAmount, true);
+      release(fitted.value);
+      fitted = { value, amount: candidateAmount, adjusted: true };
+    } catch (error) {
+      if (!shouldRetry(error)) {
+        release(fitted.value);
+        throw error;
+      }
+      failedAmount = candidateAmount;
+    }
+  }
+
+  return fitted;
+}
 
 export function cadTransformRequiresGeneralTransform(transform: number[]) {
   if (transform.length !== 12 || !transform.every(Number.isFinite)) {

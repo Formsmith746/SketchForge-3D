@@ -72,7 +72,7 @@ import {
   withHoleMode,
   workplaneShapesEqual,
 } from "@/lib/workplaneShapes";
-import { bakeCadMetadataForShapeTransform, cadBrepTransformForShape, cadModifierPrimitiveForAnalyticBox, cadModifierPrimitiveForBakedShape } from "@/lib/cadBakeMetadata";
+import { bakeCadMetadataForShapeTransform, cadBrepTransformForShape, cadImportedStepTransformForShape, cadModifierPrimitiveForAnalyticBox, cadModifierPrimitiveForBakedShape } from "@/lib/cadBakeMetadata";
 import { hasOneToOneCadComponentMapping } from "@/lib/cadModifierGroups";
 import {
   CAD_MODIFIER_MAX_SHARP_ANGLE,
@@ -170,6 +170,14 @@ type SketchRectangularPatternOptions = { columns: number; rows: number; columnSp
 type SketchCircularPatternOptions = { count: number; angle: number; pointId?: string };
 type Vec3 = [number, number, number];
 type MeshData = { name: string; vertices: Vec3[]; faces: [number, number, number][] };
+type CadModifierPartInput = {
+  shape: WorkplaneShape;
+  mesh?: MeshData;
+  brep?: string;
+  step?: string;
+  brepTransform?: number[];
+  primitive?: CadModifierPrimitivePart;
+};
 type Cuboid = { minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number };
 type ShapeUpdatePatch = Partial<WorkplaneShape> & { bakeTransform?: boolean };
 type WithoutRequestId<T> = T extends unknown ? Omit<T, "requestId"> : never;
@@ -187,6 +195,8 @@ type EdgeModifierSession = {
   busy: boolean;
   prepared: boolean;
   error: string | null;
+  sizeAdjustment: { requested: number; applied: number } | null;
+  previewOnly: boolean;
   preview: WorkplaneShape | null;
   componentPreviews: EdgeModifierComponentPreview[];
 };
@@ -275,6 +285,8 @@ const IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT = 150000;
 const COPLANAR_BOOLEAN_RESCUE_DEGREES = 0.02;
 const NORMAL_SELECTION_CAD_EDGE_MIN_ANGLE = 60;
 const MIN_EDGE_MODIFIER_AMOUNT = 0.001;
+const MAX_CAD_MODIFIER_MESH_TRIANGLES = 180_000;
+const MCP_EDGE_RESULT_GRACE_MS = 1000;
 const SEPARATE_PARTS_VERTEX_TOLERANCE = 0.0005;
 const booleanFontLoader = new FontLoader();
 const booleanTextFonts: Record<string, Font> = {
@@ -1689,12 +1701,34 @@ function meshDataToCadTransfer(mesh: MeshData) {
   return { positions, indices };
 }
 
+function cadModifierTransferParts(partInputs: CadModifierPartInput[]) {
+  const requiredMeshTriangleCount = partInputs.reduce(
+    (total, part) => total + (!part.brep && !part.step && !part.primitive ? (part.mesh?.faces.length ?? 0) : 0),
+    0,
+  );
+  const allMeshTriangleCount = partInputs.reduce((total, part) => total + (part.mesh?.faces.length ?? 0), 0);
+  const includeExactFallbackMeshes = allMeshTriangleCount <= MAX_CAD_MODIFIER_MESH_TRIANGLES;
+  const parts: CadModifierMeshPart[] = partInputs.map((part) => {
+    const includeMesh = Boolean(part.mesh && (!part.brep && !part.step || includeExactFallbackMeshes));
+    const mesh = includeMesh ? meshDataToCadTransfer(part.mesh as MeshData) : {};
+    if (part.brep) return { ...mesh, brep: part.brep, brepTransform: part.brepTransform, hole: Boolean(part.shape.hole) };
+    if (part.step) return { ...mesh, step: part.step, brepTransform: part.brepTransform, hole: Boolean(part.shape.hole) };
+    if (part.primitive) return { primitive: part.primitive, hole: Boolean(part.shape.hole) };
+    return { ...mesh, hole: Boolean(part.shape.hole) };
+  });
+  return {
+    parts,
+    requiredMeshTriangleCount,
+    transferredMeshTriangleCount: includeExactFallbackMeshes ? allMeshTriangleCount : requiredMeshTriangleCount,
+  };
+}
+
 function shapeFromCadMesh(
   source: WorkplaneShape,
   positions: Float32Array,
   normals: Float32Array,
   indices: Uint32Array,
-  brep: string,
+  brep?: string,
 ): WorkplaneShape | null {
   if (positions.length < 9 || indices.length < 3) return null;
   let minX = Number.POSITIVE_INFINITY;
@@ -1754,15 +1788,15 @@ function shapeFromCadMesh(
       sourceFormat: "json",
     },
     imagePlate: undefined,
-    cadBrep: brep,
-    cadBrepFrame: {
+    cadBrep: brep || undefined,
+    cadBrepFrame: brep ? {
       x: cleanNearZero(centerX, 0.0005),
       z: cleanNearZero(centerZ, 0.0005),
       elevation: cleanNearZero(minY, 0.0005),
       width,
       depth,
       height,
-    },
+    } : undefined,
     cadPrimitiveFrame: undefined,
   });
 }
@@ -2768,7 +2802,7 @@ function shapeHasTransformToBake(shape: WorkplaneShape) {
 
 function cadModifierPrimitiveForShape(shape: WorkplaneShape): CadModifierPrimitivePart | null {
   return cadModifierPrimitiveForBakedShape(shape)
-    ?? (shapeHasTransformToBake(shape) ? cadModifierPrimitiveForAnalyticBox(shape) : null);
+    ?? cadModifierPrimitiveForAnalyticBox(shape);
 }
 
 function bakeShapeTransformIntoMesh(shape: WorkplaneShape): WorkplaneShape {
@@ -6099,6 +6133,7 @@ export function SketchForgeEditor({
   const cadModifierRequestRef = useRef(0);
   const cadModifierPrepareRef = useRef(0);
   const cadModifierLatestPreviewRef = useRef(0);
+  const cadModifierResolvedAmountRef = useRef<number | null>(null);
   const cadModifierBaseShapeRef = useRef<WorkplaneShape | null>(null);
   const cadModifierBaseFingerprintRef = useRef("");
   const cadModifierSourcePartsRef = useRef<WorkplaneShape[]>([]);
@@ -6226,8 +6261,14 @@ export function SketchForgeEditor({
           preview: null,
           componentPreviews: [],
           error: message.selectableEdgeIds.length ? null : "No sharp manifold edges were found at this threshold",
+          sizeAdjustment: null,
+          previewOnly: false,
         } : current);
-        if (message.selectableEdgeIds.length) setNotice("Select highlighted edges, then adjust the preview");
+        if (message.selectableEdgeIds.length) {
+          setNotice(message.usedMeshFallback
+            ? "Stored CAD data could not be restored; using repaired mesh edges"
+            : "Select highlighted edges, then adjust the preview");
+        }
         return;
       }
       if (message.type === "preview") {
@@ -6241,14 +6282,26 @@ export function SketchForgeEditor({
           cadDisplayEdgesVersion: 2 as const,
         } : null;
         const componentPreviews = cadModifierComponentPreviews(sourceParts, message.components);
+        if (message.adjustedAmount) cadModifierResolvedAmountRef.current = message.appliedAmount;
         setEdgeModifier((current) => current ? {
           ...current,
+          amount: message.appliedAmount,
           preview,
           componentPreviews,
           busy: false,
           error: preview ? null : "The CAD kernel returned an empty edge treatment",
+          previewOnly: Boolean(message.exactSerializationFailed),
+          sizeAdjustment: message.adjustedAmount
+            ? { requested: current.amount, applied: message.appliedAmount }
+            : current.sizeAdjustment,
         } : current);
-        if (preview) setNotice("Edge treatment preview ready");
+        if (preview) {
+          setNotice(message.exactSerializationFailed
+            ? `Preview ready${message.adjustedAmount ? ` at ${message.appliedAmount.toFixed(3)} mm` : ""} using mesh geometry; exact CAD serialization was unavailable`
+            : message.adjustedAmount
+              ? `Edge size fitted to ${message.appliedAmount.toFixed(3)} mm`
+              : "Edge treatment preview ready");
+        }
         return;
       }
       if (message.type === "error") {
@@ -6300,6 +6353,7 @@ export function SketchForgeEditor({
     cadModifierBaseShapeRef.current = null;
     cadModifierBaseFingerprintRef.current = "";
     cadModifierSourcePartsRef.current = [];
+    cadModifierResolvedAmountRef.current = null;
     setEdgeModifier(null);
     return true;
   }, [clearCadModifierWatchdog]);
@@ -6496,14 +6550,14 @@ export function SketchForgeEditor({
   );
   const toggleModifierEdge = useCallback((id: number, singleEdge = false) => {
     setEdgeModifier((current) => {
-      if (!current || current.busy) return current;
+      if (!current || current.busy || current.previewOnly) return current;
       const allowed = new Set(current.edges.filter((edge) => selectableCadModifierEdge(edge, current.sharpAngle)).map((edge) => edge.id));
       if (!allowed.has(id)) return current;
       const ids = current.tangentChain && !singleEdge ? tangentCadEdgeChain(current.edges, id, allowed) : [id];
       const next = new Set(current.selectedEdgeIds);
       const remove = ids.every((edgeId) => next.has(edgeId));
       ids.forEach((edgeId) => remove ? next.delete(edgeId) : next.add(edgeId));
-      return { ...current, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : "Select at least one highlighted edge" };
+      return { ...current, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : "Select at least one highlighted edge", sizeAdjustment: null };
     });
   }, []);
   const exportableShapeCount = useMemo(() => (hasSelection ? selectedShapes : shapes).filter((shape) => !shape.hole && shape.kind !== "constructionPlane").length, [hasSelection, selectedShapes, shapes]);
@@ -8605,7 +8659,7 @@ export function SketchForgeEditor({
     const sourceParts = (selectedShape.groupedShapes?.length && !hasAppliedEdgeTreatment
       ? restoreGroupedChildren(selectedShape)
       : [selectedShape]).flatMap(cadModifierSourceParts);
-    const partInputs: Array<{ shape: WorkplaneShape; mesh?: MeshData; brep?: string; brepTransform?: number[]; primitive?: CadModifierPrimitivePart }> = sourceParts.map((shape) => {
+    const partInputs: CadModifierPartInput[] = sourceParts.map((shape) => {
       const frame = shape.cadBrepFrame;
       const preserveNeedsRetessellation = preservesEdgeTreatmentSize(shape) && Boolean(frame) && (
         Math.abs(shapeWidth(shape) - (frame?.width ?? shapeWidth(shape))) > 1e-6 ||
@@ -8614,17 +8668,22 @@ export function SketchForgeEditor({
       );
       const primitive = cadModifierPrimitiveForShape(shape);
       if (primitive) return { shape, primitive };
-      return shape.cadBrep && frame && !preserveNeedsRetessellation
-        ? { shape, brep: shape.cadBrep, brepTransform: cadBrepTransformForShape(shape) }
-        : { shape, mesh: meshForShape(shape) };
+      if (shape.cadBrep && frame && !preserveNeedsRetessellation) {
+        return { shape, mesh: meshForShape(shape), brep: shape.cadBrep, brepTransform: cadBrepTransformForShape(shape) };
+      }
+      const stepTransform = cadImportedStepTransformForShape(shape);
+      if (shape.importedMesh?.brepStep && stepTransform !== null && !shape.edgeTreatments?.length && !preserveNeedsRetessellation) {
+        return { shape, mesh: meshForShape(shape), step: shape.importedMesh.brepStep, brepTransform: stepTransform };
+      }
+      return { shape, mesh: meshForShape(shape) };
     });
-    const triangleCount = partInputs.reduce((total, part) => total + (part.mesh?.faces.length ?? 0), 0);
-    if (triangleCount === 0 && partInputs.every((part) => !part.brep && !part.primitive)) {
+    const { parts, requiredMeshTriangleCount, transferredMeshTriangleCount } = cadModifierTransferParts(partInputs);
+    if (requiredMeshTriangleCount === 0 && partInputs.every((part) => !part.brep && !part.step && !part.primitive)) {
       setNotice("The selected object has no printable surface");
       return;
     }
-    if (triangleCount > 180_000) {
-      setNotice("This mesh is too dense for interactive edge treatment. Simplify it below 180,000 triangles first.");
+    if (requiredMeshTriangleCount > MAX_CAD_MODIFIER_MESH_TRIANGLES) {
+      setNotice(`This mesh is too dense for interactive edge treatment. Simplify it below ${MAX_CAD_MODIFIER_MESH_TRIANGLES.toLocaleString()} triangles first.`);
       return;
     }
     const amount = Math.max(MIN_EDGE_MODIFIER_AMOUNT, Math.min(1, shapeWidth(selectedShape) / 6, shapeDepth(selectedShape) / 6, selectedShape.height / 6));
@@ -8646,15 +8705,12 @@ export function SketchForgeEditor({
       busy: true,
       prepared: false,
       error: null,
+      sizeAdjustment: null,
+      previewOnly: false,
       preview: null,
       componentPreviews: [],
     });
     setNotice(`Preparing ${kind} edges in the CAD worker`);
-    const parts: CadModifierMeshPart[] = partInputs.map((part) => {
-      if (part.brep) return { brep: part.brep, brepTransform: part.brepTransform, hole: Boolean(part.shape.hole) };
-      if (part.primitive) return { primitive: part.primitive, hole: Boolean(part.shape.hole) };
-      return { ...meshDataToCadTransfer(part.mesh as MeshData), hole: Boolean(part.shape.hole) };
-    });
     const prepareRequestId = postCadModifierRequest({
       type: "prepare",
       parts,
@@ -8668,7 +8724,7 @@ export function SketchForgeEditor({
       return;
     }
     cadModifierPrepareRef.current = prepareRequestId;
-    armCadModifierWatchdog(prepareRequestId, "prepare", cadModifierPrepareTimeoutMs(triangleCount));
+    armCadModifierWatchdog(prepareRequestId, "prepare", cadModifierPrepareTimeoutMs(transferredMeshTriangleCount));
   }, [armCadModifierWatchdog, invalidateCadModifierSession, postCadModifierRequest, selectedShape, selectedShapes.length]);
 
   const prepareCadModifierForMcp = useCallback(async (shape: WorkplaneShape, sharpAngle: number) => {
@@ -8680,7 +8736,7 @@ export function SketchForgeEditor({
     const sourceParts = (shape.groupedShapes?.length && !hasAppliedEdgeTreatment
       ? restoreGroupedChildren(shape)
       : [shape]).flatMap(cadModifierSourceParts);
-    const partInputs: Array<{ shape: WorkplaneShape; mesh?: MeshData; brep?: string; brepTransform?: number[]; primitive?: CadModifierPrimitivePart }> = sourceParts.map((partShape) => {
+    const partInputs: CadModifierPartInput[] = sourceParts.map((partShape) => {
       const frame = partShape.cadBrepFrame;
       const preserveNeedsRetessellation = preservesEdgeTreatmentSize(partShape) && Boolean(frame) && (
         Math.abs(shapeWidth(partShape) - (frame?.width ?? shapeWidth(partShape))) > 1e-6 ||
@@ -8689,29 +8745,29 @@ export function SketchForgeEditor({
       );
       const primitive = cadModifierPrimitiveForShape(partShape);
       if (primitive) return { shape: partShape, primitive };
-      return partShape.cadBrep && frame && !preserveNeedsRetessellation
-        ? { shape: partShape, brep: partShape.cadBrep, brepTransform: cadBrepTransformForShape(partShape) }
-        : { shape: partShape, mesh: meshForShape(partShape) };
+      if (partShape.cadBrep && frame && !preserveNeedsRetessellation) {
+        return { shape: partShape, mesh: meshForShape(partShape), brep: partShape.cadBrep, brepTransform: cadBrepTransformForShape(partShape) };
+      }
+      const stepTransform = cadImportedStepTransformForShape(partShape);
+      if (partShape.importedMesh?.brepStep && stepTransform !== null && !partShape.edgeTreatments?.length && !preserveNeedsRetessellation) {
+        return { shape: partShape, mesh: meshForShape(partShape), step: partShape.importedMesh.brepStep, brepTransform: stepTransform };
+      }
+      return { shape: partShape, mesh: meshForShape(partShape) };
     });
-    const triangleCount = partInputs.reduce((total, part) => total + (part.mesh?.faces.length ?? 0), 0);
-    if (triangleCount === 0 && partInputs.every((part) => !part.brep && !part.primitive)) {
+    const { parts, requiredMeshTriangleCount, transferredMeshTriangleCount } = cadModifierTransferParts(partInputs);
+    if (requiredMeshTriangleCount === 0 && partInputs.every((part) => !part.brep && !part.step && !part.primitive)) {
       throw new Error("The selected object has no printable surface");
     }
-    if (triangleCount > 180_000) {
-      throw new Error("This mesh is too dense for interactive edge treatment. Simplify it below 180,000 triangles first.");
+    if (requiredMeshTriangleCount > MAX_CAD_MODIFIER_MESH_TRIANGLES) {
+      throw new Error(`This mesh is too dense for interactive edge treatment. Simplify it below ${MAX_CAD_MODIFIER_MESH_TRIANGLES.toLocaleString()} triangles first.`);
     }
-    const parts: CadModifierMeshPart[] = partInputs.map((part) => {
-      if (part.brep) return { brep: part.brep, brepTransform: part.brepTransform, hole: Boolean(part.shape.hole) };
-      if (part.primitive) return { primitive: part.primitive, hole: Boolean(part.shape.hole) };
-      return { ...meshDataToCadTransfer(part.mesh as MeshData), hole: Boolean(part.shape.hole) };
-    });
     const transfer = parts.flatMap((part) => part.positions && part.indices ? [part.positions.buffer as Transferable, part.indices.buffer as Transferable] : []);
     const response = await postCadModifierRequestAsync({
       type: "prepare",
       parts,
       sharpAngle,
       suppressTreatmentDetailEdges: appliedEdgeTreatmentCount > 0,
-    }, transfer, cadModifierPrepareTimeoutMs(triangleCount));
+    }, transfer, cadModifierPrepareTimeoutMs(transferredMeshTriangleCount));
     if (response.type !== "ready") {
       throw new Error("The CAD worker did not return an edge list");
     }
@@ -8721,6 +8777,7 @@ export function SketchForgeEditor({
   const applyCadModifierForMcp = useCallback(async (
     shape: WorkplaneShape,
     params: Record<string, unknown>,
+    expiresAt = Number.POSITIVE_INFINITY,
   ) => {
     invalidateCadModifierSession();
     const sourceFingerprint = projectShapesFingerprint([shape]);
@@ -8746,10 +8803,11 @@ export function SketchForgeEditor({
       type: "preview",
       kind,
       edgeIds: selectedEdgeIds,
+      sessionId: response.requestId,
       amount,
       quality,
       chamferAngle,
-    }, [], 30000);
+    }, [], CAD_MODIFIER_REQUEST_TIMEOUT_MS);
     if (previewResponse.type !== "preview") {
       throw new Error("The CAD worker did not return an edge preview");
     }
@@ -8757,6 +8815,7 @@ export function SketchForgeEditor({
     if (!rawPreview) {
       throw new Error("The CAD kernel returned an empty edge treatment");
     }
+    const appliedAmount = previewResponse.appliedAmount;
     const preview = canonicalizeShape({
       ...rawPreview,
       cadDisplayEdges: cadDisplayEdgesForShape(rawPreview, previewResponse.displayEdges),
@@ -8764,7 +8823,7 @@ export function SketchForgeEditor({
     });
     const feature = {
       kind,
-      amount,
+      amount: appliedAmount,
       edgeCount: selectedEdgeIds.length,
       ...(kind === "chamfer" ? { chamferAngle } : {}),
     } satisfies NonNullable<WorkplaneShape["edgeTreatments"]>[number];
@@ -8772,7 +8831,7 @@ export function SketchForgeEditor({
       kind,
       edges: response.edges,
       selectedEdgeIds,
-      amount,
+      amount: appliedAmount,
       sharpAngle,
       chamferAngle,
       quality,
@@ -8781,6 +8840,8 @@ export function SketchForgeEditor({
       busy: false,
       prepared: true,
       error: null,
+      sizeAdjustment: previewResponse.adjustedAmount ? { requested: amount, applied: appliedAmount } : null,
+      previewOnly: Boolean(previewResponse.exactSerializationFailed),
       preview,
       componentPreviews: cadModifierComponentPreviews(sourceParts, previewResponse.components),
     };
@@ -8801,6 +8862,9 @@ export function SketchForgeEditor({
     ) {
       throw new Error("The target object or project changed while the edge treatment was running; try again");
     }
+    if (Date.now() + MCP_EDGE_RESULT_GRACE_MS >= expiresAt) {
+      throw new Error("The edge treatment exceeded the MCP command deadline and was not applied");
+    }
     commitShapes(
       shapesRef.current.map((candidate) => candidate.id === shape.id ? modifiedShape : candidate),
       modifiedShape.id,
@@ -8810,6 +8874,8 @@ export function SketchForgeEditor({
       object: mcpShapeSummary(modifiedShape),
       selectedEdgeIds,
       selectableEdgeIds: selectableIds,
+      requestedAmount: amount,
+      appliedAmount,
     };
   }, [commitShapes, invalidateCadModifierSession, prepareCadModifierForMcp, postCadModifierRequestAsync]);
 
@@ -8885,11 +8951,17 @@ export function SketchForgeEditor({
 
   useEffect(() => {
     if (!edgeModifier?.prepared || edgeModifier.selectedEdgeIds.length === 0) return;
+    if (cadModifierResolvedAmountRef.current !== null && Math.abs(cadModifierResolvedAmountRef.current - edgeModifier.amount) < 1e-9) {
+      cadModifierResolvedAmountRef.current = null;
+      return;
+    }
+    cadModifierResolvedAmountRef.current = null;
     const timer = window.setTimeout(() => {
       const requestId = postCadModifierRequest({
         type: "preview",
         kind: edgeModifier.kind,
         edgeIds: edgeModifier.selectedEdgeIds,
+        sessionId: cadModifierPrepareRef.current,
         amount: edgeModifier.amount,
         quality: edgeModifier.quality,
         chamferAngle: edgeModifier.chamferAngle,
@@ -9503,7 +9575,7 @@ export function SketchForgeEditor({
       if (command.action === "apply_edge_treatment") {
         const target = findShape(params.id);
         if (!target) throw new Error("Object not found");
-        return applyCadModifierForMcp(target, params);
+        return applyCadModifierForMcp(target, params, command.expiresAt);
       }
 
       if (command.action === "inspect_errors") {
@@ -10646,8 +10718,10 @@ export function SketchForgeEditor({
           busy={edgeModifier.busy}
           prepared={edgeModifier.prepared}
           error={edgeModifier.error}
-          onAmountChange={(value) => setEdgeModifier((current) => current?.prepared ? { ...current, amount: Math.max(MIN_EDGE_MODIFIER_AMOUNT, Math.min(edgeModifierMaxAmount, value)), preview: null, busy: true, error: null } : current)}
-          onChamferAngleChange={(value) => setEdgeModifier((current) => current?.prepared ? { ...current, chamferAngle: Math.max(5, Math.min(85, value)), preview: null, busy: true, error: null } : current)}
+          sizeAdjustment={edgeModifier.sizeAdjustment}
+          previewOnly={edgeModifier.previewOnly}
+          onAmountChange={(value) => setEdgeModifier((current) => current?.prepared ? { ...current, amount: Math.max(MIN_EDGE_MODIFIER_AMOUNT, Math.min(edgeModifierMaxAmount, value)), preview: null, busy: true, error: null, sizeAdjustment: null } : current)}
+          onChamferAngleChange={(value) => setEdgeModifier((current) => current?.prepared ? { ...current, chamferAngle: Math.max(5, Math.min(85, value)), preview: null, busy: true, error: null, sizeAdjustment: null } : current)}
           onQualityChange={(quality) => setEdgeModifier((current) => current?.prepared ? { ...current, quality, preview: null, busy: true, error: null } : current)}
           onSharpAngleChange={(sharpAngle) => setEdgeModifier((current) => {
             if (!current?.prepared) return current;
@@ -10663,12 +10737,13 @@ export function SketchForgeEditor({
               preview: null,
               busy: selectedEdgeIds.length > 0,
               error: availableIds.size === 0 ? "No sharp edges match this threshold" : selectedEdgeIds.length ? null : "Select at least one highlighted edge",
+              sizeAdjustment: null,
             };
           })}
           onTangentChainChange={(tangentChain) => setEdgeModifier((current) => current?.prepared ? { ...current, tangentChain } : current)}
           onPreserveEdgeSizeChange={(preserveEdgeSize) => setEdgeModifier((current) => current?.prepared ? { ...current, preserveEdgeSize } : current)}
-          onSelectAll={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: modifierAvailableEdgeIds, preview: null, busy: modifierAvailableEdgeIds.length > 0, error: modifierAvailableEdgeIds.length ? null : current.error } : current)}
-          onClear={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: [], preview: null, busy: false, error: "Select at least one highlighted edge" } : current)}
+          onSelectAll={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: modifierAvailableEdgeIds, preview: null, busy: modifierAvailableEdgeIds.length > 0, error: modifierAvailableEdgeIds.length ? null : current.error, sizeAdjustment: null } : current)}
+          onClear={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: [], preview: null, busy: false, error: "Select at least one highlighted edge", sizeAdjustment: null } : current)}
           onRemoveFeature={removeEdgeTreatment}
           onApply={applyEdgeModifier}
           onCancel={cancelEdgeModifier}

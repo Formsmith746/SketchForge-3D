@@ -92,6 +92,7 @@ export type SketchForgeMcpCommand = {
   action: SketchForgeMcpCommandName;
   params: Record<string, unknown>;
   createdAt: number;
+  expiresAt: number;
 };
 
 export type SketchForgeMcpCommandResult = {

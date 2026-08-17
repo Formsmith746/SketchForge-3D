@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
 
-import { OcctKernel, type ShapeHandle } from "occt-wasm";
+import { OcctError, OcctKernel, type ShapeHandle } from "occt-wasm";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
-import { CAD_MODIFIER_RUNTIME_BASE, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
+import { CAD_MODIFIER_RUNTIME_BASE, cadModifierMeshFallbackParts, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, fitCadModifierAmount, isCadModifierWasmMemoryFault, serializeOptionalCadModifierBreps } from "@/lib/cadModifierRuntime";
 import { closedCadSolidComponents } from "@/lib/cadModifierGroups";
 
 const HASH_UPPER_BOUND = 2_147_483_647;
@@ -14,6 +14,8 @@ let baseShape: ShapeHandle | null = null;
 let baseSolids: ShapeHandle[] = [];
 let edgeHandles: ShapeHandle[] = [];
 let edgeOwners: number[] = [];
+let activeSessionId = 0;
+let usedExactMeshFallback = false;
 
 type CollectedCadEdgeGeometry = Omit<CadModifierEdge, "display" | "selectable"> & {
   curveType: string;
@@ -21,6 +23,13 @@ type CollectedCadEdgeGeometry = Omit<CadModifierEdge, "display" | "selectable"> 
   faceAreas: number[];
 };
 type CollectedCadEdge = CollectedCadEdgeGeometry & Pick<CadModifierEdge, "display" | "selectable">;
+
+class CadExactMeshFallbackRequired extends Error {
+  constructor() {
+    super("Exact CAD restoration requires a fresh-kernel mesh fallback");
+    this.name = "CadExactMeshFallbackRequired";
+  }
+}
 
 function post(message: CadModifierWorkerResponse, transfer: Transferable[] = []) {
   self.postMessage(message, { transfer });
@@ -47,6 +56,8 @@ function releaseSession(cad: OcctKernel) {
   baseSolids = [];
   edgeHandles = [];
   edgeOwners = [];
+  activeSessionId = 0;
+  usedExactMeshFallback = false;
 }
 
 function cadShapeIsValid(cad: OcctKernel, shape: ShapeHandle) {
@@ -153,14 +164,37 @@ function isIdentityCadTransform(transform: number[]) {
 
 function applyCadTransform(cad: OcctKernel, shape: ShapeHandle, transform: number[] | undefined) {
   if (!isCadTransform(transform) || isIdentityCadTransform(transform)) return shape;
+  let transformed: ShapeHandle;
   if (cadTransformRequiresGeneralTransform(transform)) {
-    return cad.generalTransform(shape, transform);
+    transformed = cad.generalTransform(shape, transform);
+  } else {
+    try {
+      transformed = cad.transform(shape, transform);
+    } catch {
+      transformed = cad.generalTransform(shape, transform);
+    }
   }
-  try {
-    return cad.transform(shape, transform);
-  } catch {
-    return cad.generalTransform(shape, transform);
+  if (transformed !== shape) cad.release(shape);
+  return transformed;
+}
+
+function validExactCadSolid(cad: OcctKernel, shape: ShapeHandle) {
+  const solids = cad.getSubShapes(shape, "solid");
+  if (!cadShapeIsValid(cad, shape) || (!cad.isSolid(shape) && solids.length === 0)) {
+    releaseHandles(cad, solids);
+    return null;
   }
+  if (solids.length === 1) {
+    if (solids[0] !== shape) cad.release(shape);
+    return solids[0];
+  }
+  releaseHandles(cad, solids);
+  return shape;
+}
+
+function replaceCadShape(cad: OcctKernel, current: ShapeHandle, next: ShapeHandle) {
+  if (next !== current) cad.release(current);
+  return next;
 }
 
 function reconstructPrimitiveSolid(cad: OcctKernel, primitive: CadModifierPrimitivePart) {
@@ -188,21 +222,28 @@ function reconstructSolid(cad: OcctKernel, part: CadModifierMeshPart) {
   if (part.primitive) {
     return reconstructPrimitiveSolid(cad, part.primitive);
   }
-  if (part.brep) {
-    let exact = cad.fromBREP(part.brep);
-    if (part.brepTransform?.length === 12) exact = cad.generalTransform(exact, part.brepTransform);
-    const restoredSolids = cad.getSubShapes(exact, "solid");
-    if (cadShapeIsValid(cad, exact) && (cad.isSolid(exact) || restoredSolids.length > 0)) {
-      return restoredSolids.length === 1 ? restoredSolids[0] : exact;
+  if (part.brep || part.step) {
+    let exact: ShapeHandle | null = null;
+    try {
+      exact = part.brep ? cad.fromBREP(part.brep) : cad.importStep(part.step as string);
+      exact = applyCadTransform(cad, exact, part.brepTransform);
+      const restored = validExactCadSolid(cad, exact);
+      if (restored !== null) return restored;
+      exact = replaceCadShape(cad, exact, cad.fixShape(exact));
+      exact = replaceCadShape(cad, exact, cad.fixFaceOrientations(exact));
+      if (cad.isSolid(exact)) exact = replaceCadShape(cad, exact, cad.healSolid(exact, 1e-5));
+      const healed = validExactCadSolid(cad, exact);
+      if (healed !== null) return healed;
+      throw new Error("The stored CAD feature could not be restored as a valid solid");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error ?? "");
+      const name = error instanceof Error ? error.name : "";
+      const memoryFault = isCadModifierWasmMemoryFault(message, name);
+      if (exact !== null && !memoryFault) cad.release(exact);
+      if (part.positions && part.indices) throw new CadExactMeshFallbackRequired();
+      if (memoryFault) throw error;
+      throw new Error("The stored exact CAD body could not be restored, and this object is too dense to include a mesh fallback. Simplify or reimport the object, then try again.");
     }
-    exact = cad.fixShape(exact);
-    exact = cad.fixFaceOrientations(exact);
-    if (cad.isSolid(exact)) exact = cad.healSolid(exact, 1e-5);
-    const healedSolids = cad.getSubShapes(exact, "solid");
-    if (cadShapeIsValid(cad, exact) && (cad.isSolid(exact) || healedSolids.length > 0)) {
-      return healedSolids.length === 1 ? healedSolids[0] : exact;
-    }
-    throw new Error("The stored CAD feature could not be restored as a valid solid");
   }
   const imported = cad.importStl(meshPartToAsciiStl(part));
   let shape = cad.fixShape(imported);
@@ -288,6 +329,123 @@ function releaseHandles(cad: OcctKernel, handles: ShapeHandle[]) {
       // A failed topology operation can invalidate temporary handles.
     }
   });
+}
+
+const CAD_EDGE_OPERATION_NAMES = new Set(["fillet", "filletVariable", "chamfer", "chamferDistAngle"]);
+
+class CadEdgeOperationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CadEdgeOperationError";
+  }
+}
+
+function isCadEdgeOperationFailure(error: unknown) {
+  return error instanceof CadEdgeOperationError || (error instanceof OcctError && CAD_EDGE_OPERATION_NAMES.has(error.operation));
+}
+
+function retryableCadEdgeOperationFailure(error: unknown) {
+  if (!isCadEdgeOperationFailure(error)) return false;
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const name = error instanceof Error ? error.name : "";
+  return !isCadModifierWasmMemoryFault(message, name);
+}
+
+function uniqueEdgeOrders(cad: OcctKernel, edges: ShapeHandle[], retryOrder: boolean) {
+  const orders = [edges];
+  if (retryOrder && edges.length > 1) {
+    orders.push([...edges].reverse());
+    try {
+      const lengths = new Map(edges.map((edge) => [edge, cad.getLength(edge)]));
+      orders.push([...edges].sort((a, b) => (lengths.get(a) ?? 0) - (lengths.get(b) ?? 0)));
+      orders.push([...edges].sort((a, b) => (lengths.get(b) ?? 0) - (lengths.get(a) ?? 0)));
+    } catch {
+      // Original and reversed orders still provide bounded topology retries.
+    }
+  }
+  const seen = new Set<string>();
+  return orders.filter((order) => {
+    const key = order.join(",");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function modifyCadSolid(
+  cad: OcctKernel,
+  solid: ShapeHandle,
+  edges: ShapeHandle[],
+  request: Extract<CadModifierWorkerRequest, { type: "preview" }>,
+  amount: number,
+  retryOrder: boolean,
+) {
+  const orders = uniqueEdgeOrders(cad, edges, retryOrder);
+  const operations = request.kind === "fillet"
+    ? [(order: ShapeHandle[]) => cad.fillet(solid, order, amount)]
+    : Math.abs(request.chamferAngle - 45) < 0.001
+      ? [
+          (order: ShapeHandle[]) => cad.chamfer(solid, order, amount),
+          (order: ShapeHandle[]) => cad.chamferDistAngle(solid, order, amount, 45),
+        ]
+      : [(order: ShapeHandle[]) => cad.chamferDistAngle(solid, order, amount, request.chamferAngle)];
+  let firstError: unknown;
+  for (const operation of operations) {
+    for (const order of orders) {
+      let candidate: ShapeHandle | null = null;
+      try {
+        candidate = operation(order);
+        if (cadShapeIsValid(cad, candidate)) return candidate;
+        cad.release(candidate);
+        candidate = null;
+        throw new CadEdgeOperationError("The chosen size creates invalid or overlapping edge geometry");
+      } catch (error) {
+        if (candidate !== null) cad.release(candidate);
+        if (!retryableCadEdgeOperationFailure(error)) throw error;
+        firstError ??= error;
+      }
+    }
+  }
+  throw firstError ?? new CadEdgeOperationError("The CAD kernel could not build this edge treatment");
+}
+
+type CadComponentResult = {
+  components: ShapeHandle[];
+  result: ShapeHandle;
+};
+
+function releaseCadComponentResult(cad: OcctKernel, built: CadComponentResult) {
+  releaseHandles(cad, built.components);
+  if (built.components.length > 1) releaseHandles(cad, [built.result]);
+}
+
+function buildCadComponentResult(
+  cad: OcctKernel,
+  selected: Array<{ edge: ShapeHandle; owner: number }>,
+  request: Extract<CadModifierWorkerRequest, { type: "preview" }>,
+  amount: number,
+  retryOrder: boolean,
+): CadComponentResult {
+  const components: ShapeHandle[] = [];
+  let result: ShapeHandle | null = null;
+  try {
+    for (let owner = 0; owner < baseSolids.length; owner += 1) {
+      const solid = baseSolids[owner];
+      const componentEdges = selected.filter((entry) => entry.owner === owner).map((entry) => entry.edge);
+      components.push(componentEdges.length === 0
+        ? cad.copy(solid)
+        : modifyCadSolid(cad, solid, componentEdges, request, amount, retryOrder));
+    }
+    result = components.length === 1 ? components[0] : cad.makeCompound(components);
+    if (!cadShapeIsValid(cad, result)) {
+      throw new CadEdgeOperationError("The chosen size creates invalid or overlapping edge geometry");
+    }
+    return { components, result };
+  } catch (error) {
+    components.forEach((component) => cad.release(component));
+    if (result !== null && components.length > 1) cad.release(result);
+    throw error;
+  }
 }
 
 function collectEdges(cad: OcctKernel, shape: ShapeHandle, sharpAngle: number, suppressTreatmentDetailEdges = false, retainEdgeHandles = false) {
@@ -394,15 +552,27 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
   let cad: OcctKernel | null = null;
   try {
     cad = await kernel();
-    const activeCad = cad;
     if (request.type === "dispose") {
-      releaseSession(activeCad);
+      releaseSession(cad);
       post({ type: "disposed", requestId: request.requestId });
       return;
     }
     if (request.type === "prepare") {
+      let activeCad = cad;
       releaseSession(activeCad);
-      const reconstructed = reconstructParts(activeCad, request.parts);
+      let reconstructed: ShapeHandle;
+      try {
+        reconstructed = reconstructParts(activeCad, request.parts);
+      } catch (error) {
+        if (!(error instanceof CadExactMeshFallbackRequired)) throw error;
+        releaseSession(activeCad);
+        kernelPromise = null;
+        cad = await kernel();
+        activeCad = cad;
+        releaseSession(activeCad);
+        usedExactMeshFallback = true;
+        reconstructed = reconstructParts(activeCad, cadModifierMeshFallbackParts(request.parts));
+      }
       baseSolids = closedCadSolidComponents(
         reconstructed,
         (shape) => activeCad.isSolid(shape),
@@ -435,40 +605,37 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
       } finally {
         ownerEdgeHandles.forEach((componentEdges) => releaseHandles(activeCad, componentEdges));
       }
+      activeSessionId = request.requestId;
       post({
         type: "ready",
         requestId: request.requestId,
         edges: collected.edges.map((edge) => ({ ...edge, owner: edgeOwners[edge.id] ?? 0 })),
         selectableEdgeIds: collected.selectableEdgeIds,
         sourceType: activeCad.getShapeType(baseShape),
+        usedMeshFallback: usedExactMeshFallback || undefined,
       });
       return;
     }
+    const activeCad = cad;
     if (baseShape === null) throw new Error("Prepare an object before previewing the modifier");
+    if (request.sessionId !== activeSessionId) throw new Error("The prepared edge object changed; restart the edge tool and try again");
     const selected = request.edgeIds.map((id) => ({ edge: edgeHandles[id], owner: edgeOwners[id] })).filter((entry): entry is { edge: ShapeHandle; owner: number } => entry.edge !== undefined);
     if (selected.length === 0) throw new Error("Select at least one highlighted edge");
-    const componentResults: ShapeHandle[] = [];
-    let result: ShapeHandle | null = null;
+    let built: CadComponentResult | null = null;
+    let resetKernelAfterPreview = false;
     try {
-      for (let owner = 0; owner < baseSolids.length; owner += 1) {
-        const solid = baseSolids[owner];
-        const componentEdges = selected.filter((entry) => entry.owner === owner).map((entry) => entry.edge);
-        const component = componentEdges.length === 0
-          ? activeCad.copy(solid)
-          : request.kind === "fillet"
-            ? activeCad.fillet(solid, componentEdges, request.amount)
-            : Math.abs(request.chamferAngle - 45) < 0.001
-              ? activeCad.chamfer(solid, componentEdges, request.amount)
-              : activeCad.chamferDistAngle(solid, componentEdges, request.amount, request.chamferAngle);
-        componentResults.push(component);
-      }
-      result = componentResults.length === 1 ? componentResults[0] : activeCad.makeCompound(componentResults);
-      if (!cadShapeIsValid(activeCad, result)) throw new Error("The chosen size creates invalid or overlapping edge geometry");
-      const options = tessellationOptions(request.quality, request.amount);
-      const mesh = copyCadMesh(activeCad.tessellate(result, options));
-      const displayEdges = collectEdges(activeCad, result, 0).displayEdges;
-      const brep = activeCad.toBREP(result);
-      const components: CadModifierComponentMesh[] = componentResults.map((component, owner) => {
+      const fitted = fitCadModifierAmount(
+        request.amount,
+        (amount, retryOrder) => buildCadComponentResult(activeCad, selected, request, amount, retryOrder),
+        (candidate) => releaseCadComponentResult(activeCad, candidate),
+        retryableCadEdgeOperationFailure,
+      );
+      built = fitted.value;
+      const componentHandles = built.components;
+      const options = tessellationOptions(request.quality, fitted.amount);
+      const mesh = copyCadMesh(activeCad.tessellate(built.result, options));
+      const displayEdges = collectEdges(activeCad, built.result, 0).displayEdges;
+      const components: CadModifierComponentMesh[] = componentHandles.map((component, owner) => {
         const componentMesh = copyCadMesh(activeCad.tessellate(component, options));
         return {
           owner,
@@ -476,12 +643,34 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
           normals: componentMesh.normals,
           indices: componentMesh.indices,
           triangleCount: componentMesh.triangleCount,
-          brep: activeCad.toBREP(component),
           displayEdges: collectEdges(activeCad, component, 0).displayEdges,
         };
       });
+      const serialized = serializeOptionalCadModifierBreps(
+        built.result,
+        componentHandles,
+        (shape) => activeCad.toBREP(shape),
+      );
+      components.forEach((component, owner) => {
+        component.brep = serialized.componentBreps[owner];
+      });
+      const exactSerializationFailed = serialized.failed;
+      resetKernelAfterPreview = serialized.failed;
       post(
-        { type: "preview", requestId: request.requestId, positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, triangleCount: mesh.triangleCount, brep, displayEdges, components },
+        {
+          type: "preview",
+          requestId: request.requestId,
+          positions: mesh.positions,
+          normals: mesh.normals,
+          indices: mesh.indices,
+          triangleCount: mesh.triangleCount,
+          brep: serialized.brep,
+          appliedAmount: fitted.amount,
+          adjustedAmount: fitted.adjusted,
+          exactSerializationFailed: exactSerializationFailed || undefined,
+          displayEdges,
+          components,
+        },
         [
           mesh.positions.buffer,
           mesh.normals.buffer,
@@ -490,8 +679,11 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
         ],
       );
     } finally {
-      componentResults.forEach((component) => activeCad.release(component));
-      if (result !== null && componentResults.length > 1) activeCad.release(result);
+      if (built) releaseCadComponentResult(activeCad, built);
+      if (resetKernelAfterPreview) {
+        releaseSession(activeCad);
+        kernelPromise = null;
+      }
     }
   } catch (error) {
     const rawMessage = error instanceof Error ? error.message : String(error ?? "");
@@ -512,8 +704,8 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
       });
       return;
     }
-    const message = request.type === "preview" && (rawMessage.includes("WebAssembly.Exception") || rawMessage.includes("fillet:") || rawMessage.includes("chamfer:"))
-      ? `The selected edges cannot be ${request.kind === "fillet" ? "filleted" : "chamfered"} together at this size. Reduce the size or select fewer connected edges.`
+    const message = request.type === "preview" && isCadEdgeOperationFailure(error)
+      ? `The selected edges cannot be ${request.kind === "fillet" ? "filleted" : "chamfered"} together, even after fitting a smaller size. Select fewer connected edges or simplify tight corners.`
       : rawMessage || "The CAD kernel could not complete this edge treatment";
     if (request.type === "prepare" && cad) releaseSession(cad);
     post({ type: "error", requestId: request.requestId, message });

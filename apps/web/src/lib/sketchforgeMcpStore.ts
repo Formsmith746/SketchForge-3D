@@ -75,8 +75,13 @@ export function listSketchForgeMcpEditors() {
 
 export function pollSketchForgeMcpCommand(editorId: string) {
   prune();
-  const queue = store().queues.get(editorId);
-  return queue?.shift() ?? null;
+  const state = store();
+  const queue = state.queues.get(editorId);
+  while (queue?.length) {
+    const command = queue.shift() as SketchForgeMcpCommand;
+    if (state.pending.has(command.id) && command.expiresAt > Date.now()) return command;
+  }
+  return null;
 }
 
 export function completeSketchForgeMcpCommand(editorId: string, result: SketchForgeMcpCommandResult) {
@@ -118,11 +123,14 @@ export function dispatchSketchForgeMcpCommand({
     } satisfies SketchForgeMcpCommandResult);
   }
 
+  const boundedTimeoutMs = Math.max(1000, Math.min(timeoutMs, 240000));
+  const createdAt = Date.now();
   const command: SketchForgeMcpCommand = {
     id: createCommandId(),
     action,
     params,
-    createdAt: Date.now(),
+    createdAt,
+    expiresAt: createdAt + boundedTimeoutMs,
   };
   const queue = state.queues.get(editor.editorId) ?? [];
   queue.push(command);
@@ -137,7 +145,7 @@ export function dispatchSketchForgeMcpCommand({
         error: `Timed out waiting for SketchForge editor ${editor.editorNumber}`,
         completedAt: Date.now(),
       });
-    }, Math.max(1000, Math.min(timeoutMs, 60000)));
+    }, boundedTimeoutMs);
     state.pending.set(command.id, { editorId: editor.editorId, resolve, timer });
   });
 }

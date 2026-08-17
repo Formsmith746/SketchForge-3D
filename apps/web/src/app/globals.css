@@ -1881,15 +1881,25 @@ button {
   accent-color: #139ed0;
 }
 
+.edge-modifier-adjustment,
 .edge-modifier-error {
   margin-top: 12px;
   padding: 8px 9px;
-  color: #9f2730;
-  background: #fff0f1;
-  border: 1px solid #efc4c8;
   border-radius: 7px;
   font-size: 11px;
   line-height: 1.35;
+}
+
+.edge-modifier-adjustment {
+  color: #765214;
+  background: #fff8e8;
+  border: 1px solid #e8d19a;
+}
+
+.edge-modifier-error {
+  color: #9f2730;
+  background: #fff0f1;
+  border: 1px solid #efc4c8;
 }
 
 .edge-modifier-footer {

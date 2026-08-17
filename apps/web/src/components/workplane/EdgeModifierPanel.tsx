@@ -150,6 +150,8 @@ export function EdgeModifierPanel({
   busy,
   prepared,
   error,
+  sizeAdjustment,
+  previewOnly,
   onAmountChange,
   onChamferAngleChange,
   onQualityChange,
@@ -181,6 +183,8 @@ export function EdgeModifierPanel({
   busy: boolean;
   prepared: boolean;
   error: string | null;
+  sizeAdjustment: { requested: number; applied: number } | null;
+  previewOnly: boolean;
   onAmountChange: (value: number) => void;
   onChamferAngleChange: (value: number) => void;
   onQualityChange: (value: CadModifierQuality) => void;
@@ -217,8 +221,8 @@ export function EdgeModifierPanel({
       </div>
 
       <div className="edge-modifier-quick-actions">
-        <button type="button" disabled={!prepared || busy} onClick={onSelectAll}>All sharp edges</button>
-        <button type="button" disabled={!prepared || busy} onClick={onClear}>Clear</button>
+        <button type="button" disabled={!prepared || busy || previewOnly} onClick={onSelectAll}>All sharp edges</button>
+        <button type="button" disabled={!prepared || busy || previewOnly} onClick={onClear}>Clear</button>
       </div>
 
       {appliedFeatureCount > 0 ? (
@@ -261,33 +265,43 @@ export function EdgeModifierPanel({
         step={EDGE_MODIFIER_AMOUNT_STEP}
         workspace={workspace}
         length
-        disabled={!prepared || busy}
+        disabled={!prepared || busy || previewOnly}
         onChange={onAmountChange}
       />
 
-      {kind === "chamfer" ? <EdgeModifierSlider label="Angle" value={chamferAngle} min={5} max={85} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy} onChange={onChamferAngleChange} /> : null}
+      {kind === "chamfer" ? <EdgeModifierSlider label="Angle" value={chamferAngle} min={5} max={85} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy || previewOnly} onChange={onChamferAngleChange} /> : null}
 
-      <EdgeModifierSlider label="Sharp-edge threshold" value={sharpAngle} min={1} max={CAD_MODIFIER_MAX_SHARP_ANGLE} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy} onChange={onSharpAngleChange} />
+      <EdgeModifierSlider label="Sharp-edge threshold" value={sharpAngle} min={1} max={CAD_MODIFIER_MAX_SHARP_ANGLE} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy || previewOnly} onChange={onSharpAngleChange} />
 
       <label className="edge-modifier-check">
-        <input type="checkbox" checked={tangentChain} disabled={!prepared || busy} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
+        <input type="checkbox" checked={tangentChain} disabled={!prepared || busy || previewOnly} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
         <span>Select tangent chains</span>
       </label>
 
       <label className="edge-modifier-check">
-        <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared || busy} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
+        <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared || busy || previewOnly} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
         <span>Keep edge size when resizing</span>
       </label>
 
       <label className="edge-modifier-field">
         <span>Preview quality</span>
-        <select value={quality} disabled={!prepared || busy} onChange={(event) => onQualityChange(event.currentTarget.value as CadModifierQuality)}>
+        <select value={quality} disabled={!prepared || busy || previewOnly} onChange={(event) => onQualityChange(event.currentTarget.value as CadModifierQuality)}>
           <option value="draft">Draft</option>
           <option value="standard">Standard</option>
           <option value="fine">Fine</option>
         </select>
       </label>
 
+      {sizeAdjustment ? (
+        <div className="edge-modifier-adjustment" role="status">
+          Requested {formatSliderValue(millimetersToDisplay(sizeAdjustment.requested, workspace), workspace.accuracy, displayStepFromMillimeters(EDGE_MODIFIER_AMOUNT_STEP, workspace))} {lengthDisplayUnit(workspace).label}; fitted to {formatSliderValue(millimetersToDisplay(sizeAdjustment.applied, workspace), workspace.accuracy, displayStepFromMillimeters(EDGE_MODIFIER_AMOUNT_STEP, workspace))} {lengthDisplayUnit(workspace).label} to keep the result valid.
+        </div>
+      ) : null}
+      {previewOnly ? (
+        <div className="edge-modifier-adjustment" role="status">
+          Exact CAD serialization was unavailable. This valid preview can still be applied and will be stored as mesh geometry.
+        </div>
+      ) : null}
       {error ? <div className="edge-modifier-error" role="alert">{error}</div> : null}
       <div className="edge-modifier-footer">
         <button type="button" className="secondary" onClick={onCancel}>Cancel</button>

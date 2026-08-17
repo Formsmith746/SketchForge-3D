@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   bakeCadMetadataForShapeTransform,
   cadBrepTransformForShape,
+  cadImportedStepTransformForShape,
   cadModifierPrimitiveForAnalyticBox,
   cadModifierPrimitiveForBakedShape,
 } from "@/lib/cadBakeMetadata";
@@ -187,6 +188,10 @@ describe("SketchForge transform baking", () => {
     expectTransformClose(restoredPrimitive?.transform, directPrimitive?.transform ?? []);
   });
 
+  it("does not replace rounded-box topology with a sharp analytic box", () => {
+    expect(cadModifierPrimitiveForAnalyticBox(boxShape({ radius: 3 }))).toBeNull();
+  });
+
   it("uses a general CAD transform after resizing a baked rotated box", () => {
     const shape = boxShape({
       x: 0,
@@ -233,5 +238,52 @@ describe("SketchForge transform baking", () => {
     const restoredPrimitive = cadModifierPrimitiveForBakedShape(resizedBakedShape);
     expect(restoredPrimitive?.transform).toBeDefined();
     expect(cadTransformRequiresGeneralTransform(restoredPrimitive?.transform ?? [])).toBe(true);
+  });
+
+  it("keeps an imported STEP B-Rep aligned after translation and resize", () => {
+    const shape = treatedMeshShape({
+      x: 10,
+      z: -2,
+      elevation: 5,
+      width: 4,
+      depth: 12,
+      height: 8,
+      size: 12,
+      edgeTreatments: undefined,
+      cadBrep: undefined,
+      cadBrepFrame: undefined,
+      importedMesh: {
+        positions: [-1, 0, -3, 1, 0, -3, 1, 4, 3],
+        baseWidth: 2,
+        baseDepth: 6,
+        baseHeight: 4,
+        triangleCount: 1,
+        sourceFormat: "step",
+        brepStep: "stored-step",
+      },
+    });
+
+    expectTransformClose(cadImportedStepTransformForShape(shape), [
+      2, 0, 0, 10,
+      0, 2, 0, 5,
+      0, 0, 2, -2,
+    ]);
+  });
+
+  it("rejects exact STEP placement when imported dimensions are invalid", () => {
+    const shape = treatedMeshShape({
+      edgeTreatments: undefined,
+      importedMesh: {
+        positions: [-1, 0, 0, 1, 0, 0, 0, 2, 0],
+        baseWidth: 0,
+        baseDepth: 2,
+        baseHeight: 2,
+        triangleCount: 1,
+        sourceFormat: "step",
+        brepStep: "stored-step",
+      },
+    });
+
+    expect(cadImportedStepTransformForShape(shape)).toBeNull();
   });
 });

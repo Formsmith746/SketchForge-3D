@@ -29,6 +29,7 @@ export type CadModifierMeshPart = {
   positions?: Float32Array;
   indices?: Uint32Array;
   brep?: string;
+  step?: string;
   brepTransform?: number[];
   primitive?: CadModifierPrimitivePart;
   hole: boolean;
@@ -40,7 +41,7 @@ export type CadModifierComponentMesh = {
   normals: Float32Array;
   indices: Uint32Array;
   triangleCount: number;
-  brep: string;
+  brep?: string;
   displayEdges: CadModifierDisplayEdge[];
 };
 
@@ -51,6 +52,7 @@ export type CadModifierWorkerRequest =
       requestId: number;
       kind: CadModifierKind;
       edgeIds: number[];
+      sessionId: number;
       amount: number;
       quality: CadModifierQuality;
       chamferAngle: number;
@@ -58,7 +60,7 @@ export type CadModifierWorkerRequest =
   | { type: "dispose"; requestId: number };
 
 export type CadModifierWorkerResponse =
-  | { type: "ready"; requestId: number; edges: CadModifierEdge[]; selectableEdgeIds: number[]; sourceType: string }
+  | { type: "ready"; requestId: number; edges: CadModifierEdge[]; selectableEdgeIds: number[]; sourceType: string; usedMeshFallback?: boolean }
   | {
       type: "preview";
       requestId: number;
@@ -66,7 +68,10 @@ export type CadModifierWorkerResponse =
       normals: Float32Array;
       indices: Uint32Array;
       triangleCount: number;
-      brep: string;
+      brep?: string;
+      appliedAmount: number;
+      adjustedAmount: boolean;
+      exactSerializationFailed?: boolean;
       displayEdges: CadModifierDisplayEdge[];
       components?: CadModifierComponentMesh[];
     }

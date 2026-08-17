@@ -45,7 +45,7 @@ function allFinitePositive(values: number[]) {
 }
 
 export function cadModifierPrimitiveForAnalyticBox(shape: WorkplaneShape): CadModifierPrimitivePart | null {
-  if (shape.kind !== "box" || shape.importedMesh || shape.groupedShapes?.length) {
+  if (shape.kind !== "box" || shape.importedMesh || shape.groupedShapes?.length || (shape.radius ?? 0) > 0) {
     return null;
   }
 
@@ -188,6 +188,40 @@ export function cadBrepTransformForShape(shape: WorkplaneShape) {
     .multiply(cadTransformToMatrix(frame.sourceTransform));
   const result = cadTransformFromMatrix(matrix);
   return isIdentityCadTransform(result) ? undefined : result;
+}
+
+export function cadImportedStepTransformForShape(shape: WorkplaneShape) {
+  const mesh = shape.importedMesh;
+  if (!mesh || !allFinitePositive([
+    mesh.baseWidth,
+    mesh.baseDepth,
+    mesh.baseHeight,
+    shapeWidth(shape),
+    shapeDepth(shape),
+    shape.height,
+  ])) {
+    return null;
+  }
+
+  const centerY = shape.height / 2;
+  const matrix = new THREE.Matrix4()
+    .makeTranslation(shape.x, (shape.elevation ?? 0) + centerY, shape.z)
+    .multiply(new THREE.Matrix4().makeRotationFromEuler(
+      new THREE.Euler(
+        THREE.MathUtils.degToRad(shape.rotationX ?? 0),
+        THREE.MathUtils.degToRad(shape.rotation ?? 0),
+        THREE.MathUtils.degToRad(shape.rotationZ ?? 0),
+        "XYZ",
+      ),
+    ))
+    .multiply(new THREE.Matrix4().makeScale(
+      mirrorSign(shape.mirrorX) * shapeWidth(shape) / mesh.baseWidth,
+      mirrorSign(shape.mirrorY) * shape.height / mesh.baseHeight,
+      mirrorSign(shape.mirrorZ) * shapeDepth(shape) / mesh.baseDepth,
+    ))
+    .multiply(new THREE.Matrix4().makeTranslation(0, -mesh.baseHeight / 2, 0));
+  const transform = cadTransformFromMatrix(matrix);
+  return isIdentityCadTransform(transform) ? undefined : transform;
 }
 
 function bakeCadDisplayEdgesForShape(shape: WorkplaneShape, frame: BakedCadMetadataFrame) {

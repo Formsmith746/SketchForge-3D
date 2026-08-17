@@ -324,9 +324,9 @@ async function callTool(name, args) {
     case "sketchforge_separate_parts":
       return bridgeCommand("separate_parts", args);
     case "sketchforge_list_edges":
-      return bridgeCommand("list_edges", args, 30000);
+      return bridgeCommand("list_edges", args, 180000);
     case "sketchforge_apply_edge_treatment":
-      return bridgeCommand("apply_edge_treatment", args, 60000);
+      return bridgeCommand("apply_edge_treatment", args, 240000);
     case "sketchforge_inspect_errors":
       return bridgeCommand("inspect_errors", args);
     case "sketchforge_capture_image":

@@ -5,12 +5,15 @@ import {
   CAD_MODIFIER_REQUEST_TIMEOUT_MS,
   CAD_MODIFIER_RUNTIME_BASE,
   cadModifierPrepareTimeoutMs,
+  cadModifierMeshFallbackParts,
   cadModifierTopologyEdgeIsSelectable,
   cadTransformRequiresGeneralTransform,
   cadModifierTimeoutMessage,
   defaultCadModifierTangentChain,
   edgeModifierSelectionStatus,
+  fitCadModifierAmount,
   isCadModifierWasmMemoryFault,
+  serializeOptionalCadModifierBreps,
   selectableCadModifierEdge,
 } from "@/lib/cadModifierRuntime";
 
@@ -88,5 +91,105 @@ describe("CAD modifier runtime state", () => {
     expect(cadModifierTopologyEdgeIsSelectable(hiddenDetailEdge)).toBe(true);
     expect(selectableCadModifierEdge(hiddenDetailEdge, 25)).toBe(true);
     expect(selectableCadModifierEdge(hiddenDetailEdge, 60)).toBe(false);
+  });
+
+  it("keeps the requested edge size when the first geometry attempt succeeds", () => {
+    const attempts: Array<{ amount: number; retryOrder: boolean }> = [];
+    const fitted = fitCadModifierAmount(
+      4,
+      (amount, retryOrder) => {
+        attempts.push({ amount, retryOrder });
+        return { amount };
+      },
+      () => undefined,
+    );
+
+    expect(fitted).toEqual({ value: { amount: 4 }, amount: 4, adjusted: false });
+    expect(attempts).toEqual([{ amount: 4, retryOrder: true }]);
+  });
+
+  it("finds and retains the largest tested valid size below a failed request", () => {
+    const released: number[] = [];
+    const fitted = fitCadModifierAmount(
+      8,
+      (amount) => {
+        if (amount >= 5) throw new Error("invalid geometry");
+        return amount;
+      },
+      (amount) => released.push(amount),
+    );
+
+    expect(fitted.adjusted).toBe(true);
+    expect(fitted.amount).toBeGreaterThanOrEqual(4.98);
+    expect(fitted.amount).toBeLessThan(5);
+    expect(fitted.value).toBe(fitted.amount);
+    expect(released.length).toBeGreaterThan(0);
+    expect(released).not.toContain(fitted.value);
+  });
+
+  it("does not retry non-geometry failures while fitting an edge size", () => {
+    let attempts = 0;
+    const fatal = new Error("memory fault");
+
+    expect(() => fitCadModifierAmount(
+      8,
+      () => {
+        attempts += 1;
+        throw fatal;
+      },
+      () => undefined,
+      () => false,
+    )).toThrow(fatal);
+    expect(attempts).toBe(1);
+  });
+
+  it("probes the supported minimum when eight halvings do not find a valid size", () => {
+    const attempts: number[] = [];
+    const fitted = fitCadModifierAmount(
+      8,
+      (amount) => {
+        attempts.push(amount);
+        if (amount > 0.002) throw new Error("still too large");
+        return amount;
+      },
+      () => undefined,
+    );
+
+    expect(attempts).toContain(0.001);
+    expect(fitted.amount).toBe(0.002);
+  });
+
+  it("strips failed exact geometry only when a mesh fallback is available", () => {
+    const positions = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+    const indices = new Uint32Array([0, 1, 2]);
+    const meshBacked = { brep: "broken", brepTransform: [1, 0, 0, 2, 0, 1, 0, 3, 0, 0, 1, 4], positions, indices, hole: false };
+    const exactOnly = { brep: "large-exact-body", hole: false };
+    const primitive = { primitive: { kind: "box" as const, width: 2, depth: 3, height: 4 }, hole: false };
+
+    const fallback = cadModifierMeshFallbackParts([meshBacked, exactOnly, primitive]);
+
+    expect(fallback[0]).toEqual({ positions, indices, hole: false });
+    expect(fallback[1]).toBe(exactOnly);
+    expect(fallback[2]).toBe(primitive);
+  });
+
+  it("keeps a valid modifier result when optional B-Rep serialization traps", () => {
+    const calls: string[] = [];
+    const serialized = serializeOptionalCadModifierBreps(
+      "result",
+      ["component-a", "component-b"],
+      (shape) => {
+        calls.push(shape);
+        if (shape === "component-a") throw new Error("toBREP: unreachable");
+        return `brep:${shape}`;
+      },
+    );
+
+    expect(serialized).toEqual({
+      brep: undefined,
+      componentBreps: [undefined, undefined],
+      failed: true,
+    });
+    expect(calls).toEqual(["result", "component-a"]);
   });
 });
