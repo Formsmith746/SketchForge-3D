@@ -2,7 +2,7 @@
   <table>
     <tr>
       <td width="145" align="center">
-        <img src="apps/web/public/assets/sketchforge/sketchforge-logo-transparent.png" width="120" alt="SketchForge logo">
+        <img src="https://sketchforge3d.com/assets/sketchforge/sketchforge-logo-transparent.png" width="120" alt="SketchForge logo">
       </td>
       <td>
         <h1 align="right">SketchForge</h1>
@@ -16,14 +16,14 @@
 
   <p>
     <a href="LICENSE"><img alt="GNU AGPLv3 license" src="https://img.shields.io/badge/license-AGPLv3-663399"></a>
-    <a href="https://github.com/Formsmith746/SketchForge-3D/stargazers"><img alt="Star SketchForge on GitHub" src="docs/media/badges/github-star.svg"></a>
-    <a href="https://github.com/sponsors/Formsmith746"><img alt="Sponsor SketchForge on GitHub" src="docs/media/badges/github-sponsor.svg"></a>
+    <a href="https://github.com/Formsmith746/SketchForge-3D/stargazers"><img alt="Star SketchForge on GitHub" src="https://img.shields.io/github/stars/Formsmith746/SketchForge-3D?style=flat&logo=github"></a>
+    <a href="https://github.com/sponsors/Formsmith746"><img alt="Sponsor SketchForge on GitHub" src="https://img.shields.io/badge/GitHub-Sponsor-ea4aaa?logo=githubsponsors&logoColor=white"></a>
     <img alt="Local first" src="https://img.shields.io/badge/local--first-no%20account-0ea5e9">
-    <img alt="Version v1.0.0" src="https://img.shields.io/badge/version-v1.0.0-2563eb">
+    <img alt="Version v1.0.3" src="https://img.shields.io/badge/version-v1.0.3-2563eb">
   </p>
 </div>
 
-![SketchForge editor showing a selected box on the workplane](docs/media/sketchforge-editor-v0.8.0.png)
+![SketchForge editor showing a selected model on the workplane](https://sketchforge3d.com/assets/landing/editor-phone-stand.png)
 
 ## Why SketchForge
 
@@ -65,7 +65,7 @@ New angle and midplanes remain linked to their source planes. Select any listed 
 
 ## Demo
 
-![SketchForge editor demo preview](docs/media/videos/01-create-and-edit-block-preview.gif)
+![SketchForge projects dashboard](https://sketchforge3d.com/assets/landing/project-dashboard.png)
 
 ### 2D Sketching & Revolve Workflow
 

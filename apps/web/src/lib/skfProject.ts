@@ -1,6 +1,7 @@
 import { strFromU8, strToU8, unzip, zip, type AsyncZippable } from "fflate";
 import { editorHistoryEntry, hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { normalizePlacementWorkplane, placementWorkplaneIsBase, type PlacementWorkplane } from "@/lib/placementWorkplane";
+import { importedShapeFromObj } from "@/lib/objImport";
 import { MAX_PROJECT_ASSET_BYTES, normalizeProjectAsset, sha256Hex } from "@/lib/projectAssets";
 import { canonicalizeShape } from "@/lib/workplaneShapes";
 import { importedShapeFromStl } from "@/lib/stlImport";
@@ -11,7 +12,7 @@ import type { GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation,
 export const SKF_SCHEMA_ID = "com.sketchforge.project";
 export const SKF_FORMAT_VERSION = 1;
 export const SKF_MINIMUM_READER_VERSION = 1;
-export const SKF_CREATED_WITH_VERSION = "1.0.0";
+export const SKF_CREATED_WITH_VERSION = "1.0.2";
 export const SKF_MEDIA_TYPE = "application/vnd.sketchforge.project+zip";
 
 export const SKF_LIMITS = {
@@ -1185,12 +1186,13 @@ async function defaultSourceImporter(asset: ProjectAsset) {
     const { importedShapeFrom3mf } = await import("@/lib/threeMf");
     return importedShapeFrom3mf(asset.name, exactArrayBuffer(asset.bytes)).importedMesh as NonNullable<WorkplaneShape["importedMesh"]>;
   }
+  if (asset.sourceFormat === "obj") return importedShapeFromObj(asset.name, strFromU8(asset.bytes)).importedMesh as NonNullable<WorkplaneShape["importedMesh"]>;
   if (asset.sourceFormat === "svg") return importedShapeFromSvg(asset.name, strFromU8(asset.bytes)).importedMesh as NonNullable<WorkplaneShape["importedMesh"]>;
   if (asset.sourceFormat === "step") {
     const { importedShapeFromStep } = await import("@/lib/stepImport");
     return (await importedShapeFromStep(asset.name, exactArrayBuffer(asset.bytes))).importedMesh as NonNullable<WorkplaneShape["importedMesh"]>;
   }
-  throw new Error(`SketchForge cannot reconstruct ${asset.sourceFormat.toUpperCase()} source assets yet`);
+  throw new Error("SketchForge cannot reconstruct this source asset format");
 }
 
 async function restoreShapeFromNode(

@@ -125,6 +125,64 @@ export async function GET(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  const root = sharedProjectsDirectory();
+  if (!root) return NextResponse.json({ error: "Shared project storage is disabled" }, { status: 404 });
+  if (!sameOriginRequest(request)) return NextResponse.json({ error: "Shared projects only accept same-origin deletes" }, { status: 403 });
+
+  let lockHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
+  let lockPath = "";
+  try {
+    const requestUrl = new URL(request.url);
+    const requestedFile = requestUrl.searchParams.get("fileName");
+    if (!requestedFile) return NextResponse.json({ error: "Shared project name is required" }, { status: 400 });
+    const fileName = safeProjectFileName(requestedFile);
+    if (fileName !== requestedFile) return NextResponse.json({ error: "Invalid shared project name" }, { status: 400 });
+
+    await fs.mkdir(root, { recursive: true });
+    const filePath = path.join(root, fileName);
+    lockPath = `${filePath}.lock`;
+
+    try {
+      lockHandle = await fs.open(lockPath, "wx");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        return NextResponse.json({ error: "This shared project is currently being changed by someone else" }, { status: 409 });
+      }
+      throw error;
+    }
+
+    const currentStat = await regularFileStat(filePath);
+    if (!currentStat) return NextResponse.json({ error: "Shared project was not found" }, { status: 404 });
+
+    const currentRevision = revisionForStat(currentStat);
+    const expectedRevision = unquoteEtag(request.headers.get("if-match"));
+    if (!expectedRevision) {
+      return NextResponse.json(
+        { error: "Reload shared projects before deleting so the current revision can be verified", currentRevision },
+        { status: 428 },
+      );
+    }
+    if (expectedRevision !== currentRevision) {
+      return NextResponse.json(
+        { error: "The shared project changed after you loaded it. Refresh the shared projects list and try again.", currentRevision },
+        { status: 409 },
+      );
+    }
+
+    await fs.unlink(filePath);
+    return NextResponse.json(
+      { deleted: true, fileName },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not delete shared project" }, { status: 500 });
+  } finally {
+    if (lockHandle) await lockHandle.close().catch(() => undefined);
+    if (lockPath) await fs.unlink(lockPath).catch(() => undefined);
+  }
+}
+
 export async function POST(request: Request) {
   const root = sharedProjectsDirectory();
   if (!root) return NextResponse.json({ error: "Shared project storage is disabled" }, { status: 404 });

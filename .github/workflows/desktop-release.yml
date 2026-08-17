@@ -1,0 +1,198 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (for example 1.0.4)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Build and publish Windows desktop
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Resolve release version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}".Trim().TrimStart("v")
+            $tag = "v$version"
+          } else {
+            $tag = "${{ github.ref_name }}"
+            $version = $tag.TrimStart("v")
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+            throw "Invalid release version: $version"
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Building SketchForge $version ($tag)"
+
+      - name: Ensure release tag exists
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git fetch --tags --force
+          if (git rev-parse $env:TAG 2>$null) {
+            Write-Host "$env:TAG already exists."
+          } else {
+            git tag $env:TAG $env:GITHUB_SHA
+            git push origin $env:TAG
+          }
+
+      - name: Set package version from release tag
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: npm version $env:VERSION --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Windows desktop update
+        run: npm run desktop:dist
+
+      - name: Verify updater artifacts
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $installer = "dist/desktop/SketchForge-Setup-$env:VERSION-x64.exe"
+          $blockmap = "$installer.blockmap"
+          $latest = "dist/desktop/latest.yml"
+
+          foreach ($file in @($installer, $blockmap, $latest)) {
+            if (-not (Test-Path $file -PathType Leaf)) {
+              throw "Missing updater artifact: $file"
+            }
+          }
+
+          $metadata = Get-Content $latest -Raw
+          if ($metadata -notmatch "version:\s*$([regex]::Escape($env:VERSION))") {
+            throw "latest.yml does not contain version $env:VERSION"
+          }
+
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host "Installer SHA-256: $hash"
+          Write-Host "Installer size: $((Get-Item $installer).Length) bytes"
+
+      - name: Create draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $existing = gh release view $env:TAG --json isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            $release = $existing | ConvertFrom-Json
+            if (-not $release.isDraft) {
+              throw "Release $env:TAG is already published. Refusing to replace a live updater release."
+            }
+            Write-Host "Using existing draft release $env:TAG."
+          } else {
+            gh release create $env:TAG --draft --verify-tag --title "SketchForge $env:VERSION" --notes "SketchForge desktop $env:VERSION"
+          }
+
+      - name: Upload updater assets to draft
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $installer = "dist/desktop/SketchForge-Setup-$env:VERSION-x64.exe"
+          gh release upload $env:TAG `
+            $installer `
+            "$installer.blockmap" `
+            "dist/desktop/latest.yml" `
+            --clobber
+
+      - name: Verify GitHub release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $release = gh release view $env:TAG --json isDraft,assets | ConvertFrom-Json
+          if (-not $release.isDraft) {
+            throw "Release became public before verification."
+          }
+
+          $expected = @(
+            "SketchForge-Setup-$env:VERSION-x64.exe",
+            "SketchForge-Setup-$env:VERSION-x64.exe.blockmap",
+            "latest.yml"
+          )
+          $actual = @($release.assets | ForEach-Object { $_.name })
+
+          foreach ($name in $expected) {
+            if ($actual -notcontains $name) {
+              throw "GitHub release is missing $name"
+            }
+          }
+
+          if ($release.assets.Count -lt 3) {
+            throw "Expected at least 3 release assets."
+          }
+
+      - name: Publish release as Latest
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release edit $env:TAG --draft=false --latest
+
+      - name: Final release check
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          $release = gh release view $env:TAG --json tagName,isDraft,publishedAt,assets | ConvertFrom-Json
+          if ($release.isDraft) {
+            throw "Release $env:TAG is still a draft."
+          }
+          $latestTag = gh api "repos/$env:GITHUB_REPOSITORY/releases/latest" --jq '.tag_name'
+          if ($latestTag -ne $env:TAG) {
+            throw "Latest release is $latestTag instead of $env:TAG"
+          }
+          Write-Host "$env:TAG is published as Latest with $($release.assets.Count) assets."

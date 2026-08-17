@@ -1,0 +1,53 @@
+appId: com.sketchforge.desktop
+productName: SketchForge
+asar: true
+
+directories:
+  output: dist/desktop
+
+publish:
+  provider: github
+  owner: Formsmith746
+  repo: SketchForge-3D
+  releaseType: release
+
+files:
+  - apps/desktop/main.cjs
+  - apps/desktop/preload.cjs
+  - package.json
+
+extraResources:
+  - from: apps/web/.next/standalone
+    to: web
+  - from: apps/web/.next/static
+    to: web/apps/web/.next/static
+  - from: apps/web/public
+    to: web/apps/web/public
+
+win:
+  icon: apps/web/public/assets/sketchforge/sketchforge-logo.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+mac:
+  icon: apps/web/public/assets/sketchforge/sketchforge-logo.png
+  target:
+    - dmg
+  category: public.app-category.graphics-design
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+linux:
+  icon: apps/web/public/assets/sketchforge/sketchforge-logo.png
+  target:
+    - AppImage
+  category: Graphics
+  artifactName: ${productName}-${version}-${arch}.${ext}
