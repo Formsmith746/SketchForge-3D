@@ -151,6 +151,7 @@ export function EdgeModifierPanel({
   prepared,
   error,
   sizeAdjustment,
+  skippedEdgeIds,
   previewOnly,
   onAmountChange,
   onChamferAngleChange,
@@ -184,6 +185,7 @@ export function EdgeModifierPanel({
   prepared: boolean;
   error: string | null;
   sizeAdjustment: { requested: number; applied: number } | null;
+  skippedEdgeIds: number[];
   previewOnly: boolean;
   onAmountChange: (value: number) => void;
   onChamferAngleChange: (value: number) => void;
@@ -295,6 +297,11 @@ export function EdgeModifierPanel({
       {sizeAdjustment ? (
         <div className="edge-modifier-adjustment" role="status">
           Requested {formatSliderValue(millimetersToDisplay(sizeAdjustment.requested, workspace), workspace.accuracy, displayStepFromMillimeters(EDGE_MODIFIER_AMOUNT_STEP, workspace))} {lengthDisplayUnit(workspace).label}; fitted to {formatSliderValue(millimetersToDisplay(sizeAdjustment.applied, workspace), workspace.accuracy, displayStepFromMillimeters(EDGE_MODIFIER_AMOUNT_STEP, workspace))} {lengthDisplayUnit(workspace).label} to keep the result valid.
+        </div>
+      ) : null}
+      {skippedEdgeIds.length > 0 ? (
+        <div className="edge-modifier-adjustment" role="status">
+          Applied the largest compatible edge set. Skipped edge ID{skippedEdgeIds.length === 1 ? "" : "s"}: {skippedEdgeIds.join(", ")}.
         </div>
       ) : null}
       {previewOnly ? (

@@ -11,6 +11,7 @@ import {
   cadModifierTimeoutMessage,
   defaultCadModifierTangentChain,
   edgeModifierSelectionStatus,
+  findCadModifierCompatibleSelection,
   fitCadModifierAmount,
   isCadModifierWasmMemoryFault,
   serializeOptionalCadModifierBreps,
@@ -191,5 +192,33 @@ describe("CAD modifier runtime state", () => {
       failed: true,
     });
     expect(calls).toEqual(["result", "component-a"]);
+  });
+
+  it("finds a near-complete compatible edge selection after a combined failure", () => {
+    const released: string[] = [];
+    const compatible = findCadModifierCompatibleSelection(
+      [1, 2, 3],
+      (candidate) => {
+        if (candidate.includes(2) && candidate.includes(3)) throw new Error("incompatible corner");
+        return candidate.join(",");
+      },
+      (value) => released.push(String(value)),
+    );
+
+    expect(compatible).toEqual([1, 3]);
+    expect(released).toEqual(["1,3"]);
+  });
+
+  it("falls back to a greedy compatible edge set when no single omission is enough", () => {
+    const compatible = findCadModifierCompatibleSelection(
+      [1, 2, 3, 4],
+      (candidate) => {
+        if (candidate.length > 1) throw new Error("only isolated edges work");
+        return candidate[0];
+      },
+      () => undefined,
+    );
+
+    expect(compatible).toEqual([1]);
   });
 });

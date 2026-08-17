@@ -2,7 +2,7 @@
 
 import { OcctError, OcctKernel, type ShapeHandle } from "occt-wasm";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
-import { CAD_MODIFIER_RUNTIME_BASE, cadModifierMeshFallbackParts, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, fitCadModifierAmount, isCadModifierWasmMemoryFault, serializeOptionalCadModifierBreps } from "@/lib/cadModifierRuntime";
+import { CAD_MODIFIER_MIN_AMOUNT, CAD_MODIFIER_RUNTIME_BASE, cadModifierMeshFallbackParts, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, findCadModifierCompatibleSelection, fitCadModifierAmount, isCadModifierWasmMemoryFault, serializeOptionalCadModifierBreps } from "@/lib/cadModifierRuntime";
 import { closedCadSolidComponents } from "@/lib/cadModifierGroups";
 
 const HASH_UPPER_BOUND = 2_147_483_647;
@@ -382,7 +382,12 @@ function modifyCadSolid(
 ) {
   const orders = uniqueEdgeOrders(cad, edges, retryOrder);
   const operations = request.kind === "fillet"
-    ? [(order: ShapeHandle[]) => cad.fillet(solid, order, amount)]
+    ? [
+        (order: ShapeHandle[]) => cad.fillet(solid, order, amount),
+        ...(edges.length === 1
+          ? [(order: ShapeHandle[]) => cad.filletVariable(solid, order[0], amount, amount)]
+          : []),
+      ]
     : Math.abs(request.chamferAngle - 45) < 0.001
       ? [
           (order: ShapeHandle[]) => cad.chamfer(solid, order, amount),
@@ -619,17 +624,33 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
     const activeCad = cad;
     if (baseShape === null) throw new Error("Prepare an object before previewing the modifier");
     if (request.sessionId !== activeSessionId) throw new Error("The prepared edge object changed; restart the edge tool and try again");
-    const selected = request.edgeIds.map((id) => ({ edge: edgeHandles[id], owner: edgeOwners[id] })).filter((entry): entry is { edge: ShapeHandle; owner: number } => entry.edge !== undefined);
+    const selected = request.edgeIds.map((id) => ({ id, edge: edgeHandles[id], owner: edgeOwners[id] })).filter((entry): entry is { id: number; edge: ShapeHandle; owner: number } => entry.edge !== undefined);
     if (selected.length === 0) throw new Error("Select at least one highlighted edge");
     let built: CadComponentResult | null = null;
     let resetKernelAfterPreview = false;
     try {
-      const fitted = fitCadModifierAmount(
-        request.amount,
-        (amount, retryOrder) => buildCadComponentResult(activeCad, selected, request, amount, retryOrder),
-        (candidate) => releaseCadComponentResult(activeCad, candidate),
-        retryableCadEdgeOperationFailure,
-      );
+      const fitSelection = (entries: Array<{ id: number; edge: ShapeHandle; owner: number }>) => fitCadModifierAmount(
+          request.amount,
+          (amount, retryOrder) => buildCadComponentResult(activeCad, entries, request, amount, retryOrder),
+          (candidate) => releaseCadComponentResult(activeCad, candidate),
+          retryableCadEdgeOperationFailure,
+        );
+      let selectedForResult = selected;
+      let fitted: ReturnType<typeof fitSelection>;
+      try {
+        fitted = fitSelection(selectedForResult);
+      } catch (error) {
+        if (!retryableCadEdgeOperationFailure(error)) throw error;
+        const compatible = findCadModifierCompatibleSelection(
+          selected,
+          (candidate) => buildCadComponentResult(activeCad, candidate, request, CAD_MODIFIER_MIN_AMOUNT, false),
+          (candidate) => releaseCadComponentResult(activeCad, candidate as CadComponentResult),
+          retryableCadEdgeOperationFailure,
+        );
+        if (!compatible) throw error;
+        selectedForResult = compatible;
+        fitted = fitSelection(selectedForResult);
+      }
       built = fitted.value;
       const componentHandles = built.components;
       const options = tessellationOptions(request.quality, fitted.amount);
@@ -667,6 +688,8 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
           brep: serialized.brep,
           appliedAmount: fitted.amount,
           adjustedAmount: fitted.adjusted,
+          appliedEdgeIds: selectedForResult.map((entry) => entry.id),
+          skippedEdgeIds: selected.filter((entry) => !selectedForResult.includes(entry)).map((entry) => entry.id),
           exactSerializationFailed: exactSerializationFailed || undefined,
           displayEdges,
           components,

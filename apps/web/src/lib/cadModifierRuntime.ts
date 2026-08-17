@@ -9,6 +9,7 @@ export const CAD_MODIFIER_MIN_AMOUNT = 0.001;
 
 const CAD_MODIFIER_FIT_HALVING_STEPS = 8;
 const CAD_MODIFIER_FIT_REFINEMENT_STEPS = 8;
+const CAD_MODIFIER_COMPATIBILITY_ATTEMPTS = 48;
 
 export type CadModifierRequestPhase = "prepare" | "preview";
 
@@ -41,6 +42,41 @@ export function serializeOptionalCadModifierBreps<T>(
       failed: true,
     };
   }
+}
+
+export function findCadModifierCompatibleSelection<T>(
+  selected: T[],
+  attempt: (candidate: T[]) => unknown,
+  release: (value: unknown) => void,
+  shouldRetry: (error: unknown) => boolean = () => true,
+) {
+  if (selected.length <= 1) return null;
+  let attempts = 0;
+  const succeeds = (candidate: T[]) => {
+    if (attempts >= CAD_MODIFIER_COMPATIBILITY_ATTEMPTS) return false;
+    attempts += 1;
+    try {
+      release(attempt(candidate));
+      return true;
+    } catch (error) {
+      if (!shouldRetry(error)) throw error;
+      return false;
+    }
+  };
+
+  if (selected.length <= CAD_MODIFIER_COMPATIBILITY_ATTEMPTS) {
+    for (let index = 0; index < selected.length; index += 1) {
+      const candidate = selected.filter((_, candidateIndex) => candidateIndex !== index);
+      if (succeeds(candidate)) return candidate;
+    }
+  }
+
+  const compatible: T[] = [];
+  for (const entry of selected) {
+    const candidate = [...compatible, entry];
+    if (succeeds(candidate)) compatible.push(entry);
+  }
+  return compatible.length > 0 && compatible.length < selected.length ? compatible : null;
 }
 
 export type FittedCadModifierResult<T> = {

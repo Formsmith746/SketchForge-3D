@@ -71,6 +71,8 @@ export type CadModifierWorkerResponse =
       brep?: string;
       appliedAmount: number;
       adjustedAmount: boolean;
+      appliedEdgeIds: number[];
+      skippedEdgeIds: number[];
       exactSerializationFailed?: boolean;
       displayEdges: CadModifierDisplayEdge[];
       components?: CadModifierComponentMesh[];

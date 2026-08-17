@@ -197,6 +197,7 @@ type EdgeModifierSession = {
   prepared: boolean;
   error: string | null;
   sizeAdjustment: { requested: number; applied: number } | null;
+  skippedEdgeIds: number[];
   previewOnly: boolean;
   preview: WorkplaneShape | null;
   componentPreviews: EdgeModifierComponentPreview[];
@@ -6143,7 +6144,7 @@ export function SketchForgeEditor({
   const cadModifierRequestRef = useRef(0);
   const cadModifierPrepareRef = useRef(0);
   const cadModifierLatestPreviewRef = useRef(0);
-  const cadModifierResolvedAmountRef = useRef<number | null>(null);
+  const cadModifierResolvedPreviewRef = useRef<{ amount: number; edgeIds: string } | null>(null);
   const cadModifierBaseShapeRef = useRef<WorkplaneShape | null>(null);
   const cadModifierBaseFingerprintRef = useRef("");
   const cadModifierSourcePartsRef = useRef<WorkplaneShape[]>([]);
@@ -6272,6 +6273,7 @@ export function SketchForgeEditor({
           componentPreviews: [],
           error: message.selectableEdgeIds.length ? null : "No sharp manifold edges were found at this threshold",
           sizeAdjustment: null,
+          skippedEdgeIds: [],
           previewOnly: false,
         } : current);
         if (message.selectableEdgeIds.length) {
@@ -6292,10 +6294,17 @@ export function SketchForgeEditor({
           cadDisplayEdgesVersion: 2 as const,
         } : null;
         const componentPreviews = cadModifierComponentPreviews(sourceParts, message.components);
-        if (message.adjustedAmount) cadModifierResolvedAmountRef.current = message.appliedAmount;
+        if (message.adjustedAmount || message.skippedEdgeIds.length > 0) {
+          cadModifierResolvedPreviewRef.current = {
+            amount: message.appliedAmount,
+            edgeIds: message.appliedEdgeIds.join(","),
+          };
+        }
         setEdgeModifier((current) => current ? {
           ...current,
           amount: message.appliedAmount,
+          selectedEdgeIds: message.appliedEdgeIds,
+          skippedEdgeIds: message.skippedEdgeIds,
           preview,
           componentPreviews,
           busy: false,
@@ -6308,6 +6317,8 @@ export function SketchForgeEditor({
         if (preview) {
           setNotice(message.exactSerializationFailed
             ? `Preview ready${message.adjustedAmount ? ` at ${message.appliedAmount.toFixed(3)} mm` : ""} using mesh geometry; exact CAD serialization was unavailable`
+            : message.skippedEdgeIds.length > 0
+              ? `Preview uses ${message.appliedEdgeIds.length} compatible edge${message.appliedEdgeIds.length === 1 ? "" : "s"}; skipped ${message.skippedEdgeIds.length}`
             : message.adjustedAmount
               ? `Edge size fitted to ${message.appliedAmount.toFixed(3)} mm`
               : "Edge treatment preview ready");
@@ -6363,7 +6374,7 @@ export function SketchForgeEditor({
     cadModifierBaseShapeRef.current = null;
     cadModifierBaseFingerprintRef.current = "";
     cadModifierSourcePartsRef.current = [];
-    cadModifierResolvedAmountRef.current = null;
+    cadModifierResolvedPreviewRef.current = null;
     setEdgeModifier(null);
     return true;
   }, [clearCadModifierWatchdog]);
@@ -6567,7 +6578,7 @@ export function SketchForgeEditor({
       const next = new Set(current.selectedEdgeIds);
       const remove = ids.every((edgeId) => next.has(edgeId));
       ids.forEach((edgeId) => remove ? next.delete(edgeId) : next.add(edgeId));
-      return { ...current, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : "Select at least one highlighted edge", sizeAdjustment: null };
+      return { ...current, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : "Select at least one highlighted edge", sizeAdjustment: null, skippedEdgeIds: [] };
     });
   }, []);
   const exportableShapeCount = useMemo(() => (hasSelection ? selectedShapes : shapes).filter((shape) => !shape.hole && shape.kind !== "constructionPlane").length, [hasSelection, selectedShapes, shapes]);
@@ -8716,6 +8727,7 @@ export function SketchForgeEditor({
       prepared: false,
       error: null,
       sizeAdjustment: null,
+      skippedEdgeIds: [],
       previewOnly: false,
       preview: null,
       componentPreviews: [],
@@ -8826,6 +8838,7 @@ export function SketchForgeEditor({
       throw new Error("The CAD kernel returned an empty edge treatment");
     }
     const appliedAmount = previewResponse.appliedAmount;
+    const appliedEdgeIds = previewResponse.appliedEdgeIds;
     const preview = canonicalizeShape({
       ...rawPreview,
       cadDisplayEdges: cadDisplayEdgesForShape(rawPreview, previewResponse.displayEdges),
@@ -8834,13 +8847,13 @@ export function SketchForgeEditor({
     const feature = {
       kind,
       amount: appliedAmount,
-      edgeCount: selectedEdgeIds.length,
+      edgeCount: appliedEdgeIds.length,
       ...(kind === "chamfer" ? { chamferAngle } : {}),
     } satisfies NonNullable<WorkplaneShape["edgeTreatments"]>[number];
     const session: EdgeModifierSession = {
       kind,
       edges: response.edges,
-      selectedEdgeIds,
+      selectedEdgeIds: appliedEdgeIds,
       amount: appliedAmount,
       sharpAngle,
       chamferAngle,
@@ -8851,6 +8864,7 @@ export function SketchForgeEditor({
       prepared: true,
       error: null,
       sizeAdjustment: previewResponse.adjustedAmount ? { requested: amount, applied: appliedAmount } : null,
+      skippedEdgeIds: previewResponse.skippedEdgeIds,
       previewOnly: Boolean(previewResponse.exactSerializationFailed),
       preview,
       componentPreviews: cadModifierComponentPreviews(sourceParts, previewResponse.components),
@@ -8878,11 +8892,12 @@ export function SketchForgeEditor({
     commitShapes(
       shapesRef.current.map((candidate) => candidate.id === shape.id ? modifiedShape : candidate),
       modifiedShape.id,
-      `${kind === "fillet" ? "Filleted" : "Chamfered"} ${selectedEdgeIds.length} edge${selectedEdgeIds.length === 1 ? "" : "s"} by MCP`,
+      `${kind === "fillet" ? "Filleted" : "Chamfered"} ${appliedEdgeIds.length} edge${appliedEdgeIds.length === 1 ? "" : "s"} by MCP`,
     );
     return {
       object: mcpShapeSummary(modifiedShape),
-      selectedEdgeIds,
+      selectedEdgeIds: appliedEdgeIds,
+      skippedEdgeIds: previewResponse.skippedEdgeIds,
       selectableEdgeIds: selectableIds,
       requestedAmount: amount,
       appliedAmount,
@@ -8961,11 +8976,16 @@ export function SketchForgeEditor({
 
   useEffect(() => {
     if (!edgeModifier?.prepared || edgeModifier.selectedEdgeIds.length === 0) return;
-    if (cadModifierResolvedAmountRef.current !== null && Math.abs(cadModifierResolvedAmountRef.current - edgeModifier.amount) < 1e-9) {
-      cadModifierResolvedAmountRef.current = null;
+    const resolvedPreview = cadModifierResolvedPreviewRef.current;
+    if (
+      resolvedPreview !== null
+      && Math.abs(resolvedPreview.amount - edgeModifier.amount) < 1e-9
+      && resolvedPreview.edgeIds === edgeModifier.selectedEdgeIds.join(",")
+    ) {
+      cadModifierResolvedPreviewRef.current = null;
       return;
     }
-    cadModifierResolvedAmountRef.current = null;
+    cadModifierResolvedPreviewRef.current = null;
     const timer = window.setTimeout(() => {
       const requestId = postCadModifierRequest({
         type: "preview",
@@ -10729,6 +10749,7 @@ export function SketchForgeEditor({
           prepared={edgeModifier.prepared}
           error={edgeModifier.error}
           sizeAdjustment={edgeModifier.sizeAdjustment}
+          skippedEdgeIds={edgeModifier.skippedEdgeIds}
           previewOnly={edgeModifier.previewOnly}
           onAmountChange={(value) => setEdgeModifier((current) => current?.prepared ? { ...current, amount: Math.max(MIN_EDGE_MODIFIER_AMOUNT, Math.min(edgeModifierMaxAmount, value)), preview: null, busy: true, error: null, sizeAdjustment: null } : current)}
           onChamferAngleChange={(value) => setEdgeModifier((current) => current?.prepared ? { ...current, chamferAngle: Math.max(5, Math.min(85, value)), preview: null, busy: true, error: null, sizeAdjustment: null } : current)}
@@ -10748,12 +10769,13 @@ export function SketchForgeEditor({
               busy: selectedEdgeIds.length > 0,
               error: availableIds.size === 0 ? "No sharp edges match this threshold" : selectedEdgeIds.length ? null : "Select at least one highlighted edge",
               sizeAdjustment: null,
+              skippedEdgeIds: [],
             };
           })}
           onTangentChainChange={(tangentChain) => setEdgeModifier((current) => current?.prepared ? { ...current, tangentChain } : current)}
           onPreserveEdgeSizeChange={(preserveEdgeSize) => setEdgeModifier((current) => current?.prepared ? { ...current, preserveEdgeSize } : current)}
-          onSelectAll={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: modifierAvailableEdgeIds, preview: null, busy: modifierAvailableEdgeIds.length > 0, error: modifierAvailableEdgeIds.length ? null : current.error, sizeAdjustment: null } : current)}
-          onClear={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: [], preview: null, busy: false, error: "Select at least one highlighted edge", sizeAdjustment: null } : current)}
+          onSelectAll={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: modifierAvailableEdgeIds, preview: null, busy: modifierAvailableEdgeIds.length > 0, error: modifierAvailableEdgeIds.length ? null : current.error, sizeAdjustment: null, skippedEdgeIds: [] } : current)}
+          onClear={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: [], preview: null, busy: false, error: "Select at least one highlighted edge", sizeAdjustment: null, skippedEdgeIds: [] } : current)}
           onRemoveFeature={removeEdgeTreatment}
           onApply={applyEdgeModifier}
           onCancel={cancelEdgeModifier}
