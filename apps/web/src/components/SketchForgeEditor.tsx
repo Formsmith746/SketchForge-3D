@@ -6330,12 +6330,10 @@ export function SketchForgeEditor({
           cadDisplayEdgesVersion: 2 as const,
         } : null;
         const componentPreviews = cadModifierComponentPreviews(sourceParts, message.components);
-        if (message.adjustedAmount || message.skippedEdgeIds.length > 0) {
-          cadModifierResolvedPreviewRef.current = {
-            amount: message.appliedAmount,
-            edgeIds: message.appliedEdgeIds.join(","),
-          };
-        }
+        cadModifierResolvedPreviewRef.current = {
+          amount: message.appliedAmount,
+          edgeIds: message.appliedEdgeIds.join(","),
+        };
         setEdgeModifier((current) => current ? {
           ...current,
           amount: message.appliedAmount,
