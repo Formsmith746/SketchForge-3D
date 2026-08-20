@@ -21,6 +21,18 @@ import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import { createGearGeometry } from "@/lib/gearGeometry";
+import {
+  createLoftGeometry,
+  DEFAULT_LOFT_BOTTOM_SHAPE,
+  DEFAULT_LOFT_LAYERS,
+  DEFAULT_LOFT_SEGMENTS,
+  DEFAULT_LOFT_TOP_SHAPE,
+  normalizeLoftLayers,
+  normalizeLoftRotation,
+  normalizeLoftSegments,
+  normalizeLoftShape,
+  normalizeLoftTopSize,
+} from "@/lib/loftGeometry";
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import {
   ToolbarAlignIcon,
@@ -2178,6 +2190,21 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         gearType: shape.gearType,
         helixAngle: shape.helixAngle,
         helixQuality: shape.helixQuality,
+      });
+      break;
+    case "loft":
+      geometry = createLoftGeometry({
+        width,
+        depth,
+        height,
+        bottomShape: shape.loftBottomShape,
+        topShape: shape.loftTopShape,
+        topWidth: shape.loftTopWidth,
+        topDepth: shape.loftTopDepth,
+        bottomRotation: shape.loftBottomRotation,
+        topRotation: shape.loftTopRotation,
+        segments: shape.loftSegments,
+        layers: shape.loftLayers,
       });
       break;
     case "wedge":
@@ -7787,8 +7814,8 @@ export function SketchForgeEditor({
         const x = mcpNumber(params.x, 0);
         const z = mcpNumber(params.z, 0);
         const elevation = mcpNumber(params.elevation, placementElevation);
-        const color = mcpString(params.color, kind === "cylinder" ? "#d97813" : "#d41721");
-        const name = mcpString(params.name, kind === "cylinder" ? "Cylinder" : kind === "sketch" ? "Sketch extrusion" : rawKind === "cube" ? "Cube" : "Box");
+        const color = mcpString(params.color, kind === "cylinder" ? "#d97813" : kind === "loft" ? "#5b5ce2" : "#d41721");
+        const name = mcpString(params.name, kind === "cylinder" ? "Cylinder" : kind === "sketch" ? "Sketch extrusion" : kind === "loft" ? "Loft" : rawKind === "cube" ? "Cube" : "Box");
         let shape: WorkplaneShape;
         if (kind === "sketch") {
           const profile = defaultMcpSketchProfile(width, depth);
@@ -7825,8 +7852,32 @@ export function SketchForgeEditor({
             bevel: kind === "text" ? Math.max(0, mcpNumber(params.bevel, 0)) : undefined,
             segments: kind === "text" ? Math.max(1, Math.floor(mcpNumber(params.segments, 2))) : undefined,
           });
+        } else if (kind === "loft") {
+          shape = sceneShape({
+            name,
+            kind,
+            color,
+            x,
+            z,
+            elevation,
+            width,
+            depth,
+            height,
+            size: Math.max(width, depth),
+            rotation: mcpNumber(params.rotation, 0),
+            rotationX: mcpNumber(params.rotationX, 0),
+            rotationZ: mcpNumber(params.rotationZ, 0),
+            loftBottomShape: normalizeLoftShape(mcpString(params.loftBottomShape, DEFAULT_LOFT_BOTTOM_SHAPE), DEFAULT_LOFT_BOTTOM_SHAPE),
+            loftTopShape: normalizeLoftShape(mcpString(params.loftTopShape, DEFAULT_LOFT_TOP_SHAPE), DEFAULT_LOFT_TOP_SHAPE),
+            loftTopWidth: normalizeLoftTopSize(mcpNumber(params.loftTopWidth, width), width),
+            loftTopDepth: normalizeLoftTopSize(mcpNumber(params.loftTopDepth, depth), depth),
+            loftBottomRotation: normalizeLoftRotation(mcpNumber(params.loftBottomRotation, 0)),
+            loftTopRotation: normalizeLoftRotation(mcpNumber(params.loftTopRotation, 0)),
+            loftSegments: normalizeLoftSegments(mcpNumber(params.loftSegments, DEFAULT_LOFT_SEGMENTS)),
+            loftLayers: normalizeLoftLayers(mcpNumber(params.loftLayers, DEFAULT_LOFT_LAYERS)),
+          });
         } else {
-          throw new Error("MCP create_shape currently supports box, cube, cylinder, text, and sketch");
+          throw new Error("MCP create_shape currently supports box, cube, cylinder, text, loft, and sketch");
         }
         const committedShape = canonicalizeShape(bakeShapeTransformIntoMesh(shape));
         commitShapes([...currentShapes(), committedShape], committedShape.id, `${committedShape.name} added by MCP`);

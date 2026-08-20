@@ -129,6 +129,7 @@ export function fallbackSolidColor(shape: WorkplaneShape) {
   if (shape.kind === "cone") return "#6e2786";
   if (shape.kind === "pyramid") return "#f2cf10";
   if (shape.kind === "gear") return "#6f7f8d";
+  if (shape.kind === "loft") return "#5b5ce2";
   return "#d41721";
 }
 
@@ -156,6 +157,8 @@ export function canonicalizeShape(shape: WorkplaneShape): WorkplaneShape {
     rotation: cleanRotationDegrees(shape.rotation ?? 0),
     rotationX: cleanRotationDegrees(shape.rotationX ?? 0),
     rotationZ: cleanRotationDegrees(shape.rotationZ ?? 0),
+    loftBottomRotation: shape.loftBottomRotation !== undefined ? cleanRotationDegrees(shape.loftBottomRotation) : undefined,
+    loftTopRotation: shape.loftTopRotation !== undefined ? cleanRotationDegrees(shape.loftTopRotation) : undefined,
     mirrorX: shape.mirrorX || undefined,
     mirrorY: shape.mirrorY || undefined,
     mirrorZ: shape.mirrorZ || undefined,
@@ -206,6 +209,14 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.gearType === b.gearType &&
     a.helixAngle === b.helixAngle &&
     a.helixQuality === b.helixQuality &&
+    a.loftBottomShape === b.loftBottomShape &&
+    a.loftTopShape === b.loftTopShape &&
+    a.loftTopWidth === b.loftTopWidth &&
+    a.loftTopDepth === b.loftTopDepth &&
+    a.loftBottomRotation === b.loftBottomRotation &&
+    a.loftTopRotation === b.loftTopRotation &&
+    a.loftSegments === b.loftSegments &&
+    a.loftLayers === b.loftLayers &&
     a.text === b.text &&
     a.font === b.font &&
     a.importedMesh === b.importedMesh &&

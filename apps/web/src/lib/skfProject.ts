@@ -29,8 +29,10 @@ export const SKF_LIMITS = {
 
 const SHAPE_KINDS = new Set([
   "box", "cylinder", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "gear", "ring", "wedge", "polygon", "icosahedron", "mesh",
+  "halfSphere", "torus", "tube", "gear", "ring", "wedge", "polygon", "icosahedron", "mesh", "loft",
 ]);
+
+const LOFT_PROFILE_SHAPES = new Set(["Oval", "Rectangle", "Triangle", "Pentagon", "Hexagon"]);
 
 const FEATURE_TYPES = new Set([
   "group", "boolean-subtraction", "boolean-intersection", "mirror", "sketch-extrusion", "sketch-revolve", "fillet", "chamfer",
@@ -892,6 +894,34 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
       const helixQuality = finiteNumber(definition.helixQuality, `${label}.helixQuality`);
       if (!Number.isInteger(helixQuality) || helixQuality < 4 || helixQuality > 32) {
         throw new Error(`${label}.helixQuality is outside the supported range`);
+      }
+    }
+  }
+  if (kind === "loft") {
+    (["loftBottomShape", "loftTopShape"] as const).forEach((field) => {
+      if (definition[field] !== undefined && !LOFT_PROFILE_SHAPES.has(definition[field] as string)) {
+        throw new Error(`${label}.${field} is invalid`);
+      }
+    });
+    (["loftTopWidth", "loftTopDepth"] as const).forEach((field) => {
+      if (definition[field] !== undefined) {
+        const value = finiteNumber(definition[field], `${label}.${field}`);
+        if (value <= 0 || value > 1e9) throw new Error(`${label}.${field} is outside the supported range`);
+      }
+    });
+    (["loftBottomRotation", "loftTopRotation"] as const).forEach((field) => {
+      if (definition[field] !== undefined) finiteNumber(definition[field], `${label}.${field}`);
+    });
+    if (definition.loftSegments !== undefined) {
+      const segments = finiteNumber(definition.loftSegments, `${label}.loftSegments`);
+      if (!Number.isInteger(segments) || segments < 8 || segments > 128) {
+        throw new Error(`${label}.loftSegments is outside the supported range`);
+      }
+    }
+    if (definition.loftLayers !== undefined) {
+      const layers = finiteNumber(definition.loftLayers, `${label}.loftLayers`);
+      if (!Number.isInteger(layers) || layers < 2 || layers > 80) {
+        throw new Error(`${label}.loftLayers is outside the supported range`);
       }
     }
   }

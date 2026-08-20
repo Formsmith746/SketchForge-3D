@@ -52,6 +52,22 @@ describe("shape catalog", () => {
       helixAngle: 22.5,
       helixQuality: 16,
     });
+
+    const loft = makeShapeFromAsset({ id: "loft", name: "Loft", src: "loft.svg", kind: "loft", color: "#5b5ce2" });
+    expect(loft).toMatchObject({
+      size: 24,
+      width: 24,
+      depth: 24,
+      height: 28,
+      loftBottomShape: "Rectangle",
+      loftTopShape: "Oval",
+      loftTopWidth: 24,
+      loftTopDepth: 24,
+      loftBottomRotation: 0,
+      loftTopRotation: 0,
+      loftSegments: 40,
+      loftLayers: 24,
+    });
   });
 
   it("creates canonical scene shapes with stable defaults", () => {
