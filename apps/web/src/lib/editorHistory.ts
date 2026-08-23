@@ -24,6 +24,7 @@ type ResourceSignature = {
 const resourceSignatureCache = new WeakMap<object, ResourceSignature>();
 const stringSignatureCache = new Map<string, ResourceSignature>();
 const MAX_CACHED_STRING_SIGNATURES = 64;
+const floatHashView = new DataView(new ArrayBuffer(8));
 const COMPACT_RESOURCE_KEYS = new Set([
   "cadDisplayEdges",
   "edgeTreatmentHistory",
@@ -47,10 +48,62 @@ function signatureFromSerialized(serialized: string): ResourceSignature {
   };
 }
 
+function hashChars(hashA: number, hashB: number, chunk: string) {
+  for (let index = 0; index < chunk.length; index += 1) {
+    const code = chunk.charCodeAt(index);
+    hashA = Math.imul(hashA ^ code, 16777619);
+    hashB = Math.imul(hashB, 33) ^ code;
+  }
+  return { hashA, hashB };
+}
+
+// Fallback for meshes too large to JSON.stringify in one string (throws
+// "RangeError: Invalid string length" past the JS engine's max string size).
+// Hashes each field independently -- large number arrays (positions/normals)
+// go through their float bit patterns instead of decimal text, so no single
+// string ever grows past one field's size.
+function signatureFromLargeResource(resource: object): ResourceSignature {
+  let hashA = 2166136261;
+  let hashB = 5381;
+  let length = 0;
+
+  const entries = Object.entries(resource as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+  for (const [key, value] of entries) {
+    ({ hashA, hashB } = hashChars(hashA, hashB, key));
+    if (Array.isArray(value) && value.length > 10_000 && value.every((entry) => typeof entry === "number")) {
+      length += value.length;
+      for (let index = 0; index < value.length; index += 1) {
+        floatHashView.setFloat64(0, value[index] as number);
+        const hi = floatHashView.getUint32(0);
+        const lo = floatHashView.getUint32(4);
+        hashA = Math.imul(hashA ^ hi, 16777619);
+        hashA = Math.imul(hashA ^ lo, 16777619);
+        hashB = Math.imul(hashB, 33) ^ hi;
+        hashB = Math.imul(hashB, 33) ^ lo;
+      }
+      continue;
+    }
+    const chunk = JSON.stringify(value) ?? "";
+    length += chunk.length;
+    ({ hashA, hashB } = hashChars(hashA, hashB, chunk));
+  }
+
+  return {
+    fingerprint: `${length}:${hashA >>> 0}:${hashB >>> 0}`,
+    estimatedBytes: length * 2,
+  };
+}
+
 function objectResourceSignature(resource: object) {
   const cached = resourceSignatureCache.get(resource);
   if (cached) return cached;
-  const signature = signatureFromSerialized(JSON.stringify(resource));
+  let signature: ResourceSignature;
+  try {
+    signature = signatureFromSerialized(JSON.stringify(resource));
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
+    signature = signatureFromLargeResource(resource);
+  }
   resourceSignatureCache.set(resource, signature);
   return signature;
 }
