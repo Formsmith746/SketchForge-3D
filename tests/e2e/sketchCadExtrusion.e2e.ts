@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import type { SketchProfile } from "@/types/sketchforge";
+import { circleSketchGeometry } from "@/lib/sketchCircles";
 
 // Load the real OCCT kernel directly (same approach as stepRoundTrip.e2e.ts).
 vi.mock("@/lib/brepKernel", async () => {
@@ -49,6 +50,38 @@ function mergeProfiles(...profiles: SketchProfile[]): SketchProfile {
 }
 
 describe("Sketch CAD profile → B-Rep extrusion (real OCCT kernel)", () => {
+  it("extrudes a cubic sketch circle into a valid solid", async () => {
+    const { OcctKernel } = await import("occt-wasm");
+    let id = 0;
+    const profile = circleSketchGeometry({ x: 0, z: 0 }, 12, (prefix) => `${prefix}-${id++}`);
+    const regions = cadSketchRegions(profile);
+    expect(regions).toHaveLength(1);
+
+    const wasm = join(dirname(fileURLToPath(import.meta.resolve("occt-wasm"))), "occt-wasm.wasm");
+    const kernel = await OcctKernel.init({ wasm });
+    const edges = regions[0].outer.steps.map(({ from, to, segment }) => {
+      const forward = segment.startId === from.id;
+      const first = forward ? from.handleOut : from.handleIn;
+      const second = forward ? to.handleIn : to.handleOut;
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      return kernel.makeBezierEdge([
+        { x: from.x, y: 0, z: from.z },
+        { x: first!.x, y: 0, z: first!.z },
+        { x: second!.x, y: 0, z: second!.z },
+        { x: to.x, y: 0, z: to.z },
+      ]);
+    });
+    const wire = kernel.makeWire(edges);
+    const face = kernel.makeFace(wire);
+    const solid = kernel.extrude(face, 0, 10, 0);
+
+    expect(kernel.isValid(solid)).toBe(true);
+    expect(kernel.isSolid(solid)).toBe(true);
+    expect(kernel.tessellate(solid, { linearDeflection: 0.05, angularDeflection: 0.16 }).triangleCount).toBeGreaterThan(0);
+    kernel.releaseAll();
+  });
+
   it("produces valid B-Rep from a single closed rectangle", async () => {
     const { OcctKernel } = await import("occt-wasm");
     const profile = rectangle("rect", 0, 0, 20, 10);

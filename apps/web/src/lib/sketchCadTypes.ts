@@ -4,6 +4,7 @@ export type SketchCadBuildRequest = {
   type: "build";
   requestId: number;
   profile: SketchProfile;
+  regionIds?: string[];
   height: number;
 };
 
