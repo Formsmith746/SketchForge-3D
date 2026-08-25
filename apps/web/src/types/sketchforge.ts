@@ -80,6 +80,7 @@ export type SketchPoint = {
   handleIn?: { x: number; z: number };
   handleOut?: { x: number; z: number };
   mode?: "corner" | "smooth" | "split";
+  projectionId?: string;
 };
 
 export type SketchSegment = {
@@ -88,6 +89,14 @@ export type SketchSegment = {
   endId: string;
   kind?: "line" | "bezier" | "smooth";
   dimensionLabelOffset?: { x: number; z: number };
+  projectionId?: string;
+};
+
+export type SketchProjectionLink = {
+  id: string;
+  sourceShapeId: string;
+  sourceName: string;
+  sourceKind: "sketch" | "intersection";
 };
 
 export type SketchConstraint =
@@ -133,10 +142,12 @@ export type SketchProfile = {
   dimensions?: SketchDimension[];
   images?: SketchImage[];
   texts?: SketchText[];
+  projections?: SketchProjectionLink[];
 };
 
 export type SketchFeature =
-  | { kind: "extrusion"; regionIds?: string[] };
+  | { kind: "extrusion"; regionIds?: string[] }
+  | { kind: "sweep"; sectionSegmentIds: string[]; pathSegmentIds: string[] };
 
 export type SketchOperation = "extrude" | "revolve";
 

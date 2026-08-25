@@ -878,8 +878,9 @@ export function SketchWorkspace({
       const minZ = Math.min(action.origin.z, action.current.z);
       const maxZ = Math.max(action.origin.z, action.current.z);
       const contains = (point: { x: number; z: number }) => point.x >= minX && point.x <= maxX && point.z >= minZ && point.z <= maxZ;
-      const pointIds = profile.points.filter((point) => contains(point)).map((point) => point.id);
+      const pointIds = profile.points.filter((point) => !point.projectionId && contains(point)).map((point) => point.id);
       const segmentIds = profile.segments.filter((segment) => {
+        if (segment.projectionId) return false;
         const start = pointById.get(segment.startId);
         const end = pointById.get(segment.endId);
         return Boolean(start && end && (contains(start) || contains(end) || contains({ x: (start.x + end.x) / 2, z: (start.z + end.z) / 2 })));
@@ -1197,7 +1198,7 @@ export function SketchWorkspace({
                 const pointIds = center.ownerPointIds ?? [];
                 const movable = pointIds.length > 0 && pointIds.every((id) => {
                   const point = pointById.get(id);
-                  return point && !fixedPointIds.has(id);
+                  return point && !point.projectionId && !fixedPointIds.has(id);
                 });
                 const dragging = pointerAction?.kind === "move-center" && pointerAction.centerId === center.id;
                 return (
@@ -1246,10 +1247,10 @@ export function SketchWorkspace({
             {displayProfile.segments.map((segment) => (
               <path
                 data-sketch-entity="segment"
-                className={`${isSegmentSelected(segment.id) ? "selected" : ""} ${horizontalSegmentIds.has(segment.id) || verticalSegmentIds.has(segment.id) || dimensionBySegmentId.has(segment.id) ? "constrained" : ""}`}
+                className={`${isSegmentSelected(segment.id) ? "selected" : ""} ${horizontalSegmentIds.has(segment.id) || verticalSegmentIds.has(segment.id) || dimensionBySegmentId.has(segment.id) ? "constrained" : ""} ${segment.projectionId ? "projected" : ""}`}
                 key={segment.id}
                 d={segmentData(segment, pointById)}
-                pointerEvents={undefined}
+                pointerEvents={segment.projectionId ? "none" : undefined}
                 onPointerMove={(event) => {
                   if (tool !== "refine") return;
                   const target = pointFromEvent(event);
@@ -1344,7 +1345,7 @@ export function SketchWorkspace({
               }
               const segment = displayProfile.segments.find((entry) => entry.id === storedDimension.segmentId);
               const dimension = segment ? segmentDimension(segment, pointById) : null;
-              if (!segment || !dimension) return null;
+              if (!segment || !dimension || segment.projectionId) return null;
               const label = formatDimension(storedDimension.value, workspace.accuracy);
               const pill = dimensionPillSize(label, screenUnit, 18);
               const defaultPosition = {
@@ -1659,12 +1660,12 @@ export function SketchWorkspace({
             {displayProfile.points.map((point) => (
               <circle
                 data-sketch-entity="point"
-                className={`${isPointSelected(point.id) ? "selected" : ""} ${activePointId === point.id ? "active" : ""} ${fixedPointIds.has(point.id) ? "fixed" : ""}`}
+                className={`${isPointSelected(point.id) ? "selected" : ""} ${activePointId === point.id ? "active" : ""} ${fixedPointIds.has(point.id) ? "fixed" : ""} ${point.projectionId ? "projected" : ""}`}
                 key={point.id}
                 cx={point.x}
                 cy={point.z}
                 r={pointRadius}
-                pointerEvents={undefined}
+                pointerEvents={point.projectionId ? "none" : undefined}
                 onPointerDown={(event) => {
                   event.preventDefault();
                   event.stopPropagation();

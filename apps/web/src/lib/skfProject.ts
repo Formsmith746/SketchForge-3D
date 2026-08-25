@@ -461,6 +461,7 @@ async function serializeShapeNode(
       ...((sketchProfile.constraints?.length ?? 0) > 0 ? { constraints: sketchProfile.constraints } : {}),
       ...((sketchProfile.dimensions?.length ?? 0) > 0 ? { dimensions: sketchProfile.dimensions } : {}),
       ...((sketchProfile.texts?.length ?? 0) > 0 ? { texts: sketchProfile.texts } : {}),
+      ...((sketchProfile.projections?.length ?? 0) > 0 ? { projections: sketchProfile.projections } : {}),
       ...(images.length ? { images } : {}),
     };
   }
@@ -580,7 +581,7 @@ function activeProjectIndexes(state: SkfStateV1) {
     if (!node) return;
     (node.groupedShapeNodeIds ?? []).forEach(visit);
     let previous: string | undefined;
-    if (node.definition.sketchProfile) {
+    if (node.definition.sketchProfile && (node.definition.sketchFeature as { kind?: unknown } | undefined)?.kind !== "sweep") {
       const operation = node.definition.sketchOperation === "revolve" ? "revolve" : "extrude";
       const featureType = operation === "revolve" ? "sketch-revolve" : "sketch-extrusion";
       const featureId = `feature/${safeNodeToken(node.nodeId)}/${featureType}`;
@@ -855,6 +856,7 @@ function validateSketchProfile(value: unknown, label: string) {
       finiteNumber(offset.x, `${label}.segments[${index}].dimensionLabelOffset.x`);
       finiteNumber(offset.z, `${label}.segments[${index}].dimensionLabelOffset.z`);
     }
+    if (segment.projectionId !== undefined) stringValue(segment.projectionId, `${label}.segments[${index}].projectionId`);
   });
   const parameterIds = new Set<string>();
   if (profile.constraints !== undefined && !Array.isArray(profile.constraints)) throw new Error(`${label}.constraints must be an array`);
@@ -918,6 +920,21 @@ function validateSketchProfile(value: unknown, label: string) {
     finiteNumber(text.x, `${label}.texts[${index}].x`);
     finiteNumber(text.z, `${label}.texts[${index}].z`);
     if (finiteNumber(text.fontSize, `${label}.texts[${index}].fontSize`) <= 0) throw new Error(`${label} contains text with a non-positive font size`);
+  });
+  if (profile.projections !== undefined && !Array.isArray(profile.projections)) throw new Error(`${label}.projections must be an array`);
+  const projectionIds = new Set<string>();
+  (profile.projections as unknown[] | undefined)?.forEach((rawProjection, index) => {
+    const projection = objectRecord(rawProjection, `${label}.projections[${index}]`);
+    const id = stringValue(projection.id, `${label}.projections[${index}].id`);
+    if (projectionIds.has(id)) throw new Error(`${label} contains duplicate projection ID '${id}'`);
+    projectionIds.add(id);
+    stringValue(projection.sourceShapeId, `${label}.projections[${index}].sourceShapeId`);
+    stringValue(projection.sourceName, `${label}.projections[${index}].sourceName`);
+    if (projection.sourceKind !== "sketch" && projection.sourceKind !== "intersection") throw new Error(`${label}.projections[${index}] has an unknown source kind`);
+  });
+  profile.points.forEach((rawPoint, index) => {
+    const point = rawPoint as Record<string, unknown>;
+    if (point.projectionId !== undefined) stringValue(point.projectionId, `${label}.points[${index}].projectionId`);
   });
 }
 
