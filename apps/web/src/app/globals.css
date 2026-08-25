@@ -8676,3 +8676,416 @@ html[data-theme="dark"] .sketch-dimension-status {
     white-space: normal;
   }
 }
+
+/* ===== Sketch menu styles (restored) ===== */
+
+.sketch-constraint-inspector .property-card-header.static {
+  cursor: default;
+  font-size: 16px;
+}
+
+.sketch-constraint-inspector .shape-inspector-header + .property-card {
+  margin-top: 10px;
+}
+
+.sketch-cursor-point {
+  fill: #169fce;
+  stroke: var(--background);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.sketch-drag-handles circle, .sketch-curve-handles circle {
+  fill: var(--background);
+  stroke: #f08036;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  cursor: move;
+}
+
+.sketch-grid-settings {
+  display: grid;
+  gap: 5px;
+  padding: 4px 7px;
+  background: rgba(248, 251, 252, 0.92);
+  border: 1px solid #d6e2e9;
+  border-radius: 3px;
+}
+
+.sketch-image-inspector .property-card-header.static:hover {
+  color: var(--foreground);
+}
+
+.sketch-image-resize-handle {
+  fill: var(--background);
+  stroke: #0b75a3;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.sketch-measurement-point.hover {
+  fill: #169fce;
+  stroke: var(--background);
+}
+
+.sketch-measurement-point {
+  fill: var(--background);
+  stroke: #d56100;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.sketch-point-actions button.active {
+  color: #086954;
+  background: #e2f6ef;
+  border-color: #8ccab8;
+}
+
+.sketch-points circle.fixed {
+  fill: #d8f1e8;
+  stroke: #14755e;
+  stroke-width: 2;
+}
+
+.sketch-points circle {
+  fill: var(--background);
+  stroke: #143c5c;
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+
+.sketch-polygon-side-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sketch-polygon-side-btn:hover:not(:disabled) {
+  background: var(--hover, rgba(0, 0, 0, 0.05));
+}
+
+.sketch-polygon-side-btn {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.15));
+  border-radius: 3px;
+  background: var(--background, #fff);
+  color: var(--foreground, #333);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.sketch-polygon-side-count {
+  min-width: 18px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--foreground, #333);
+  user-select: none;
+}
+
+.sketch-polygon-sides-control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+}
+
+.sketch-profile-fills path.selectable.selected {
+  fill: rgba(70, 156, 207, 0.24);
+}
+
+.sketch-profile-fills path.selectable:hover, .sketch-profile-fills path.selectable:focus-visible {
+  fill: rgba(59, 177, 219, 0.32);
+  outline: none;
+}
+
+.sketch-profile-fills path.selectable {
+  fill: rgba(86, 173, 211, 0.09);
+  cursor: pointer;
+  transition: fill 100ms ease;
+}
+
+.sketch-segment-dimensions .movable.dragging {
+  cursor: grabbing;
+}
+
+.sketch-segment-dimensions .movable:hover rect, .sketch-segment-dimensions .movable.dragging rect {
+  stroke: #2692bd;
+  stroke-width: 1.5;
+}
+
+.sketch-segment-dimensions .movable {
+  cursor: move;
+}
+
+.sketch-segment-dimensions .reference rect {
+  fill: #edf7fc;
+  stroke: #4892b5;
+}
+
+.sketch-segment-dimensions .reference text {
+  fill: #245f7b;
+  font-weight: 800;
+}
+
+.sketch-segment-dimensions text {
+  fill: #16283a;
+  font-weight: 500;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sketch-segment-dimensions.driving rect {
+  fill: #eaf9f5;
+  stroke: #3a9d87;
+}
+
+.sketch-segment-dimensions.driving text {
+  fill: #086954;
+  font-weight: 800;
+}
+
+.sketch-segments path.constrained {
+  stroke: #087d89;
+}
+
+.sketch-toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border, rgba(0, 0, 0, 0.12));
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.sketch-transform-section {
+  min-width: 240px;
+}
+
+.toolbar-icon.disabled .sketch-reference-icon, .toolbar-icon:disabled .sketch-reference-icon, .sketch-command-button.disabled .sketch-reference-icon, .sketch-command-button:disabled .sketch-reference-icon {
+  filter: grayscale(0.85) contrast(0.9) brightness(0.82);
+  opacity: 0.56;
+}
+
+html[data-theme="dark"] .sketch-grid-settings {
+  background: rgba(20, 32, 41, 0.94);
+  border-color: #3a4d5a;
+}
+
+/* ===== Sketch styles completion ===== */
+
+.sketch-toolbar-ribbon {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: stretch;
+  background: var(--background);
+}
+
+.sketch-workspace-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: calc(100vh - var(--editor-toolbar-height));
+  overflow: hidden;
+  background: var(--background);
+}
+
+.sketch-operation-panel {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 14;
+  display: flex;
+  width: min(320px, calc(100vw - 36px));
+  padding: 14px;
+  flex-direction: column;
+  gap: 13px;
+  color: #29465a;
+  background: rgba(250, 253, 255, 0.97);
+  border: 1px solid #b9ccd9;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(24, 49, 67, 0.2);
+}
+
+.sketch-operation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sketch-operation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sketch-operation-header strong {
+  font-size: 14px;
+}
+
+.sketch-operation-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sketch-offset-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sketch-operation-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #536d7d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.sketch-operation-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.sketch-mode-badge {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 9;
+  padding: 4px 10px;
+  color: var(--background);
+  background: #37a95b;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(25, 64, 43, 0.2);
+  font-size: 11px;
+  font-weight: 900;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.sketch-profile-selection-status {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px 5px 10px;
+  color: #29465a;
+  background: rgba(250, 253, 255, 0.94);
+  border: 1px solid #b9ccd9;
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(24, 49, 67, 0.14);
+  font-size: 11px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.sketch-text-item {
+  fill: var(--foreground, #333);
+  cursor: pointer;
+  user-select: none;
+}
+
+.sketch-text-input {
+  border: 2px solid #169fce;
+  border-radius: 4px;
+  background: var(--background, #fff);
+  color: var(--foreground, #333);
+  font-size: 14px;
+  padding: 4px 8px;
+  outline: none;
+  min-width: 120px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sketch-points circle.projected {
+  fill: #f4edfb;
+  stroke: #8f55c5;
+  cursor: default;
+}
+
+.sketch-dimension-anchors {
+  cursor: crosshair;
+}
+
+.sketch-snap-mode-buttons {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.sketch-constraint-inspector .property-card-header.static {
+  cursor: default;
+  font-size: 16px;
+}
+
+.sketch-constraint-length-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #586a7d;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.sketch-constraint-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sketch-image-number-input {
+  width: 100%;
+  height: 31px;
+  padding: 0 10px;
+  color: #526174;
+  font: 700 14px/1 var(--font-ui);
+  background: var(--background);
+  border: 1px solid #cbd6e1;
+  border-radius: 999px;
+  outline: 0;
+}
+
+.sketch-image-position-field input {
+  width: 100%;
+  height: 31px;
+  padding: 0 10px;
+  color: #526174;
+  font: 700 14px/1 var(--font-ui);
+  background: var(--background);
+  border: 1px solid #cbd6e1;
+  border-radius: 999px;
+  outline: 0;
+}
+
+.sketch-image-range > input[type="range"]::-webkit-slider-thumb {
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
+  appearance: none;
+  background: var(--background);
+  border: 2px solid #009fd7;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(23, 59, 90, 0.22);
+}
+
+html[data-theme="dark"] .sketch-profile-selection-status {
+  color: #d3e4ee;
+  background: rgba(24, 38, 48, 0.95);
+  border-color: #465d6c;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.32);
+}
