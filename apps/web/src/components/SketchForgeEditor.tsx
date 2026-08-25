@@ -91,6 +91,7 @@ import { createLocalId } from "@/lib/localIds";
 import { projectExportFileName } from "@/lib/exportNames";
 import { exportMeshesToObj } from "@/lib/objExport";
 import { rotateSketchPoints, selectedClosedSketchPoints } from "@/lib/sketchRotation";
+import { cadSketchRegions } from "@/lib/sketchCadProfile";
 import { PROJECT_THUMBNAIL_IDLE_MS, projectThumbnailSceneChanged, type ProjectThumbnailSceneKey } from "@/lib/projectThumbnail";
 import { importedShapeFromObj } from "@/lib/objImport";
 import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
@@ -334,19 +335,6 @@ function withSmoothSketchHandles(profile: SketchProfile) {
   return next;
 }
 
-function pointInSketchPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]) {
-  let inside = false;
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
-    const currentPoint = polygon[index];
-    const previousPoint = polygon[previous];
-    const crosses = currentPoint.y > point.y !== previousPoint.y > point.y;
-    if (crosses && point.x < ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y)) / (previousPoint.y - currentPoint.y) + currentPoint.x) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
 async function shapeFromResolvedSketchProfile(
   profile: SketchProfile,
   polygons: Array<Array<[number, number]>>,
@@ -431,8 +419,11 @@ async function shapeFromResolvedSketchProfile(
 }
 
 async function shapeFromSketchProfile(profile: SketchProfile, height: number, existing?: WorkplaneShape | null) {
-  const closedPaths = orderedSketchPaths(profile).filter((path) => path.closed);
-  if (closedPaths.length === 0) return null;
+  const regions = cadSketchRegions(profile);
+  if (regions.length === 0) return null;
+  const closedPaths = [...new Map(
+    regions.flatMap((region) => [region.outer, ...region.holes]).map((path) => [path.id, path] as const),
+  ).values()];
   const profilePoints = closedPaths.flatMap((path) => path.points);
   const minX = Math.min(...profilePoints.map((point) => point.x));
   const maxX = Math.max(...profilePoints.map((point) => point.x));
@@ -466,7 +457,7 @@ async function shapeFromSketchProfile(profile: SketchProfile, height: number, ex
     });
     outline.closePath();
     const polygon = outline.extractPoints(16).shape;
-    return { outline, polygon, area: Math.abs(THREE.ShapeUtils.area(polygon)) };
+    return { id: path.id, outline, polygon };
   });
   const hasCurves = profile.segments.some((segment) => segment.kind === "bezier" || segment.kind === "smooth");
   const longestHandle = profile.points.reduce((longest, point) => Math.max(
@@ -487,17 +478,15 @@ async function shapeFromSketchProfile(profile: SketchProfile, height: number, ex
       existing,
     );
   }
-  const sortedOutlines = [...outlineRecords].sort((a, b) => b.area - a.area);
-  const outlines: THREE.Shape[] = [];
-  sortedOutlines.forEach((record) => {
-    const sample = record.polygon[0];
-    const parent = sample
-      ? sortedOutlines
-          .filter((candidate) => candidate !== record && candidate.area > record.area && pointInSketchPolygon(sample, candidate.polygon))
-          .sort((a, b) => a.area - b.area)[0]
-      : undefined;
-    if (parent) parent.outline.holes.push(record.outline);
-    else outlines.push(record.outline);
+  const outlineById = new Map(outlineRecords.map((record) => [record.id, record.outline]));
+  const outlines = regions.flatMap((region) => {
+    const outline = outlineById.get(region.outer.id);
+    if (!outline) return [];
+    outline.holes.push(...region.holes.flatMap((hole) => {
+      const holeOutline = outlineById.get(hole.id);
+      return holeOutline ? [holeOutline] : [];
+    }));
+    return [outline];
   });
   const geometry = new THREE.ExtrudeGeometry(outlines, { depth: safeHeight, bevelEnabled: false, steps: 1, curveSegments });
   geometry.rotateX(-Math.PI / 2);
