@@ -1240,32 +1240,9 @@ export function SketchWorkspace({
               {hover.snap.zGuide !== undefined ? <line className="guide" x1={pan.x - width / 2} y1={hover.snap.zGuide} x2={pan.x + width / 2} y2={hover.snap.zGuide} /> : null}
               <circle className={`marker ${hover.snap.kind}`} cx={hover.x} cy={hover.z} r={8 * screenUnit} />
               <text x={hover.x + 12 * screenUnit} y={hover.z - 10 * screenUnit} fontSize={11 * screenUnit}>{hover.snap.label}</text>
-            </g>
-          ) : null}
-          <g className="sketch-profile-hit-targets" pointerEvents={tool === "select" ? "auto" : "none"}>
-            {paths.filter((path) => path.closed).map((path) => (
-              <path
-                key={`hit-${path.id}`}
-                data-sketch-entity="closed-profile"
-                d={pathData(path)}
-                onPointerDown={(event) => {
-                  if (event.button === 1) {
-                    beginPan(event);
-                    return;
-                  }
-                  if (event.button !== 0 || tool !== "select") return;
-                  const point = pointFromEvent(event);
-                  if (!point) return;
-                  const pointIds = path.points.map((entry) => entry.id);
-                  const segmentIds = path.steps.map((step) => step.segment.id);
-                  const startPoints = pointIds.map((id) => profile.points.find((entry) => entry.id === id)).filter((entry): entry is SketchPoint => Boolean(entry)).map((entry) => ({ ...entry, handleIn: entry.handleIn ? { ...entry.handleIn } : undefined, handleOut: entry.handleOut ? { ...entry.handleOut } : undefined }));
-                  onSelectMany(pointIds, segmentIds, [], []);
-                  beginEntityDrag(event, { kind: "move-selection", pointerId: event.pointerId, origin: point, current: point, startPoints });
-                }}
-              />
-            ))}
-          </g>
-          <g className="sketch-segments">
+             </g>
+           ) : null}
+           <g className="sketch-segments">
             {displayProfile.segments.map((segment) => (
               <path
                 data-sketch-entity="segment"
