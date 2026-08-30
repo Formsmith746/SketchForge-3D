@@ -9,9 +9,12 @@ import {
 export {
   continuousSnappedWheelRotation,
   getElevationMeasureKey,
+  isPointInsideTransformBounds,
   measureKeyForHandle,
   normalizedRotationPlaneBasis,
-  rotationWheelDirectionSign,
+  rotationPlaneDirectionSign,
+  transformBoundsIntersectClipVolume,
+  transformOverlayScreenPoint,
   snappedRotationDelta,
   snappedWheelRotation,
   ROTATION_WHEEL_SHIFT_SNAP_DEGREES,

@@ -11,15 +11,78 @@ export type RotationPlaneView = {
   b: number;
   c: number;
   d: number;
+  directionSign?: number;
 };
 
 export type RotationPlaneBasis = Pick<RotationPlaneView, "a" | "b" | "c" | "d">;
 
+export type TransformOverlayPoint = { x: number; y: number };
+export type TransformOverlayPoint3D = TransformOverlayPoint & { z: number };
+export type TransformOverlayClipPoint = TransformOverlayPoint3D & { w: number };
+
+export function isPointInsideTransformBounds(
+  point: TransformOverlayPoint3D,
+  min: TransformOverlayPoint3D,
+  max: TransformOverlayPoint3D,
+) {
+  return point.x >= min.x
+    && point.x <= max.x
+    && point.y >= min.y
+    && point.y <= max.y
+    && point.z >= min.z
+    && point.z <= max.z;
+}
+
+export function transformBoundsIntersectClipVolume(points: TransformOverlayClipPoint[]) {
+  if (points.length === 0 || points.some((point) => ![point.x, point.y, point.z, point.w].every(Number.isFinite))) {
+    return false;
+  }
+
+  // A convex selection box is outside the camera frustum only when every one
+  // of its corners is beyond the same homogeneous clip plane. Checking the
+  // planes before dividing by w also handles boxes behind the camera and boxes
+  // that surround the camera during close zoom.
+  const outsidePlanes = [
+    (point: TransformOverlayClipPoint) => point.x < -point.w,
+    (point: TransformOverlayClipPoint) => point.x > point.w,
+    (point: TransformOverlayClipPoint) => point.y < -point.w,
+    (point: TransformOverlayClipPoint) => point.y > point.w,
+    (point: TransformOverlayClipPoint) => point.z < -point.w,
+    (point: TransformOverlayClipPoint) => point.z > point.w,
+  ];
+  return !outsidePlanes.some((isOutside) => points.every(isOutside));
+}
+
+export function transformOverlayScreenPoint(
+  projectedNdc: TransformOverlayPoint,
+  cameraSpaceZ: number,
+  width: number,
+  height: number,
+) {
+  const x = ((projectedNdc.x + 1) / 2) * width;
+  const y = ((1 - projectedNdc.y) / 2) * height;
+  return {
+    x,
+    y,
+    visible: cameraSpaceZ < -0.0001 && Number.isFinite(x) && Number.isFinite(y),
+  };
+}
+
 export const ROTATION_WHEEL_SNAP_DEGREES = 45;
 export const ROTATION_WHEEL_SHIFT_SNAP_DEGREES = 22.5;
 
-export function rotationWheelDirectionSign(screenSign: number) {
-  return screenSign < 0 ? 1 : -1;
+type RotationDirectionVector = { x: number; y: number; z: number };
+
+export function rotationPlaneDirectionSign(
+  axis: RotationDirectionVector,
+  uAxis: RotationDirectionVector,
+  vAxis: RotationDirectionVector,
+) {
+  const crossX = uAxis.y * vAxis.z - uAxis.z * vAxis.y;
+  const crossY = uAxis.z * vAxis.x - uAxis.x * vAxis.z;
+  const crossZ = uAxis.x * vAxis.y - uAxis.y * vAxis.x;
+  const alignment = axis.x * crossX + axis.y * crossY + axis.z * crossZ;
+  return alignment < 0 ? -1 : 1;
 }
 
 export function snappedRotationDelta(rawDelta: number, insideSnapWheel: boolean, shiftKey: boolean) {
@@ -30,7 +93,7 @@ export function snappedRotationDelta(rawDelta: number, insideSnapWheel: boolean,
 export function snappedWheelRotation(
   pointerAngle: number,
   startPointerAngle: number,
-  screenSign = 1,
+  directionSign = 1,
   snapDegrees = ROTATION_WHEEL_SNAP_DEGREES,
 ) {
   const snappedPointerAngle = Math.round(pointerAngle / snapDegrees) * snapDegrees;
@@ -38,7 +101,7 @@ export function snappedWheelRotation(
   let pointerDelta = snappedPointerAngle - snappedStartPointerAngle;
   while (pointerDelta > 180) pointerDelta -= 360;
   while (pointerDelta <= -180) pointerDelta += 360;
-  const direction = screenSign < 0 ? -1 : 1;
+  const direction = directionSign < 0 ? -1 : 1;
   const delta = pointerDelta * direction;
   return {
     delta: delta === 0 ? 0 : delta,

@@ -86,6 +86,7 @@ import {
 import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatmentAppliedFrame, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
 import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
+import { geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
 import { createLocalId } from "@/lib/localIds";
 import { projectExportFileName } from "@/lib/exportNames";
 import { exportMeshesToObj } from "@/lib/objExport";
@@ -8868,8 +8869,12 @@ export function SketchForgeEditor({
     [commitShapes, hasSelection, placementWorkplane, selectedIds, selectedShapes.length, shapes],
   );
 
-  const rotateSelected45 = useCallback(() => {
+  const rotateSelectedBy = useCallback((angleDegrees: number) => {
     if (!hasSelection) {
+      return;
+    }
+    if (projectInteractionActiveRef.current) {
+      setNotice("Finish the current drag or transform before rotating");
       return;
     }
 
@@ -8880,17 +8885,7 @@ export function SketchForgeEditor({
       return;
     }
 
-    const axis = new THREE.Vector3(
-      placementWorkplane.normal.x,
-      placementWorkplane.normal.y,
-      placementWorkplane.normal.z,
-    );
-    if (axis.lengthSq() < 0.000001) {
-      axis.set(0, 1, 0);
-    } else {
-      axis.normalize();
-    }
-    const rotationDelta = new THREE.Quaternion().setFromAxisAngle(axis, THREE.MathUtils.degToRad(45));
+    const rotationDelta = geometryRotationDelta(placementWorkplane, angleDegrees);
     const pivot = rotatableShapes.length > 1 ? selectionCenterOnWorkplane(rotatableShapes, placementWorkplane) : null;
 
     const nextShapes = shapes.map((shape) => {
@@ -8898,28 +8893,15 @@ export function SketchForgeEditor({
         return shape;
       }
 
-      const nextQuaternion = rotationDelta.clone().multiply(quaternionForShape(shape));
-      const rotationPatch = rotationFromQuaternion(nextQuaternion);
-      let rotated = canonicalizeShape({ ...shape, ...rotationPatch });
-
-      if (pivot) {
-        const startCenter = new THREE.Vector3(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z);
-        const nextCenter = pivot.clone().add(startCenter.sub(pivot).applyQuaternion(rotationDelta));
-        rotated = canonicalizeShape({
-          ...rotated,
-          x: cleanNearZero(nextCenter.x, 0.0005),
-          z: cleanNearZero(nextCenter.z, 0.0005),
-          elevation: cleanNearZero(nextCenter.y - shape.height / 2, 0.0005),
-        });
-      }
-
+      const rotated = canonicalizeShape({ ...shape, ...rotatedGeometryShapePatch(shape, rotationDelta, pivot) });
       return canonicalizeShape(bakeShapeTransformIntoMesh(rotated));
     });
 
+    const angleLabel = Number(angleDegrees.toFixed(1));
     commitShapes(
       nextShapes,
       selectedIds,
-      `Rotated ${rotatableShapes.length} shape${rotatableShapes.length === 1 ? "" : "s"} by 45°`,
+      `Rotated ${rotatableShapes.length} shape${rotatableShapes.length === 1 ? "" : "s"} by ${angleLabel}°`,
     );
   }, [commitShapes, hasSelection, placementWorkplane, selectedIds, selectedShapes, shapes]);
 
@@ -9052,6 +9034,13 @@ export function SketchForgeEditor({
         return;
       }
 
+      const geometryRotationDegrees = geometryRotationDegreesForShortcut(event);
+      if (geometryRotationDegrees !== null && hasSelection) {
+        event.preventDefault();
+        rotateSelectedBy(geometryRotationDegrees);
+        return;
+      }
+
       const step = event.shiftKey ? 5 : 1;
       if (shortcut && event.key === "ArrowUp") {
         event.preventDefault();
@@ -9103,6 +9092,7 @@ export function SketchForgeEditor({
     pasteShape,
     raiseSelected,
     redo,
+    rotateSelectedBy,
     rotateSelectedClosedSketch45,
     sketchActive,
     sketchRedo,
