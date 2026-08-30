@@ -157,6 +157,9 @@ describe("workplane shape helpers", () => {
     const original = shape({
       id: "outer-group",
       kind: "mesh",
+      x: 14,
+      z: -9,
+      elevation: 3,
       groupedShapes: [
         shape({ id: "round-roof-child", kind: "roundRoof" }),
         shape({
@@ -177,6 +180,7 @@ describe("workplane shape helpers", () => {
 
     expect(new Set(duplicateIds).size).toBe(duplicateIds.length);
     expect(duplicateIds.every((id) => !originalIds.includes(id))).toBe(true);
+    expect(duplicate).toMatchObject({ x: 14, z: -9, elevation: 3 });
     expect(original.groupedShapes?.[0].id).toBe("round-roof-child");
     expect(duplicate.groupedShapes?.[0].kind).toBe("roundRoof");
   });

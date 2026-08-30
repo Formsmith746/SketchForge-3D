@@ -7083,14 +7083,7 @@ export function SketchForgeEditor({
       setNotice("Select a shape first");
       return;
     }
-    const duplicates = selectedShapes.map((shape) => {
-      const duplicate = cloneWorkplaneShapeTreeWithFreshIds(shape, "copy");
-      return {
-        ...duplicate,
-        x: Math.min(110, shape.x + 8),
-        z: Math.min(110, shape.z + 8),
-      };
-    });
+    const duplicates = selectedShapes.map((shape) => cloneWorkplaneShapeTreeWithFreshIds(shape, "copy"));
     commitShapes([...shapes, ...duplicates], duplicates.map((shape) => shape.id), `Duplicated ${duplicates.length} shape${duplicates.length === 1 ? "" : "s"}`);
   }, [commitShapes, hasSelection, selectedShapes, shapes]);
 
