@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronUp, CornerDownRight, Home, Link, Link2Off, Minus, Plus, Split, Trash2, Waves } from "lucide-react";
+import { ChevronUp, CornerDownRight, Home, Link, Link2Off, LockKeyhole, LockKeyholeOpen, Minus, Plus, Split, Trash2, Waves } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { SnapGridControl } from "@/components/workplane/ShapeInspector";
 import { SketchRevolvePreview } from "@/components/SketchRevolvePreview";
@@ -758,7 +758,7 @@ export function SketchWorkspace({
     minZ: selectedImage.z - selectedImage.depth / 2,
     maxZ: selectedImage.z + selectedImage.depth / 2,
   } : null;
-  const imageResizeHandles: Array<{ id: ResizeHandle; x: number; z: number }> = selectedImage && selectedImageBounds ? [
+  const imageResizeHandles: Array<{ id: ResizeHandle; x: number; z: number }> = selectedImage && selectedImageBounds && !selectedImage.locked ? [
     { id: "nw", x: selectedImageBounds.minX, z: selectedImageBounds.minZ },
     { id: "n", x: selectedImage.x, z: selectedImageBounds.minZ },
     { id: "ne", x: selectedImageBounds.maxX, z: selectedImageBounds.minZ },
@@ -770,13 +770,9 @@ export function SketchWorkspace({
   ] : [];
   const selectionResizeHandles: Array<{ id: ResizeHandle; x: number; z: number }> = selectedGeometryBounds ? [
     { id: "nw", x: selectedGeometryBounds.minX, z: selectedGeometryBounds.minZ },
-    { id: "n", x: selectedGeometryBounds.cx, z: selectedGeometryBounds.minZ },
     { id: "ne", x: selectedGeometryBounds.maxX, z: selectedGeometryBounds.minZ },
-    { id: "e", x: selectedGeometryBounds.maxX, z: selectedGeometryBounds.cz },
     { id: "se", x: selectedGeometryBounds.maxX, z: selectedGeometryBounds.maxZ },
-    { id: "s", x: selectedGeometryBounds.cx, z: selectedGeometryBounds.maxZ },
     { id: "sw", x: selectedGeometryBounds.minX, z: selectedGeometryBounds.maxZ },
-    { id: "w", x: selectedGeometryBounds.minX, z: selectedGeometryBounds.cz },
   ] : [];
   const referenceFootprints = useMemo(
     () => new Map(referenceShapes.map((shape) => [shape.id, importedMeshFootprint(shape)])),
@@ -839,6 +835,7 @@ export function SketchWorkspace({
               <image
                 key={image.id}
                 data-sketch-entity="image"
+                className={image.locked ? "locked" : undefined}
                 aria-label={image.name}
                 href={image.dataUrl}
                 x={image.x - image.width / 2}
@@ -856,6 +853,8 @@ export function SketchWorkspace({
                     return;
                   }
                   if (event.button !== 0 || tool !== "select") return;
+                  onSelectImage(image.id);
+                  if (image.locked) return;
                   const point = pointFromEvent(event);
                   if (!point) return;
                   beginEntityDrag(event, {
@@ -903,29 +902,6 @@ export function SketchWorkspace({
           <g className="sketch-profile-fills" pointerEvents="none">
             {paths.some((path) => path.closed) ? <path d={paths.filter((path) => path.closed).map(pathData).join(" ")} /> : null}
           </g>
-          <g className="sketch-profile-hit-targets" pointerEvents={tool === "select" ? "auto" : "none"}>
-            {paths.filter((path) => path.closed).map((path) => (
-              <path
-                key={`hit-${path.id}`}
-                data-sketch-entity="closed-profile"
-                d={pathData(path)}
-                onPointerDown={(event) => {
-                  if (event.button === 1) {
-                    beginPan(event);
-                    return;
-                  }
-                  if (event.button !== 0 || tool !== "select") return;
-                  const point = pointFromEvent(event);
-                  if (!point) return;
-                  const pointIds = path.points.map((entry) => entry.id);
-                  const segmentIds = path.steps.map((step) => step.segment.id);
-                  const startPoints = pointIds.map((id) => profile.points.find((entry) => entry.id === id)).filter((entry): entry is SketchPoint => Boolean(entry)).map((entry) => ({ ...entry, handleIn: entry.handleIn ? { ...entry.handleIn } : undefined, handleOut: entry.handleOut ? { ...entry.handleOut } : undefined }));
-                  onSelectMany(pointIds, segmentIds, []);
-                  beginEntityDrag(event, { kind: "move-selection", pointerId: event.pointerId, origin: point, current: point, startPoints });
-                }}
-              />
-            ))}
-          </g>
           <g className="sketch-segments">
             {displayProfile.segments.map((segment) => (
               <path
@@ -959,16 +935,7 @@ export function SketchWorkspace({
                     }
                   }
                   else if (event.button === 0 && tool === "select" && point) {
-                    const closedPath = paths.find((path) => path.closed && path.steps.some((step) => step.segment.id === segment.id));
-                    if (!closedPath) {
-                      onSelectSegment(segment.id);
-                      return;
-                    }
-                    const pointIds = closedPath.points.map((entry) => entry.id);
-                    const segmentIds = closedPath.steps.map((step) => step.segment.id);
-                    const startPoints = pointIds.map((id) => profile.points.find((entry) => entry.id === id)).filter((entry): entry is SketchPoint => Boolean(entry)).map((entry) => ({ ...entry, handleIn: entry.handleIn ? { ...entry.handleIn } : undefined, handleOut: entry.handleOut ? { ...entry.handleOut } : undefined }));
-                    onSelectMany(pointIds, segmentIds, []);
-                    beginEntityDrag(event, { kind: "move-selection", pointerId: event.pointerId, origin: point, current: point, startPoints });
+                    onSelectSegment(segment.id);
                   } else if (event.button === 0) onSelectSegment(segment.id);
                 }}
               />
@@ -1130,17 +1097,8 @@ export function SketchWorkspace({
                   } else if (tool === "erase" || tool === "refine") {
                     onDeletePoint(point.id);
                   } else if (event.button === 0 && tool === "select") {
-                    const closedPath = paths.find((path) => path.closed && path.points.some((entry) => entry.id === point.id));
-                    if (closedPath) {
-                      const pointIds = closedPath.points.map((entry) => entry.id);
-                      const segmentIds = closedPath.steps.map((step) => step.segment.id);
-                      const startPoints = pointIds.map((id) => profile.points.find((entry) => entry.id === id)).filter((entry): entry is SketchPoint => Boolean(entry)).map((entry) => ({ ...entry, handleIn: entry.handleIn ? { ...entry.handleIn } : undefined, handleOut: entry.handleOut ? { ...entry.handleOut } : undefined }));
-                      onSelectMany(pointIds, segmentIds, []);
-                      beginEntityDrag(event, { kind: "move-selection", pointerId: event.pointerId, origin: { x: point.x, z: point.z }, current: { x: point.x, z: point.z }, startPoints });
-                    } else {
-                      onPointPress(point.id);
-                      beginEntityDrag(event, { kind: "move-point", pointerId: event.pointerId, pointId: point.id, current: { x: point.x, z: point.z } });
-                    }
+                    onPointPress(point.id);
+                    beginEntityDrag(event, { kind: "move-point", pointerId: event.pointerId, pointId: point.id, current: { x: point.x, z: point.z } });
                   } else if (event.button === 0) {
                     onPointPress(point.id);
                   }
@@ -1270,7 +1228,16 @@ function SketchImageInspector({
         </button>
         <strong>{image.name}</strong>
         <div className="inspector-header-actions">
-          <button className="inspector-header-icon danger" type="button" aria-label="Delete sketch image" title="Delete image" onClick={onDelete}>
+          <button
+            className={image.locked ? "inspector-header-icon active" : "inspector-header-icon"}
+            type="button"
+            aria-label={image.locked ? "Unlock sketch image" : "Lock sketch image"}
+            title={`${image.locked ? "Unlock" : "Lock"} image (L)`}
+            onClick={() => onUpdate({ locked: !image.locked }, image.locked ? "Sketch image unlocked" : "Sketch image locked")}
+          >
+            {image.locked ? <LockKeyhole size={25} strokeWidth={2.2} /> : <LockKeyholeOpen size={25} strokeWidth={2.2} />}
+          </button>
+          <button className="inspector-header-icon danger" type="button" aria-label="Delete sketch image" title={image.locked ? "Unlock image before deleting" : "Delete image"} onClick={onDelete} disabled={image.locked}>
             <Trash2 size={25} strokeWidth={2.2} />
           </button>
         </div>
@@ -1282,12 +1249,12 @@ function SketchImageInspector({
       <div className="property-card">
         <div className="property-card-header static"><span>Properties</span></div>
         <div className="property-list">
-          <SketchImageRange label="Width" value={image.width} min={0.5} max={200} accuracy={accuracy} onChange={updateWidth} />
-          <SketchImageRange label="Height" value={image.depth} min={0.5} max={200} accuracy={accuracy} onChange={updateDepth} />
-          <SketchImageRange label="Opacity" value={(image.opacity ?? 0.55) * 100} min={5} max={100} accuracy={1} suffix="%" onChange={(opacity) => onUpdate({ opacity: opacity / 100 }, "Sketch image opacity updated")} />
-          <SketchImagePositionField label="Position X" value={image.x} accuracy={accuracy} onChange={(x) => onUpdate({ x }, "Sketch image moved")} />
-          <SketchImagePositionField label="Position Y" value={image.z} accuracy={accuracy} onChange={(z) => onUpdate({ z }, "Sketch image moved")} />
-          <button className={`sketch-image-aspect-toggle ${image.lockAspect !== false ? "active" : ""}`} type="button" onClick={() => onUpdate({ lockAspect: image.lockAspect === false }, "Image aspect ratio setting updated")}>
+          <SketchImageRange label="Width" value={image.width} min={0.5} max={200} accuracy={accuracy} disabled={image.locked} onChange={updateWidth} />
+          <SketchImageRange label="Height" value={image.depth} min={0.5} max={200} accuracy={accuracy} disabled={image.locked} onChange={updateDepth} />
+          <SketchImageRange label="Opacity" value={(image.opacity ?? 0.55) * 100} min={5} max={100} accuracy={1} suffix="%" disabled={image.locked} onChange={(opacity) => onUpdate({ opacity: opacity / 100 }, "Sketch image opacity updated")} />
+          <SketchImagePositionField label="Position X" value={image.x} accuracy={accuracy} disabled={image.locked} onChange={(x) => onUpdate({ x }, "Sketch image moved")} />
+          <SketchImagePositionField label="Position Y" value={image.z} accuracy={accuracy} disabled={image.locked} onChange={(z) => onUpdate({ z }, "Sketch image moved")} />
+          <button className={`sketch-image-aspect-toggle ${image.lockAspect !== false ? "active" : ""}`} type="button" disabled={image.locked} onClick={() => onUpdate({ lockAspect: image.lockAspect === false }, "Image aspect ratio setting updated")}>
             {image.lockAspect !== false ? <Link size={17} /> : <Link2Off size={17} />}
             <span>{image.lockAspect !== false ? "Aspect ratio locked" : "Aspect ratio unlocked"}</span>
           </button>
@@ -1304,6 +1271,7 @@ function SketchImageRange({
   max,
   accuracy,
   suffix = "mm",
+  disabled = false,
   onChange,
 }: {
   label: string;
@@ -1312,6 +1280,7 @@ function SketchImageRange({
   max: number;
   accuracy: 1 | 2 | 3;
   suffix?: string;
+  disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   const safeValue = clamp(Number.isFinite(value) ? value : min, min, max);
@@ -1331,13 +1300,14 @@ function SketchImageRange({
           type="text"
           inputMode="decimal"
           value={draft}
+          disabled={disabled}
           onChange={(event) => setDraft(event.currentTarget.value)}
           onBlur={commit}
           onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
         />
         <span>{suffix}</span>
       </div>
-      <input type="range" min={min} max={max} step={accuracy === 1 ? 0.1 : 0.01} value={safeValue} onChange={(event) => onChange(Number(event.currentTarget.value))} />
+      <input type="range" min={min} max={max} step={accuracy === 1 ? 0.1 : 0.01} value={safeValue} disabled={disabled} onChange={(event) => onChange(Number(event.currentTarget.value))} />
     </label>
   );
 }
@@ -1346,11 +1316,13 @@ function SketchImagePositionField({
   label,
   value,
   accuracy,
+  disabled = false,
   onChange,
 }: {
   label: string;
   value: number;
   accuracy: 1 | 2 | 3;
+  disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   const formatted = formatDimension(value, accuracy);
@@ -1370,6 +1342,7 @@ function SketchImagePositionField({
         type="text"
         inputMode="decimal"
         value={draft}
+        disabled={disabled}
         onChange={(event) => setDraft(event.currentTarget.value)}
         onBlur={commit}
         onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}

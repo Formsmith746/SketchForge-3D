@@ -19,7 +19,7 @@
     <a href="https://github.com/Formsmith746/SketchForge-3D/stargazers"><img alt="Star SketchForge on GitHub" src="https://img.shields.io/github/stars/Formsmith746/SketchForge-3D?style=flat&logo=github"></a>
     <a href="https://github.com/sponsors/Formsmith746"><img alt="Sponsor SketchForge on GitHub" src="https://img.shields.io/badge/GitHub-Sponsor-ea4aaa?logo=githubsponsors&logoColor=white"></a>
     <img alt="Local first" src="https://img.shields.io/badge/local--first-no%20account-0ea5e9">
-    <img alt="Version v1.0.7" src="https://img.shields.io/badge/version-v1.0.7-2563eb">
+    <img alt="Version v1.0.8" src="https://img.shields.io/badge/version-v1.0.8-2563eb">
   </p>
 </div>
 
@@ -167,7 +167,7 @@ The container listens on port `3000`. It also accepts connections on port `80` f
 
 ### Shared Docker Projects
 
-Docker deployments include a shared `.skf` project library. Private projects still autosave in each user's browser. The **Shared** dashboard section lists files stored in `/data/projects`, and **Export → SKF → Save to shared** writes the current project there.
+Docker deployments include a shared `.skf` project library. Private projects still autosave in each user's browser. The **Shared** dashboard section lists files stored in `/data/projects`, and **Export → SKF → Save to shared** writes the current project there. Revision-matched PNG previews are stored beside the library in `/data/projects/.thumbnails` and appear on shared project cards.
 
 Compose uses the persistent `sketchforge-shared-projects` volume by default. To use a directory on the Docker host instead, set `SKETCHFORGE_SHARED_PROJECTS_VOLUME` before starting Compose:
 

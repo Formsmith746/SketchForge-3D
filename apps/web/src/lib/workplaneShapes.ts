@@ -22,6 +22,10 @@ export function cleanNearZero(value: number, epsilon = 0.005) {
   return Math.abs(value) < epsilon ? 0 : value;
 }
 
+export function shapeTransformShouldRemainEditable(shape: WorkplaneShape) {
+  return shape.kind === "text" || Boolean(shape.groupedShapes?.length);
+}
+
 export function cloneWorkplaneShapeTreeWithFreshIds(shape: WorkplaneShape, suffix: string): WorkplaneShape {
   return {
     ...shape,
@@ -212,6 +216,14 @@ export function canonicalizeShape(shape: WorkplaneShape): WorkplaneShape {
   };
   if (shape.groupedShapes) {
     next.groupedShapes = shape.groupedShapes.map(canonicalizeShape);
+  }
+  if (shape.sketchRevolve) {
+    next.sketchRevolve = {
+      startAngle: shape.sketchRevolve.startAngle,
+      sweepAngle: shape.sketchRevolve.sweepAngle,
+      sides: shape.sketchRevolve.sides,
+      quality: shape.sketchRevolve.quality,
+    };
   }
   if (shape.edgeTreatmentHistory) {
     next.edgeTreatmentHistory = shape.edgeTreatmentHistory.map((entry) => ({

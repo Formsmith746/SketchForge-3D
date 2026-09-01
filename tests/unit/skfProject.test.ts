@@ -153,7 +153,7 @@ describe("SketchForge .skf project packages", () => {
     const revolve = shape("mesh", "revolve-sketch", {
       name: "Sketch revolve",
       sketchOperation: "revolve",
-      sketchRevolve: { startAngle: 25, sweepAngle: -220, sides: 48, quality: 8, thickness: 1.5 },
+      sketchRevolve: { startAngle: 25, sweepAngle: -220, sides: 48, quality: 8 },
       sketchProfile: {
         points: [{ id: "p1", x: -4, z: 0 }, { id: "p2", x: -8, z: 0 }, { id: "p3", x: -8, z: 16 }, { id: "p4", x: -4, z: 16 }],
         segments: [
@@ -402,6 +402,8 @@ describe("SketchForge .skf project packages", () => {
           z: 0,
           width: 10,
           depth: 10,
+          lockAspect: true,
+          locked: true,
         }],
       },
     });
@@ -412,6 +414,7 @@ describe("SketchForge .skf project packages", () => {
     expect(document.assets.filter((entry) => entry.kind === "image")).toHaveLength(1);
     expect(restored.shapes[0].imagePlate?.dataUrl).toBe(dataUrl);
     expect(restored.shapes[0].sketchProfile?.images?.[0].dataUrl).toBe(dataUrl);
+    expect(restored.shapes[0].sketchProfile?.images?.[0].locked).toBe(true);
   });
 
   it("deduplicates derived geometry when legacy imported objects share one mesh", async () => {

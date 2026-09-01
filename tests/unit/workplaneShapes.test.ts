@@ -19,6 +19,7 @@ import {
   shapeDepth,
   shapeHasTaper,
   shapeOverallFootprintDimensions,
+  shapeTransformShouldRemainEditable,
   shapeTaperDimensions,
   shapeTaperScaleAt,
   shapeWidth,
@@ -129,10 +130,36 @@ describe("workplane shape helpers", () => {
     expect(canonical.groupedShapes?.[0].mirrorZ).toBeUndefined();
   });
 
+  it("keeps rotated groups editable so they can still be ungrouped", () => {
+    const child = shape({ id: "child" });
+    const group = shape({
+      id: "group",
+      kind: "mesh",
+      rotation: 45,
+      groupedBaseWidth: 20,
+      groupedBaseDepth: 20,
+      groupedBaseHeight: 20,
+      groupedShapes: [child],
+    });
+
+    expect(shapeTransformShouldRemainEditable(group)).toBe(true);
+    expect(shapeTransformShouldRemainEditable(shape({ rotation: 45 }))).toBe(false);
+    expect(canonicalizeShape(group)).toMatchObject({
+      rotation: 45,
+      groupedBaseWidth: 20,
+      groupedBaseDepth: 20,
+      groupedBaseHeight: 20,
+      groupedShapes: [{ id: "child" }],
+    });
+  });
+
   it("assigns fresh object IDs throughout duplicated group trees", () => {
     const original = shape({
       id: "outer-group",
       kind: "mesh",
+      x: 14,
+      z: -9,
+      elevation: 3,
       groupedShapes: [
         shape({ id: "round-roof-child", kind: "roundRoof" }),
         shape({
@@ -153,6 +180,7 @@ describe("workplane shape helpers", () => {
 
     expect(new Set(duplicateIds).size).toBe(duplicateIds.length);
     expect(duplicateIds.every((id) => !originalIds.includes(id))).toBe(true);
+    expect(duplicate).toMatchObject({ x: 14, z: -9, elevation: 3 });
     expect(original.groupedShapes?.[0].id).toBe("round-roof-child");
     expect(duplicate.groupedShapes?.[0].kind).toBe("roundRoof");
   });
