@@ -53,3 +53,8 @@ linux:
     - AppImage
   category: Graphics
   artifactName: ${productName}-${version}-${arch}.${ext}
+  desktop:
+    entry:
+      GenericName: 3D Design Editor
+      Keywords: 3D;CAD;Model;Modelling;STL;OBJ;STEP;3D Printing;Design;
+      StartupWMClass: sketchforge
