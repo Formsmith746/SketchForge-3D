@@ -53,3 +53,9 @@ linux:
     - AppImage
   category: Graphics
   artifactName: ${productName}-${version}-${arch}.${ext}
+  desktop:
+    entry:
+      GenericName: 3D Design Editor
+      Comment: Design and export 3D models locally
+      Keywords: 3D;CAD;Model;Modelling;STL;OBJ;STEP;3D Printing;Design;
+      StartupWMClass: SketchForge
