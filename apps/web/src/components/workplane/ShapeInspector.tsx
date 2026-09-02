@@ -26,6 +26,7 @@ import { resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimen
 import { normalizeSketchRevolveSettings } from "@/lib/sketchRevolve";
 import { MAX_HIGH_RESOLUTION_SIDES } from "@/lib/workplaneSettings";
 import type { GearType, GridSize, MeasurementAccuracy, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import {useTranslation} from "react-i18next";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
 const MIN_SHAPE_SIZE = 0.01;
@@ -389,6 +390,7 @@ export function ShapeInspector({
   onSeparateParts?: () => void;
   onInteractionActiveChange?: (active: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const solidColor = shape.color;
   const locked = Boolean(shape.locked);
   const properties = getShapeProperties(shape, onUpdate, workspace);
@@ -475,7 +477,7 @@ export function ShapeInspector({
         >
           {minimized ? <ChevronDown size={26} strokeWidth={2.8} /> : <ChevronUp size={26} strokeWidth={2.8} />}
         </button>
-        <strong>{shape.name}</strong>
+        <strong>{t(shape.name)}</strong>
         <div className="inspector-header-actions">
           <button className={locked ? "inspector-header-icon active" : "inspector-header-icon"} aria-label={locked ? "Unlock shape" : "Lock shape"} onClick={() => onUpdate({ locked: !locked })}>
             {locked ? <LockKeyhole size={31} strokeWidth={2.4} /> : <LockKeyholeOpen size={31} strokeWidth={2.4} />}
@@ -501,7 +503,7 @@ export function ShapeInspector({
           aria-expanded={colorOpen}
         >
           <span className="large-solid-swatch" style={{ "--swatch": solidColor } as CSSProperties} />
-          <span>Solid</span>
+          <span>{t("Solid")}</span>
         </button>
         <button
           className={shape.hole ? "active hole-choice" : "hole-choice"}
@@ -513,14 +515,14 @@ export function ShapeInspector({
           aria-pressed={shape.hole}
         >
           <span className="large-hole-swatch" />
-          <span>Hole</span>
+          <span>{t("Hole")}</span>
         </button>
       </div>
 
       {colorOpen ? (
         <div className="color-card" aria-label="Shape color">
           <div className="color-card-header">
-            <span>Color</span>
+            <span>{t("Color")}</span>
             <span className="color-value">{solidColor.toUpperCase()}</span>
           </div>
           <div className="color-grid">
@@ -549,7 +551,7 @@ export function ShapeInspector({
                 onFocus={() => onInteractionActiveChange?.(true)}
                 onBlur={() => onInteractionActiveChange?.(false)}
               />
-              <span>Custom</span>
+              <span>{t("Custom")}</span>
             </label>
           </div>
         </div>
@@ -564,7 +566,7 @@ export function ShapeInspector({
       {canSeparateParts && onSeparateParts ? (
         <button className="inspector-action-button" type="button" disabled={locked} onClick={onSeparateParts}>
           <Split size={17} strokeWidth={2.5} />
-          <span>Separate Parts</span>
+          <span>{t("Separate Parts")}</span>
         </button>
       ) : null}
 
@@ -576,7 +578,7 @@ export function ShapeInspector({
           aria-controls={`properties-${shape.id}`}
           onClick={() => setPropertiesOpen((open) => !open)}
         >
-          <span>Properties</span>
+          <span>{t("Properties")}</span>
           <ChevronUp className={propertiesOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
         </button>
         {propertiesOpen ? (
@@ -601,7 +603,7 @@ export function ShapeInspector({
             aria-controls={`taper-${shape.id}`}
             onClick={() => setTaperOpen((open) => !open)}
           >
-            <span>Taper</span>
+            <span>{t("Taper")}</span>
             <ChevronUp className={taperOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
           </button>
           {taperOpen ? (
@@ -620,7 +622,7 @@ export function ShapeInspector({
             aria-controls={`gear-teeth-${shape.id}`}
             onClick={() => setGearTeethOpen((open) => !open)}
           >
-            <span>Teeth</span>
+            <span>{t("Teeth")}</span>
             <ChevronUp className={gearTeethOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
           </button>
           {gearTeethOpen ? (
@@ -691,9 +693,11 @@ export function SnapGridControl({
   onSnapChange: Dispatch<SetStateAction<GridSize>>;
   onSnapOpenChange: Dispatch<SetStateAction<boolean>>;
 }) {
+
+  const { t } = useTranslation();
   return (
     <div className="snap-row">
-      <span>Snap Grid</span>
+      <span>{t("Snap Grid")}</span>
       <button className="snap-select" onClick={() => onSnapOpenChange((value) => !value)}>
         {snap}
         <ChevronDown size={12} fill="currentColor" />
@@ -756,10 +760,12 @@ function RangeProperty({
     onChange(clamp(toModelValue(next), min, max));
     setDraft(formatPropertyNumber(next, accuracy, controlStep));
   };
+  const { t } = useTranslation();
+
   return (
     <label className="range-property" style={{ "--slider-pos": `${position}%` } as CSSProperties}>
       <span className="range-property-header">
-        <span className="range-property-name">{label}</span>
+        <span className="range-property-name">{t(label)}</span>
         <span className="range-value-control">
           <input
             type="text"
@@ -806,9 +812,10 @@ function RangeProperty({
 }
 
 function TextProperty({ label, value, disabled, onChange, onInteractionActiveChange }: TextPropertyConfig & { disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
+  const { t } = useTranslation();
   return (
     <label className="text-property">
-      <span>{label}</span>
+      <span>{t(label)}</span>
       <input
         type="text"
         value={value}
@@ -824,9 +831,10 @@ function TextProperty({ label, value, disabled, onChange, onInteractionActiveCha
 }
 
 function SelectProperty({ label, value, options, disabled, onChange }: SelectPropertyConfig & { disabled?: boolean }) {
+  const { t } = useTranslation();
   return (
     <label className="select-property">
-      <span>{label}</span>
+      <span>{t(label)}</span>
       <select value={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)}>
         {options.map((option) => (
           <option key={option} value={option}>
@@ -843,9 +851,10 @@ function GearTypePreview({ type }: { type: GearType }) {
 }
 
 function GearTypeSelector({ value, disabled, onChange }: { value: GearType; disabled?: boolean; onChange: (value: GearType) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="gear-type-property" role="group" aria-label="Gear type">
-      <span>Gear Type</span>
+      <span>{t("Gear Type")}</span>
       <div className="gear-type-options">
         {GEAR_TYPE_OPTIONS.map((option) => (
           <button
@@ -857,7 +866,7 @@ function GearTypeSelector({ value, disabled, onChange }: { value: GearType; disa
             onClick={() => onChange(option.value)}
           >
             <GearTypePreview type={option.value} />
-            <span>{option.label}</span>
+            <span>{t(option.label)}</span>
           </button>
         ))}
       </div>

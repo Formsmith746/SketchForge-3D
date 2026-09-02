@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { Check, Circle as CircleIcon, CloudUpload, Download, Eye, FolderOpen, Hexagon as HexagonIcon, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
@@ -128,6 +129,7 @@ import {
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+
 
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
@@ -9539,6 +9541,7 @@ function SecondaryToolbar({
   onTopPanel: (panel: TopPanel) => void;
   onAddShape: (shape: ShapeAsset) => void;
 }) {
+  const { t } = useTranslation();
   const [shapesOpen, setShapesOpen] = useState(false);
   const [sketchCreateOpen, setSketchCreateOpen] = useState(false);
   const [visibilityOpen, setVisibilityOpen] = useState(false);
@@ -9732,7 +9735,7 @@ function SecondaryToolbar({
       {onHome ? (
         <div className="tool-group editor-nav-group">
           <div className="toolbar-section toolbar-home-section">
-            <div className="toolbar-section-label">Home</div>
+            <div className="toolbar-section-label">{t('Home')}</div>
             <div className="toolbar-section-tools">
               <button className="toolbar-icon editor-home-control" aria-label="Home dashboard" title="Home dashboard" onClick={onHome}>
                 <ToolbarHomeIcon />
@@ -9743,15 +9746,15 @@ function SecondaryToolbar({
       ) : null}
       <div className="tool-group left">
         <div className="toolbar-section">
-          <div className="toolbar-section-label">Clipboard</div>
+          <div className="toolbar-section-label">{t('Clipboard')}</div>
           <div className="toolbar-section-tools">{leftTools.slice(0, 4).map(renderToolButton)}</div>
         </div>
         <div className="toolbar-section">
-          <div className="toolbar-section-label">History</div>
+          <div className="toolbar-section-label">{t('History')}</div>
           <div className="toolbar-section-tools">{leftTools.slice(4).map(renderToolButton)}</div>
         </div>
         <div className="toolbar-section toolbar-shapes-section" ref={shapesMenuRef}>
-          <div className="toolbar-section-label">Shapes</div>
+          <div className="toolbar-section-label">{t('Shapes')}</div>
           <div className="toolbar-section-tools">
             <button
               className={`shape-menu-trigger ${shapesOpen ? "active" : ""}`}
@@ -9829,7 +9832,7 @@ function SecondaryToolbar({
                     }}
                   >
                     <img src={shape.menuIcon} alt="" draggable={false} />
-                    <span>{shape.name}</span>
+                    <span>{t(shape.name)}</span>
                   </button>
                 ))}
               </div>
@@ -9868,7 +9871,7 @@ function SecondaryToolbar({
       ) : <div className="toolbar-spacer" />}
       <div className="tool-group right">
         <div className="toolbar-section compact toolbar-visibility-section" ref={visibilityMenuRef}>
-          <div className="toolbar-section-label">Visibility</div>
+          <div className="toolbar-section-label">{t('Visibility')}</div>
           <div className="toolbar-section-tools">
             {visibilityTools.map(renderToolButton)}
             <button
@@ -9904,7 +9907,7 @@ function SecondaryToolbar({
                 <strong>{hiddenShapeCount === 0 ? "Nothing hidden" : `Show all hidden (${hiddenShapeCount})`}</strong>
               </button>
               <div className="visibility-dropdown-help">
-                <span>Eye again: selected</span>
+                <span>{t('Eye again: selected')}</span>
                 <span aria-hidden="true">·</span>
                 <span><kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd>: all</span>
               </div>
@@ -9912,20 +9915,20 @@ function SecondaryToolbar({
           ) : null}
         </div>
         <div className="toolbar-section">
-          <div className="toolbar-section-label">Combine</div>
+          <div className="toolbar-section-label">{t("Combine")}</div>
           <div className="toolbar-section-tools">{combineTools.map(renderToolButton)}</div>
         </div>
         <div className="toolbar-section">
-          <div className="toolbar-section-label">Modify</div>
+          <div className="toolbar-section-label">{t("Modify")}</div>
           <div className="toolbar-section-tools">{modifyTools.map(renderToolButton)}</div>
         </div>
         <div className="toolbar-section">
-          <div className="toolbar-section-label">Arrange</div>
+          <div className="toolbar-section-label">{t("Arrange")}</div>
           <div className="toolbar-section-tools">{arrangeTools.map(renderToolButton)}</div>
         </div>
       </div>
       <div className="toolbar-section toolbar-actions-section">
-        <div className="toolbar-section-label">Manage</div>
+        <div className="toolbar-section-label">{t('Manage')}</div>
         <div className="action-buttons">
           <button className="action-icon-button" aria-label="Import" title="Import" onClick={() => onTopPanel("import")}>
             <ToolbarImportIcon />
@@ -10108,7 +10111,7 @@ function SecondaryToolbar({
           aria-selected={toolbarMode === "geometry"}
           onClick={() => selectToolbarMode("geometry")}
         >
-          Geometry
+          {t('Geometry')}
         </button>
         <button
           className={toolbarMode === "sketch" ? "active" : ""}

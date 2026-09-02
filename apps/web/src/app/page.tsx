@@ -1,5 +1,8 @@
 "use client";
 
+import "@/i18n";
+import { useTranslation } from "react-i18next";
+
 import { Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, HomeIcon, List, Palette, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SketchForgeEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/SketchForgeEditor";
@@ -1469,6 +1472,7 @@ function Dashboard({
   onViewModeChange: (value: ViewMode) => void;
   onWorkspace: () => void;
 }) {
+  const { t } = useTranslation();
   const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const [openSharedProjectMenuFileName, setOpenSharedProjectMenuFileName] = useState<string | null>(null);
   const [projectPendingDeleteId, setProjectPendingDeleteId] = useState<string | null>(null);
@@ -1700,11 +1704,11 @@ function Dashboard({
         </a>
         <div className="dashboard-search">
           <Search size={18} strokeWidth={2.4} />
-          <input value={query} onChange={(event) => onQueryChange(event.currentTarget.value)} placeholder="Search projects" aria-label="Search projects" />
+          <input value={query} onChange={(event) => onQueryChange(event.currentTarget.value)} placeholder={t("Search projects")} aria-label={t("Search projects")} />
         </div>
         <button className="dashboard-primary" type="button" onClick={onCreate}>
           <Plus size={20} strokeWidth={2.6} />
-          <span>Create</span>
+          <span>{t("Create")}</span>
         </button>
       </header>
 
@@ -1713,27 +1717,27 @@ function Dashboard({
           <div className="dashboard-nav-stack">
             <button className={`dashboard-nav-item ${dashboardSection === "home" ? "active" : ""}`} type="button" aria-label="Home" title="Home" onClick={onDashboardHome}>
               <HomeIcon size={20} />
-              <span>Home</span>
+              <span>{t("Home")}</span>
             </button>
             {sharedProjectsEnabled ? (
               <button className={`dashboard-nav-item ${dashboardSection === "shared" ? "active" : ""}`} type="button" aria-label="Shared projects" title="Shared projects" onClick={onSharedProjects}>
                 <FolderKanban size={20} />
-                <span>Shared</span>
+                <span>{t("Shared")}</span>
               </button>
             ) : null}
             <button className={`dashboard-nav-item ${dashboardSection === "challenges" ? "active" : ""}`} type="button" aria-label="Challenges" title="Challenges" onClick={onChallenges}>
               <SlidersHorizontal size={20} />
-              <span>Challenges</span>
+              <span>{t("Challenges")}</span>
             </button>
             <button className={`dashboard-nav-item ${dashboardSection === "customization" ? "active" : ""}`} type="button" aria-label="Customization" title="Customization" onClick={onCustomization}>
               <Palette size={20} />
-              <span>Customization</span>
+              <span>{t("Customization")}</span>
             </button>
           </div>
           <div className="dashboard-sidebar-footer">
             <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
               <Settings size={20} />
-              <span>Settings</span>
+              <span>{t('Settings')}</span>
             </button>
           </div>
         </aside>
@@ -1814,19 +1818,19 @@ function Dashboard({
                   <span className="dashboard-action-icon">
                     <Plus size={25} strokeWidth={2.8} />
                   </span>
-                  <span>Create new 3D design</span>
+                  <span>{t("Create new 3D design")}</span>
                 </button>
                 <button className="dashboard-action-tile" type="button" onClick={onImportFile}>
                   <span className="dashboard-action-icon">
                     <FileUp size={24} strokeWidth={2.4} />
                   </span>
-                  <span>Open SKF or import geometry</span>
+                  <span>{t("Open SKF or import geometry")}</span>
                 </button>
                 <button className="dashboard-action-tile" type="button" onClick={onWorkspace}>
                   <span className="dashboard-action-icon">
                     <Clock3 size={24} strokeWidth={2.4} />
                   </span>
-                  <span>Continue workplane</span>
+                  <span>{t("Continue workplane")}</span>
                 </button>
               </div>
               {dashboardNotice ? (
@@ -1837,15 +1841,15 @@ function Dashboard({
 
               <div className="dashboard-section-header">
                 <div>
-                  <h1>Projects</h1>
-                  <span>{projects.length} visible</span>
+                  <h1>{t("Projects")}</h1>
+                  <span>{projects.length} {t("visible")}</span>
                 </div>
                 <div className="dashboard-controls">
                   <label className="dashboard-select">
                     <SlidersHorizontal size={17} />
                     <select value={sortMode} onChange={(event) => onSortModeChange(event.currentTarget.value)} aria-label="Sort projects">
-                      <option value="recent">Recent</option>
-                      <option value="name">Name</option>
+                      <option value="recent">{t("Recent")}</option>
+                      <option value="name">{t("Name")}</option>
                     </select>
                   </label>
                   <div className="dashboard-segmented" aria-label="Project view">
@@ -1887,7 +1891,7 @@ function Dashboard({
                         <div className="project-card-menu" role="menu" aria-label={`Options for ${project.name}`}>
                           <button type="button" role="menuitem" onClick={() => startProjectRename(project)}>
                             <Pencil size={16} />
-                            <span>Rename</span>
+                            <span>{t("Rename")}</span>
                           </button>
                           <button
                             className="delete"
@@ -1899,7 +1903,7 @@ function Dashboard({
                             }}
                           >
                             <Trash2 size={16} />
-                            <span>Delete</span>
+                            <span>{t("Delete")}</span>
                           </button>
                         </div>
                       ) : null}
@@ -1908,8 +1912,8 @@ function Dashboard({
                 </div>
               ) : (
                 <div className="project-empty">
-                  <strong>No projects yet</strong>
-                  <span>Create a 3D design and it will appear here.</span>
+                  <strong>{t("No projects yet")}</strong>
+                  <span>{t("Create a 3D design and it will appear here.")}</span>
                 </div>
               )}
             </>
@@ -1921,7 +1925,7 @@ function Dashboard({
         <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-project-title">
           <div className="dashboard-confirm-dialog">
             <header>
-              <strong id="delete-project-title">Delete project?</strong>
+              <strong id="delete-project-title">{t("Delete project")}?</strong>
               <button type="button" aria-label="Cancel project deletion" onClick={() => setProjectPendingDeleteId(null)}>
                 <X size={18} />
               </button>
@@ -1931,10 +1935,10 @@ function Dashboard({
             </p>
             <div className="dashboard-confirm-actions">
               <button className="dashboard-confirm-cancel" type="button" onClick={() => setProjectPendingDeleteId(null)}>
-                Cancel
+                {t("Cancel")}
               </button>
               <button className="dashboard-confirm-delete" type="button" onClick={confirmProjectDelete}>
-                Delete
+                {t("Delete")}
               </button>
             </div>
           </div>
@@ -1975,13 +1979,13 @@ function Dashboard({
             }}
           >
             <header>
-              <strong id="rename-project-title">Rename project</strong>
+              <strong id="rename-project-title">{t("Rename project")}</strong>
               <button type="button" aria-label="Cancel project rename" onClick={closeProjectRename}>
                 <X size={18} />
               </button>
             </header>
             <label>
-              <span>Project name</span>
+              <span>{t("Project name")}</span>
               <input
                 autoFocus
                 maxLength={80}
@@ -1992,10 +1996,10 @@ function Dashboard({
             </label>
             <div className="dashboard-confirm-actions">
               <button className="dashboard-confirm-cancel" type="button" onClick={closeProjectRename}>
-                Cancel
+                {t("Cancel")}
               </button>
               <button className="dashboard-confirm-save" type="submit" disabled={!projectNameDraft.trim()}>
-                Save
+                {t("Save")}
               </button>
             </div>
           </form>
@@ -2052,23 +2056,23 @@ function Dashboard({
       {settingsOpen ? (
         <section className="dashboard-settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
           <header>
-            <strong>Settings</strong>
+            <strong>{t("Settings")}</strong>
             <button type="button" aria-label="Close settings" onClick={onCloseSettings}>
               <X size={18} />
             </button>
           </header>
           <label className="dashboard-setting-row">
-            <span>Save method</span>
+            <span>{t("Save method")}</span>
             <select
               value={downloadMode}
               onChange={(event) => onDownloadModeChange(!staticExportBuild && event.currentTarget.value === "folder" ? "folder" : "browser")}
             >
-              <option value="browser">Browser downloads</option>
-              {!staticExportBuild ? <option value="folder">Save to folder</option> : null}
+              <option value="browser">{t("Browser downloads")}</option>
+              {!staticExportBuild ? <option value="folder">{t("Save to folder")}</option> : null}
             </select>
           </label>
           <label className="dashboard-setting-row">
-            <span>Folder path</span>
+            <span>{t("Folder path")}</span>
             <input
               disabled={staticExportBuild || downloadMode !== "folder"}
               value={downloadFolder}
@@ -2077,13 +2081,13 @@ function Dashboard({
             />
           </label>
           <div className="dashboard-version-row">
-            <span>SketchForge version</span>
+            <span>SketchForge {t("version")}</span>
             <strong>{desktopAppVersion ?? updateStatus?.currentVersion ?? SKF_CREATED_WITH_VERSION}</strong>
           </div>
           <section className="dashboard-update-settings" aria-label="Software updates">
             <div>
-              <strong>Software updates</strong>
-              <span>Updates are checked automatically but are never installed without your approval.</span>
+              <strong>{t("Software updates")}</strong>
+              <span>{t("Updates are checked automatically but are never installed without your approval.")}</span>
             </div>
             {staticExportBuild ? (
               <span className="dashboard-update-status">Managed by the website owner</span>
@@ -2111,7 +2115,7 @@ function Dashboard({
                 Update to {updateStatus.latestVersion}
               </button>
             ) : updateStatus ? (
-              <span className="dashboard-update-status ready">Up to date</span>
+              <span className="dashboard-update-status ready">{t("Up to date")}</span>
             ) : null}
             {!staticExportBuild ? (
               <button className="dashboard-check-update" type="button" onClick={() => void checkForUpdates(true, true)} disabled={updateChecking}>
@@ -2122,12 +2126,12 @@ function Dashboard({
             {updateMessage && settingsOpen ? <span className="dashboard-update-status" role="status">{updateMessage}</span> : null}
           </section>
           <div className="dashboard-version-row">
-            <span>License</span>
+            <span>{t("License")}</span>
             <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">AGPLv3</a>
           </div>
           <div className="dashboard-version-row">
-            <span>Corresponding source</span>
-            <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer">View source</a>
+            <span>{t("Corresponding source")}</span>
+            <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer">{t("View source")}</a>
           </div>
         </section>
       ) : null}
@@ -2136,6 +2140,9 @@ function Dashboard({
 }
 
 function ProjectPreview({ accent, thumbnailUrl }: { accent: DashboardProject["accent"]; thumbnailUrl?: string | null }) {
+
+  const { t } = useTranslation();
+
   const [failedThumbnailUrl, setFailedThumbnailUrl] = useState<string | null>(null);
   const showThumbnail = Boolean(thumbnailUrl && thumbnailUrl !== failedThumbnailUrl);
 
@@ -2150,7 +2157,7 @@ function ProjectPreview({ accent, thumbnailUrl }: { accent: DashboardProject["ac
       ) : (
         <>
           <span className="preview-grid" />
-          <span className="preview-empty-mark">No snapshot yet</span>
+          <span className="preview-empty-mark">{t("No snapshot yet")}</span>
         </>
       )}
     </span>
