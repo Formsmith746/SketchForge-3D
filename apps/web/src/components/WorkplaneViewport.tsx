@@ -5278,8 +5278,10 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
   controls.maxDistance = 4200;
   controls.minZoom = 0.02;
   controls.maxZoom = 100;
-  controls.minPolarAngle = 0.06;
-  controls.maxPolarAngle = Math.PI - 0.06;
+  // Allow the documented OrbitControls pole limits so Top and Bottom views can
+  // settle on the vertical axis instead of being held roughly 3.4 degrees off it.
+  controls.minPolarAngle = 0;
+  controls.maxPolarAngle = Math.PI;
   controls.target.copy(CAMERA_TARGET);
 
   const ambient = new THREE.HemisphereLight("#ffffff", "#d6edf5", 2.1);

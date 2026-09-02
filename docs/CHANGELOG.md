@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.9
+
+- Corrected Top and Bottom camera views so they align exactly with the vertical axis in both perspective and orthographic projection.
+- Added Ctrl/Cmd + right-button panning in Sketch mode while preserving middle-button panning.
+
 ## 1.0.8
 
 - Duplicated objects now stay in the exact position of their source instead of receiving an automatic offset.

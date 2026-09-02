@@ -7,6 +7,7 @@ import { SketchRevolvePreview } from "@/components/SketchRevolvePreview";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { closestPointOnSketchSegment, type SketchSegmentPlacement } from "@/lib/sketchPointRefinement";
+import { isSketchPanGesture } from "@/lib/sketchPointerControls";
 import { mirrorSign, resizedImportedMeshPositions } from "@/lib/workplaneShapes";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
 import type { GridSize, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
@@ -637,6 +638,10 @@ export function SketchWorkspace({
     setPointerAction({ kind: "pan", pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY });
   };
 
+  const handlePanPointerDownCapture = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (isSketchPanGesture(event)) beginPan(event);
+  };
+
   const handlePlanePointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (event.button === 1) {
       beginPan(event);
@@ -794,6 +799,7 @@ export function SketchWorkspace({
           className={`sketch-plate tool-${tool} ${pointerAction?.kind === "pan" ? "panning" : ""}`}
           viewBox={`${pan.x - width / 2} ${pan.z - depth / 2} ${width} ${depth}`}
           preserveAspectRatio="xMidYMid meet"
+          onPointerDownCapture={handlePanPointerDownCapture}
           onPointerDown={handlePlanePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={finishPointerAction}
@@ -803,6 +809,7 @@ export function SketchWorkspace({
             setRefinePreview(null);
           }}
           onWheel={handleWheel}
+          onContextMenu={(event) => event.preventDefault()}
           onDragOver={(event) => {
             if (!event.dataTransfer.types.includes("application/x-sketchforge-sketch-primitive")) return;
             event.preventDefault();
