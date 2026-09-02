@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { AlignCenter, Box, CircleDotDashed, Group, LockKeyhole, MoveUp, Type } from "lucide-react";
 import type { ChallengeTutorialId } from "@/lib/challenges";
 
@@ -38,6 +39,7 @@ function NameplatePreview() {
 }
 
 export default function ChallengesDashboard({ onStartChallenge }: { onStartChallenge: (challenge: ChallengeTutorialId) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="challenge-key-tag-page">
       <div className="challenge-key-tag-rail" aria-hidden="true">
@@ -54,21 +56,21 @@ export default function ChallengesDashboard({ onStartChallenge }: { onStartChall
           <div className="challenge-key-tag-content">
             <div className="challenge-key-tag-title-row">
               <span>01</span>
-              <h2>Key Tag</h2>
+              <h2>{t("Key Tag")}</h2>
             </div>
 
-            <p>Build your first Key Tag from simple shapes.</p>
+            <p>{t("Build your first Key Tag from simple shapes.")}</p>
 
             <div className="challenge-key-tag-skills" aria-label="Skills used in this challenge">
-              <span><Box size={16} aria-hidden="true" /> Basic shapes</span>
-              <span><AlignCenter size={16} aria-hidden="true" /> Align</span>
-              <span><CircleDotDashed size={16} aria-hidden="true" /> Hole</span>
-              <span><LockKeyhole size={16} aria-hidden="true" /> Lock</span>
-              <span><Group size={16} aria-hidden="true" /> Group</span>
+              <span><Box size={16} aria-hidden="true" /> {t("Basic shapes")}</span>
+              <span><AlignCenter size={16} aria-hidden="true" /> {t("Align")}</span>
+              <span><CircleDotDashed size={16} aria-hidden="true" /> {t("Hole")}</span>
+              <span><LockKeyhole size={16} aria-hidden="true" /> {t("Lock")}</span>
+              <span><Group size={16} aria-hidden="true" /> {t("Group")}</span>
             </div>
 
             <button type="button" className="challenge-key-tag-start" onClick={() => onStartChallenge("key-tag")}>
-              Start Challenge
+              {t("Start Challenge")}
             </button>
           </div>
         </article>
@@ -81,22 +83,22 @@ export default function ChallengesDashboard({ onStartChallenge }: { onStartChall
           <div className="challenge-key-tag-content">
             <div className="challenge-key-tag-title-row">
               <span>02</span>
-              <h2>Personalized Nameplate</h2>
+              <h2> {t("Personalized Nameplate")}</h2>
             </div>
 
-            <p>Create a printable nameplate with rounded edges and raised custom text.</p>
+            <p>{t("Create a printable nameplate with rounded edges and raised custom text.")}</p>
 
             <div className="challenge-key-tag-skills" aria-label="Skills used in this challenge">
-              <span><Box size={16} aria-hidden="true" /> Box</span>
-              <span><CircleDotDashed size={16} aria-hidden="true" /> Fillet</span>
-              <span><Type size={16} aria-hidden="true" /> Text</span>
-              <span><MoveUp size={16} aria-hidden="true" /> Elevation</span>
-              <span><AlignCenter size={16} aria-hidden="true" /> Align</span>
-              <span><Group size={16} aria-hidden="true" /> Group</span>
+              <span><Box size={16} aria-hidden="true" /> {t("Box")}</span>
+              <span><CircleDotDashed size={16} aria-hidden="true" /> {t("Fillet")}</span>
+              <span><Type size={16} aria-hidden="true" /> {t("Text")}</span>
+              <span><MoveUp size={16} aria-hidden="true" /> {t("Elevation")}</span>
+              <span><AlignCenter size={16} aria-hidden="true" /> {t("Align")}</span>
+              <span><Group size={16} aria-hidden="true" /> {t("Group")}</span>
             </div>
 
             <button type="button" className="challenge-key-tag-start" onClick={() => onStartChallenge("nameplate")}>
-              Start Challenge
+              {t("Start Challenge")}
             </button>
           </div>
         </article>
