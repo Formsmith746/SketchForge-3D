@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+CONTENTS_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+exec "$CONTENTS_DIR/Resources/runtime/node" \
+  "$CONTENTS_DIR/Resources/mcp/sketchforge-mcp-server.mjs"
