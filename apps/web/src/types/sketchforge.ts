@@ -105,6 +105,7 @@ export type SketchPoint = {
   handleIn?: { x: number; z: number };
   handleOut?: { x: number; z: number };
   mode?: "corner" | "smooth" | "split";
+  projectionId?: string;
 };
 
 export type SketchSegment = {
@@ -112,7 +113,29 @@ export type SketchSegment = {
   startId: string;
   endId: string;
   kind?: "line" | "bezier" | "smooth";
+  dimensionLabelOffset?: { x: number; z: number };
+  projectionId?: string;
 };
+
+export type SketchProjectionLink = {
+  id: string;
+  sourceShapeId: string;
+  sourceName: string;
+  sourceKind: "sketch" | "intersection";
+};
+
+export type SketchConstraint =
+  | { id: string; kind: "horizontal" | "vertical"; segmentId: string }
+  | { id: string; kind: "fixed"; pointId: string; x: number; z: number };
+
+export type SketchDimensionAnchor =
+  | { kind: "point"; pointId: string }
+  | { kind: "midpoint"; segmentId: string }
+  | { kind: "intersection"; firstSegmentId: string; secondSegmentId: string; index: number };
+
+export type SketchDimension =
+  | { id: string; kind: "length"; segmentId: string; value: number }
+  | { id: string; kind: "distance"; start: SketchDimensionAnchor; end: SketchDimensionAnchor };
 
 export type SketchImage = {
   id: string;
@@ -130,11 +153,27 @@ export type SketchImage = {
   locked?: boolean;
 };
 
+export type SketchText = {
+  id: string;
+  text: string;
+  x: number;
+  z: number;
+  fontSize: number;
+};
+
 export type SketchProfile = {
   points: SketchPoint[];
   segments: SketchSegment[];
+  constraints?: SketchConstraint[];
+  dimensions?: SketchDimension[];
   images?: SketchImage[];
+  texts?: SketchText[];
+  projections?: SketchProjectionLink[];
 };
+
+export type SketchFeature =
+  | { kind: "extrusion"; regionIds?: string[] }
+  | { kind: "sweep"; sectionSegmentIds: string[]; pathSegmentIds: string[] };
 
 export type SketchOperation = "extrude" | "revolve";
 
@@ -265,6 +304,7 @@ export type WorkplaneShape = {
     pixelHeight: number;
   };
   sketchProfile?: SketchProfile;
+  sketchFeature?: SketchFeature;
   sketchOperation?: SketchOperation;
   sketchRevolve?: SketchRevolveSettings;
   edgeTreatments?: EdgeTreatmentFeature[];
