@@ -458,6 +458,9 @@ async function serializeShapeNode(
     definition.sketchProfile = {
       points: sketchProfile.points,
       segments: sketchProfile.segments,
+      ...((sketchProfile.constraints?.length ?? 0) > 0 ? { constraints: sketchProfile.constraints } : {}),
+      ...((sketchProfile.dimensions?.length ?? 0) > 0 ? { dimensions: sketchProfile.dimensions } : {}),
+      ...((sketchProfile.texts?.length ?? 0) > 0 ? { texts: sketchProfile.texts } : {}),
       ...(images.length ? { images } : {}),
     };
   }
@@ -847,6 +850,74 @@ function validateSketchProfile(value: unknown, label: string) {
     const startId = stringValue(segment.startId, `${label}.segments[${index}].startId`);
     const endId = stringValue(segment.endId, `${label}.segments[${index}].endId`);
     if (!pointIds.has(startId) || !pointIds.has(endId)) throw new Error(`${label} contains a segment with a missing point reference`);
+    if (segment.dimensionLabelOffset !== undefined) {
+      const offset = objectRecord(segment.dimensionLabelOffset, `${label}.segments[${index}].dimensionLabelOffset`);
+      finiteNumber(offset.x, `${label}.segments[${index}].dimensionLabelOffset.x`);
+      finiteNumber(offset.z, `${label}.segments[${index}].dimensionLabelOffset.z`);
+    }
+  });
+  const parameterIds = new Set<string>();
+  if (profile.constraints !== undefined && !Array.isArray(profile.constraints)) throw new Error(`${label}.constraints must be an array`);
+  (profile.constraints as unknown[] | undefined)?.forEach((rawConstraint, index) => {
+    const constraint = objectRecord(rawConstraint, `${label}.constraints[${index}]`);
+    const id = stringValue(constraint.id, `${label}.constraints[${index}].id`);
+    if (parameterIds.has(id)) throw new Error(`${label} contains duplicate parameter ID '${id}'`);
+    parameterIds.add(id);
+    if (constraint.kind === "fixed") {
+      const pointId = stringValue(constraint.pointId, `${label}.constraints[${index}].pointId`);
+      if (!pointIds.has(pointId)) throw new Error(`${label} contains a fixed constraint with a missing point reference`);
+      finiteNumber(constraint.x, `${label}.constraints[${index}].x`);
+      finiteNumber(constraint.z, `${label}.constraints[${index}].z`);
+    } else if (constraint.kind === "horizontal" || constraint.kind === "vertical") {
+      const segmentId = stringValue(constraint.segmentId, `${label}.constraints[${index}].segmentId`);
+      if (!segmentIds.has(segmentId)) throw new Error(`${label} contains a constraint with a missing segment reference`);
+    } else {
+      throw new Error(`${label}.constraints[${index}] has an unknown constraint kind`);
+    }
+  });
+  if (profile.dimensions !== undefined && !Array.isArray(profile.dimensions)) throw new Error(`${label}.dimensions must be an array`);
+  (profile.dimensions as unknown[] | undefined)?.forEach((rawDimension, index) => {
+    const dimension = objectRecord(rawDimension, `${label}.dimensions[${index}]`);
+    const id = stringValue(dimension.id, `${label}.dimensions[${index}].id`);
+    if (parameterIds.has(id)) throw new Error(`${label} contains duplicate parameter ID '${id}'`);
+    parameterIds.add(id);
+    if (dimension.kind === "length") {
+      const segmentId = stringValue(dimension.segmentId, `${label}.dimensions[${index}].segmentId`);
+      if (!segmentIds.has(segmentId)) throw new Error(`${label} contains a dimension with a missing segment reference`);
+      if (finiteNumber(dimension.value, `${label}.dimensions[${index}].value`) <= 0) throw new Error(`${label} contains a non-positive dimension`);
+    } else if (dimension.kind === "distance") {
+      const validateAnchor = (rawAnchor: unknown, anchorLabel: string) => {
+        const anchor = objectRecord(rawAnchor, anchorLabel);
+        if (anchor.kind === "point") {
+          const pointId = stringValue(anchor.pointId, `${anchorLabel}.pointId`);
+          if (!pointIds.has(pointId)) throw new Error(`${label} contains a dimension with a missing point reference`);
+        } else if (anchor.kind === "midpoint") {
+          const segmentId = stringValue(anchor.segmentId, `${anchorLabel}.segmentId`);
+          if (!segmentIds.has(segmentId)) throw new Error(`${label} contains a dimension with a missing segment reference`);
+        } else if (anchor.kind === "intersection") {
+          const firstSegmentId = stringValue(anchor.firstSegmentId, `${anchorLabel}.firstSegmentId`);
+          const secondSegmentId = stringValue(anchor.secondSegmentId, `${anchorLabel}.secondSegmentId`);
+          if (!segmentIds.has(firstSegmentId) || !segmentIds.has(secondSegmentId)) throw new Error(`${label} contains a dimension with a missing intersection segment reference`);
+          const intersectionIndex = finiteNumber(anchor.index, `${anchorLabel}.index`);
+          if (!Number.isInteger(intersectionIndex) || intersectionIndex < 0) throw new Error(`${anchorLabel}.index must be a non-negative integer`);
+        } else {
+          throw new Error(`${anchorLabel} has an unknown anchor kind`);
+        }
+      };
+      validateAnchor(dimension.start, `${label}.dimensions[${index}].start`);
+      validateAnchor(dimension.end, `${label}.dimensions[${index}].end`);
+    } else {
+      throw new Error(`${label}.dimensions[${index}] has an unknown dimension kind`);
+    }
+  });
+  if (profile.texts !== undefined && !Array.isArray(profile.texts)) throw new Error(`${label}.texts must be an array`);
+  (profile.texts as unknown[] | undefined)?.forEach((rawText, index) => {
+    const text = objectRecord(rawText, `${label}.texts[${index}]`);
+    stringValue(text.id, `${label}.texts[${index}].id`);
+    if (typeof text.text !== "string") throw new Error(`${label}.texts[${index}].text must be a string`);
+    finiteNumber(text.x, `${label}.texts[${index}].x`);
+    finiteNumber(text.z, `${label}.texts[${index}].z`);
+    if (finiteNumber(text.fontSize, `${label}.texts[${index}].fontSize`) <= 0) throw new Error(`${label} contains text with a non-positive font size`);
   });
 }
 

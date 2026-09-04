@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cadSketchRegions, orderedCadSketchPaths } from "@/lib/sketchCadProfile";
+import { cadSketchProfileForRegions, cadSketchRegions, cadSketchSelectableRegions, orderedCadSketchPaths, selectedCadSketchRegions } from "@/lib/sketchCadProfile";
+import { circleSketchGeometry } from "@/lib/sketchCircles";
 import type { SketchPoint, SketchProfile, SketchSegment } from "@/types/sketchforge";
 
 function rectangle(id: string, x: number, z: number, width: number, depth: number) {
@@ -25,6 +26,11 @@ function profile(...rectangles: ReturnType<typeof rectangle>[]): SketchProfile {
   };
 }
 
+function circle(id: string, x: number, z: number, radius: number) {
+  let index = 0;
+  return circleSketchGeometry({ x, z }, radius, (prefix) => `${id}-${prefix}-${index++}`);
+}
+
 describe("OCCT sketch profile preparation", () => {
   it("orders a closed loop even when its segments arrive out of order", () => {
     const square = rectangle("outer", 0, 0, 20, 10);
@@ -44,6 +50,20 @@ describe("OCCT sketch profile preparation", () => {
     expect(regions[0].holes).toHaveLength(1);
   });
 
+  it("exposes the inside of a hole as a separately selectable profile", () => {
+    const source = profile(
+      rectangle("outer", 0, 0, 20, 20),
+      rectangle("inner", 5, 5, 4, 4),
+    );
+    const regions = cadSketchSelectableRegions(source);
+    const outer = regions.find((region) => region.id.includes("outer-s0"));
+    const inner = regions.find((region) => region.id.includes("inner-s0"));
+    expect(regions).toHaveLength(2);
+    expect(outer?.holes[0].id).toContain("inner");
+    expect(inner?.holes).toHaveLength(0);
+    expect(selectedCadSketchRegions(source, [inner!.id])).toEqual([inner]);
+  });
+
   it("keeps disjoint loops as separate solids", () => {
     const regions = cadSketchRegions(profile(
       rectangle("left", 0, 0, 4, 4),
@@ -51,6 +71,105 @@ describe("OCCT sketch profile preparation", () => {
     ));
     expect(regions).toHaveLength(2);
     expect(regions.every((region) => region.holes.length === 0)).toBe(true);
+  });
+
+  it("splits overlapping loops into separately selectable faces", () => {
+    const source = profile(
+      rectangle("first", 0, 0, 10, 10),
+      rectangle("second", 5, 5, 10, 10),
+    );
+    const selectable = cadSketchSelectableRegions(source);
+    const overlap = selectable.find((region) => region.sourcePathIds?.length === 2);
+    const exclusive = selectable.filter((region) => region.sourcePathIds?.length === 1);
+    expect(selectable).toHaveLength(3);
+    expect(exclusive).toHaveLength(2);
+    expect(overlap).toBeDefined();
+    expect(cadSketchRegions(source).map((region) => region.id).sort()).toEqual(exclusive.map((region) => region.id).sort());
+    expect(selectedCadSketchRegions(source, [overlap!.id])).toEqual([overlap]);
+    expect(cadSketchSelectableRegions({ ...source, segments: [...source.segments].reverse() }).map((region) => region.id)).toEqual(selectable.map((region) => region.id));
+  });
+
+  it("splits overlapping curved profiles", () => {
+    const selectable = cadSketchSelectableRegions(profile(
+      circle("left", 0, 0, 10),
+      circle("right", 10, 0, 10),
+    ));
+    expect(selectable).toHaveLength(3);
+    expect(selectable.filter((region) => region.sourcePathIds?.length === 1)).toHaveLength(2);
+    expect(selectable.filter((region) => region.sourcePathIds?.length === 2)).toHaveLength(1);
+  });
+
+  it("splits profiles with collinear overlapping edges", () => {
+    const selectable = cadSketchSelectableRegions(profile(
+      rectangle("left", 0, 0, 10, 10),
+      rectangle("right", 5, 0, 10, 10),
+    ));
+    expect(selectable).toHaveLength(3);
+    expect(selectable.filter((region) => region.sourcePathIds?.length === 2)).toHaveLength(1);
+  });
+
+  it("uses an open crossing line to divide a closed profile", () => {
+    const divider = {
+      points: [
+        { id: "divider-start", x: -5, z: 5 },
+        { id: "divider-end", x: 15, z: 5 },
+      ],
+      segments: [{ id: "divider-segment", kind: "line" as const, startId: "divider-start", endId: "divider-end" }],
+    };
+    const selectable = cadSketchSelectableRegions(profile(rectangle("outer", 0, 0, 10, 10), divider));
+    expect(selectable).toHaveLength(2);
+    expect(new Set(selectable.map((region) => region.id)).size).toBe(2);
+  });
+
+  it("assigns stable region IDs regardless of segment order", () => {
+    const left = rectangle("left", 0, 0, 4, 4);
+    const right = rectangle("right", 10, 0, 4, 4);
+    const source = profile(left, right);
+    const reversed = { ...source, segments: [...source.segments].reverse() };
+    expect(cadSketchRegions(reversed).map((region) => region.id)).toEqual(cadSketchRegions(source).map((region) => region.id));
+  });
+
+  it("filters disjoint regions by ID", () => {
+    const source = profile(
+      rectangle("left", 0, 0, 4, 4),
+      rectangle("right", 10, 0, 4, 4),
+    );
+    const regions = cadSketchRegions(source);
+    const left = regions.find((region) => region.id.includes("left-s0"));
+    expect(left).toBeDefined();
+    expect(selectedCadSketchRegions(source, [left!.id])).toEqual([left]);
+    expect(cadSketchProfileForRegions(source, [left!.id]).segments.every((segment) => segment.id.startsWith("left-"))).toBe(true);
+  });
+
+  it("retains hole boundaries when filtering a region", () => {
+    const source = profile(
+      rectangle("outer", 0, 0, 20, 20),
+      rectangle("hole", 5, 5, 4, 4),
+      rectangle("other", 30, 0, 5, 5),
+    );
+    const outer = cadSketchRegions(source).find((region) => region.id.includes("outer-s0"));
+    expect(outer).toBeDefined();
+    const filtered = cadSketchProfileForRegions(source, [outer!.id]);
+    expect(filtered.segments.some((segment) => segment.id.startsWith("outer-"))).toBe(true);
+    expect(filtered.segments.some((segment) => segment.id.startsWith("hole-"))).toBe(true);
+    expect(filtered.segments.some((segment) => segment.id.startsWith("other-"))).toBe(false);
+  });
+
+  it("keeps nested islands as independently selectable regions", () => {
+    const source = profile(
+      rectangle("outer", 0, 0, 40, 40),
+      rectangle("hole", 5, 5, 30, 30),
+      rectangle("island", 12, 12, 16, 16),
+    );
+    const regions = cadSketchRegions(source);
+    const outer = regions.find((region) => region.id.includes("outer-s0"));
+    const island = regions.find((region) => region.id.includes("island-s0"));
+    expect(outer).toBeDefined();
+    expect(island).toBeDefined();
+    const outerProfile = cadSketchProfileForRegions(source, [outer!.id]);
+    expect(outerProfile.segments.some((segment) => segment.id.startsWith("hole-"))).toBe(true);
+    expect(outerProfile.segments.some((segment) => segment.id.startsWith("island-"))).toBe(false);
+    expect(cadSketchProfileForRegions(source, [island!.id]).segments.every((segment) => segment.id.startsWith("island-"))).toBe(true);
   });
 
   it("rejects open paths with a clear error", () => {
