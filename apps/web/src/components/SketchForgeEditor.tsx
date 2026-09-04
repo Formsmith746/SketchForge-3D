@@ -9701,7 +9701,7 @@ function SecondaryToolbar({
     { label: "Mirror", icon: ToolbarMirrorIcon, action: onMirror, enabled: hasSelection, active: mirrorMode },
     { label: "Snap to grid", icon: ToolbarSnapGridIcon, action: onSnap, enabled: hasSelection },
     { label: "Chamfer", icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify, active: edgeModifierKind === "chamfer" },
-    { label: "Fillet", icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },
+    { label: "Fillet", tool: "fillet", icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },
   ];
   const arrangeTools = [
     { label: "Drop to workplane", icon: ToolbarDropToWorkplaneIcon, action: onDropToWorkplane, enabled: hasSelection },
@@ -9713,7 +9713,7 @@ function SecondaryToolbar({
       <button
         className={`toolbar-icon ${enabled ? "" : "disabled"} ${active ? "active" : ""}`}
         key={label}
-        data-sketchforge-tool={label === "Fillet" ? "fillet" : undefined}
+        data-sketchforge-tool={"tool" in tool ? tool.tool : undefined}
         aria-label={label}
         title={label}
         onClick={action}

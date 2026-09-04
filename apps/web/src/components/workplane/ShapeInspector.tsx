@@ -73,6 +73,10 @@ type RangePropertyConfig = {
   min: number;
   max: number;
   step?: number;
+  // Both fields are optional: when omitted the label lists below are used, so
+  // existing property declarations keep working unchanged.
+  unit?: "length";
+  allowsAboveSliderMax?: boolean;
   onChange: (value: number) => void;
 };
 
@@ -161,54 +165,54 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       { label: "Start Angle", value: settings.startAngle, min: 0, max: 359, step: 1, onChange: (startAngle) => updateRevolve({ startAngle }) },
       { label: "Sweep", value: settings.sweepAngle, min: -360, max: 360, step: 1, onChange: (sweepAngle) => updateRevolve({ sweepAngle }) },
       { label: "Sides", value: settings.sides, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => updateRevolve({ sides }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "box") {
     return [
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "cylinder") {
     return [
       { label: "Sides", value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "sphere") {
     return [
       { label: "Steps", value: shape.steps ?? 24, min: 6, max: 64, step: 1, onChange: (steps) => onUpdate({ steps: Math.round(steps) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "halfSphere") {
     return [
       { label: "Steps", value: shape.steps ?? 32, min: 6, max: 64, step: 1, onChange: (steps) => onUpdate({ steps: Math.round(steps) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "cone") {
     return [
-      { label: "Top Radius", value: shape.topRadius ?? 0, min: 0, max: 40, onChange: (topRadius) => onUpdate({ topRadius }) },
-      { label: "Base Radius", value: shape.baseRadius ?? baseWidth / 2, min: MIN_SHAPE_SIZE, max: 80, onChange: setBaseRadius },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setConeWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Top Radius", unit: "length", value: shape.topRadius ?? 0, min: 0, max: 40, onChange: (topRadius) => onUpdate({ topRadius }) },
+      { label: "Base Radius", unit: "length", value: shape.baseRadius ?? baseWidth / 2, min: MIN_SHAPE_SIZE, max: 80, onChange: setBaseRadius },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setConeWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
       { label: "Sides", value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
     ];
   }
@@ -216,27 +220,27 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
   if (shape.kind === "pyramid") {
     return [
       { label: "Sides", value: shape.sides ?? 4, min: 3, max: 24, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "roundRoof") {
     return [
       { label: "Sides", value: shape.sides ?? 64, min: 4, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "tube" || shape.kind === "ring") {
     return [
-      { label: "Thickness", value: shape.bevel ?? 4, min: 0.5, max: 20, onChange: (bevel) => onUpdate({ bevel }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Thickness", unit: "length", value: shape.bevel ?? 4, min: 0.5, max: 20, onChange: (bevel) => onUpdate({ bevel }) },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
@@ -274,6 +278,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       },
       {
         label: "Tooth Size",
+        unit: "length",
         value: toothSize,
         min: 0.2,
         max: Math.max(0.2, Math.min(width, depth) * 0.22),
@@ -285,6 +290,8 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       },
       {
         label: "Tooth Width",
+        unit: "length",
+        allowsAboveSliderMax: true,
         value: normalizeGearToothWidth(shape.toothWidth, width, depth, teeth),
         min: toothPitch * 0.12,
         max: toothPitch * 0.82,
@@ -313,15 +320,16 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     properties.push(
       {
         label: "Center Hole",
+        unit: "length",
         value: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize),
         min: centerHoleLimits.min,
         max: centerHoleLimits.max,
         step: 0.1,
         onChange: (centerHoleSize) => onUpdate({ centerHoleSize }),
       },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearDepth },
+      { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearWidth },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     );
     return properties;
   }
@@ -339,16 +347,16 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         },
       },
       { type: "select", label: "Font", value: shape.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS, onChange: (font) => onUpdate({ font }) },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 40, onChange: setHeight },
-      { label: "Bevel", value: shape.bevel ?? 0, min: 0, max: 8, onChange: (bevel) => onUpdate({ bevel }) },
+      { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 40, onChange: setHeight },
+      { label: "Bevel", unit: "length", value: shape.bevel ?? 0, min: 0, max: 8, onChange: (bevel) => onUpdate({ bevel }) },
       { label: "Segments", value: shape.segments ?? 0, min: 0, max: 24, step: 1, onChange: (segments) => onUpdate({ segments: Math.round(segments) }) },
     ];
   }
 
   return [
-    { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-    { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-    { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+    { label: "Length", unit: "length", allowsAboveSliderMax: true, value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+    { label: "Width", unit: "length", allowsAboveSliderMax: true, value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+    { label: "Height", unit: "length", allowsAboveSliderMax: true, value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
   ];
 }
 
@@ -407,6 +415,8 @@ export function ShapeInspector({
   const taperProperties: ShapePropertyConfig[] = shape.kind === "gear" ? [] : [
     {
       label: "Top Length",
+      unit: "length",
+      allowsAboveSliderMax: true,
       value: taper.topDepth,
       min: MIN_SHAPE_SIZE,
       max: taperDimensionMax,
@@ -414,6 +424,8 @@ export function ShapeInspector({
     },
     {
       label: "Top Width",
+      unit: "length",
+      allowsAboveSliderMax: true,
       value: taper.topWidth,
       min: MIN_SHAPE_SIZE,
       max: taperDimensionMax,
@@ -421,6 +433,8 @@ export function ShapeInspector({
     },
     {
       label: "Bottom Length",
+      unit: "length",
+      allowsAboveSliderMax: true,
       value: taper.bottomDepth,
       min: MIN_SHAPE_SIZE,
       max: taperDimensionMax,
@@ -428,6 +442,8 @@ export function ShapeInspector({
     },
     {
       label: "Bottom Width",
+      unit: "length",
+      allowsAboveSliderMax: true,
       value: taper.bottomWidth,
       min: MIN_SHAPE_SIZE,
       max: taperDimensionMax,
@@ -724,13 +740,15 @@ function RangeProperty({
   min,
   max,
   step = 0.01,
+  unit: unitKind,
+  allowsAboveSliderMax: allowsAboveSliderMaxProp,
   workspace,
   disabled,
   onChange,
   onInteractionActiveChange,
 }: RangePropertyConfig & { workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
-  const allowsAboveSliderMax = label === "Length" || label === "Width" || label === "Height" || label.endsWith(" Length") || label.endsWith(" Width");
-  const isLength = propertyUsesLengthUnit(label);
+  const allowsAboveSliderMax = allowsAboveSliderMaxProp ?? (label === "Length" || label === "Width" || label === "Height" || label.endsWith(" Length") || label.endsWith(" Width"));
+  const isLength = unitKind !== undefined ? unitKind === "length" : propertyUsesLengthUnit(label);
   const accuracy = workspace.accuracy;
   const actualValue = Math.max(min, Number.isFinite(value) ? value : min);
   const controlValue = isLength ? millimetersToDisplay(actualValue, workspace) : actualValue;
