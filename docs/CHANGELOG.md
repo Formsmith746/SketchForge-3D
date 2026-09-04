@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.9
+
+- Corrected Top and Bottom camera views so they align exactly with the vertical axis in both perspective and orthographic projection.
+- Added Ctrl/Cmd + right-button panning in Sketch mode while preserving middle-button panning.
+
+## 1.0.8
+
+- Duplicated objects now stay in the exact position of their source instead of receiving an automatic offset.
+- Added geometry shortcuts: `R` rotates selected objects by 45 degrees and `Shift+R` rotates them by 22.5 degrees around the active workplane normal.
+- Corrected rotation controls so objects turn in the direction indicated by the pointer on every rotation plane.
+- Kept selection outlines, resize anchors, and height controls stable during close zoom while naturally hiding controls that leave the viewport.
+- Kept object faces visible from inside the object and hid rotation controls while the camera is inside the selection.
+
 ## 1.0.7
 
 - Raised the supported `project.json` size in `.skf` packages from 32 MiB to 64 MiB and compacted new project exports without removing editable data.

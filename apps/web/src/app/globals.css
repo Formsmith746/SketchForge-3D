@@ -2288,6 +2288,41 @@ button {
   flex: 1;
 }
 
+.toolbar-project-name {
+  display: flex;
+  min-width: 220px;
+  height: var(--editor-toolbar-tools-height);
+  padding: 0 28px;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-project-name-field {
+  display: flex;
+  width: min(420px, 100%);
+  height: 100%;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  cursor: text;
+}
+
+.toolbar-project-name-field input {
+  min-width: 0;
+  width: 100%;
+  height: 58px;
+  padding: 6px 10px 0;
+  color: #294a63;
+  font: 500 22px/1.1 Arial, Helvetica, sans-serif;
+  text-align: center;
+  text-overflow: ellipsis;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(96, 117, 137, 0.28);
+  outline: 0;
+}
+
 .toolbar-icon {
   display: grid;
   width: 43px;
@@ -2569,6 +2604,19 @@ button {
   width: 48px;
   height: 48px;
   object-fit: contain;
+  pointer-events: none;
+}
+
+.shape-menu-item .sketch-shape-menu-icon {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  padding: 5px;
+  color: #45657d;
+  background: linear-gradient(145deg, #fff, #e9f0f5);
+  border: 1px solid #d2dfe8;
+  border-radius: 6px;
+  stroke-width: 1.7;
   pointer-events: none;
 }
 
@@ -3388,7 +3436,7 @@ button {
   width: clamp(210px, 25vw, 330px);
   height: clamp(170px, 28vh, 270px);
   overflow: hidden;
-  background: rgba(250, 253, 254, 0.94);
+  background: rgba(221, 248, 255, 0.96);
   border: 1px solid rgba(166, 190, 204, 0.9);
   border-radius: 12px;
   box-shadow: 0 12px 34px rgba(34, 67, 86, 0.16);
@@ -3411,7 +3459,7 @@ button {
   display: block;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.98), rgba(229, 240, 245, 0.92));
+  background: radial-gradient(circle at 50% 48%, rgba(221, 248, 255, 0.98), rgba(176, 224, 238, 0.96));
 }
 
 .sketch-revolve-preview-empty {
@@ -3472,14 +3520,6 @@ button {
   stroke: rgba(0, 117, 184, 0.95);
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
-}
-
-.sketch-profile-hit-targets path {
-  fill: transparent;
-  stroke: transparent;
-  stroke-width: 10;
-  vector-effect: non-scaling-stroke;
-  cursor: move;
 }
 
 .sketch-primitive-source {
@@ -3571,7 +3611,7 @@ button {
 }
 
 .sketch-revolve-guide rect {
-  fill: rgba(248, 251, 252, 0.66);
+  fill: rgba(31, 105, 134, 0.12);
 }
 
 .sketch-revolve-guide line {
@@ -3874,6 +3914,11 @@ button {
   background: #fff0f1;
 }
 
+.sketch-image-inspector .inspector-header-icon:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
 .sketch-image-preview-card {
   display: grid;
   place-items: center;
@@ -3997,6 +4042,17 @@ button {
   color: #0879a5;
   background: #eaf8fc;
   border-color: #90cee2;
+}
+
+.sketch-image-aspect-toggle:disabled,
+.sketch-image-position-field input:disabled,
+.sketch-image-number-input:disabled {
+  cursor: default;
+  opacity: 0.52;
+}
+
+.sketch-reference-images image.locked {
+  cursor: default;
 }
 
 .view-cube {
@@ -5748,14 +5804,31 @@ button {
 }
 
 .workspace-toggle {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 16px;
   padding-bottom: 16px;
   border-bottom: 1px solid #e2e9ee;
+}
+
+.workspace-toggle-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.workspace-toggle-copy small {
+  color: #718697;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
 }
 
 .workspace-toggle input {
   justify-self: end;
   width: 18px;
   height: 18px;
+  margin: 1px 0 0;
   accent-color: #0098c7;
 }
 
@@ -6064,6 +6137,181 @@ button {
   border: 1px solid #cfd9e2;
   border-radius: 2px;
   font-weight: 800;
+}
+
+.workspace-shape-picker {
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.workspace-shape-picker-control {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-shape-picker-control img {
+  width: 38px;
+  height: 38px;
+  padding: 4px;
+  object-fit: contain;
+  background: #f3f7f9;
+  border: 1px solid #d5e0e7;
+  border-radius: 8px;
+}
+
+.workspace-shape-picker-control select {
+  width: 100%;
+  height: 38px;
+  padding: 0 30px 0 10px;
+  color: #2f4a61;
+  background: #fff;
+  border: 1px solid #cfd9e2;
+  border-radius: 5px;
+  font-weight: 750;
+}
+
+.workspace-shape-card {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  background: #f8fafc;
+  border: 1px solid #dce5eb;
+  border-radius: 10px;
+}
+
+.workspace-shape-card-heading,
+.workspace-shape-limit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.workspace-shape-card-heading > span,
+.workspace-shape-limit > span {
+  display: grid;
+  gap: 4px;
+}
+
+.workspace-shape-card-heading strong,
+.workspace-shape-limit strong {
+  color: #27445b;
+  font-size: 14px;
+}
+
+.workspace-shape-card-heading small,
+.workspace-shape-limit small,
+.workspace-shape-dimensions small,
+.workspace-shape-specials small {
+  color: #738898;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.workspace-shape-card-heading button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  color: #3d5d72;
+  background: #fff;
+  border: 1px solid #cfdae2;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.workspace-shape-card-heading button:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.workspace-shape-dimensions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workspace-shape-dimensions label {
+  display: grid;
+  gap: 6px;
+  color: #50677a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workspace-shape-specials {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #dce5eb;
+}
+
+.workspace-shape-specials-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.workspace-shape-specials-heading strong {
+  color: #27445b;
+  font-size: 13px;
+}
+
+.workspace-shape-special-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workspace-shape-special-fields label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: #50677a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workspace-shape-dimensions input,
+.workspace-shape-special-fields input,
+.workspace-shape-special-fields select,
+.workspace-shape-limit input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 9px;
+  color: #243d56;
+  background: #fff;
+  border: 1px solid #cbd7df;
+  border-radius: 5px;
+  font-weight: 800;
+}
+
+.workspace-shape-limit {
+  padding-top: 16px;
+  border-top: 1px solid #dce5eb;
+}
+
+.workspace-shape-limit input {
+  width: 132px;
+  flex: 0 0 132px;
+}
+
+.workspace-shape-note {
+  margin: -4px 0 0;
+  color: #667e90;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.5;
 }
 
 .make-default-button {
@@ -6599,6 +6847,48 @@ button {
 }
 
 @media (max-width: 640px) {
+  .workspace-modal {
+    padding-top: 12px;
+  }
+
+  .workspace-modal-card {
+    width: calc(100vw - 16px);
+    height: calc(100vh - var(--editor-toolbar-height) - 24px);
+    max-height: calc(100vh - var(--editor-toolbar-height) - 24px);
+  }
+
+  .workspace-modal-layout {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-settings-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
+    padding: 7px;
+    border-right: 0;
+    border-bottom: 1px solid #d8e1e8;
+  }
+
+  .workspace-settings-nav button {
+    display: grid;
+    min-height: 52px;
+    place-items: center;
+    gap: 3px;
+    padding: 5px 2px;
+    font-size: 9px;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .workspace-modal-body {
+    padding: 16px;
+  }
+
+  .workspace-modal-footer {
+    padding-inline: 16px;
+  }
+
   .mode-tabs,
   .collaborator {
     display: none;
@@ -6652,6 +6942,10 @@ button {
   .color-grid button {
     width: 24px;
     height: 24px;
+  }
+
+  html[data-theme="dark"] .workspace-settings-nav {
+    border-bottom-color: #344854;
   }
 }
 
@@ -6929,6 +7223,15 @@ html[data-theme="dark"] .sketch-toolbar-ribbon {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
+html[data-theme="dark"] .toolbar-project-name-field {
+  background: transparent;
+}
+
+html[data-theme="dark"] .toolbar-project-name-field input {
+  color: #e0edf5;
+  border-bottom-color: rgba(183, 207, 222, 0.25);
+}
+
 html[data-theme="dark"] .editor-nav-group,
 html[data-theme="dark"] .toolbar-section,
 html[data-theme="dark"] .toolbar-mode-content,
@@ -7021,6 +7324,12 @@ html[data-theme="dark"] .snap-menu .selected {
   background: #253946;
 }
 
+html[data-theme="dark"] .shape-menu-item .sketch-shape-menu-icon {
+  color: #bcd2df;
+  background: linear-gradient(145deg, #2a3c48, #1d2d37);
+  border-color: #405765;
+}
+
 html[data-theme="dark"] .camera-controls button,
 html[data-theme="dark"] .snap-menu button,
 html[data-theme="dark"] .snap-row {
@@ -7038,6 +7347,20 @@ html[data-theme="dark"] .shape-inspector {
   background: rgba(20, 30, 39, 0.97);
   border-color: #334753;
   box-shadow: -3px 0 14px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme="dark"] .shape-inspector .edit-sketch-button,
+html[data-theme="dark"] .shape-inspector .inspector-action-button {
+  color: #d3e2ec;
+  background: #111b23;
+  border-color: #3a4e5c;
+}
+
+html[data-theme="dark"] .shape-inspector .edit-sketch-button:hover:not(:disabled),
+html[data-theme="dark"] .shape-inspector .inspector-action-button:hover:not(:disabled) {
+  color: #e0f2fa;
+  background: #1d303b;
+  border-color: #4f7181;
 }
 
 html[data-theme="dark"] .shape-inspector-header,
@@ -7091,6 +7414,11 @@ html[data-theme="dark"] .transform-guides line {
 
 html[data-theme="dark"] .transform-guides #dimension-arrow path {
   fill: rgba(222, 237, 244, 0.94);
+}
+
+html[data-theme="dark"] .rotate-handle,
+html[data-theme="dark"] .rotate-handle:hover {
+  color: #ffffff;
 }
 
 html[data-theme="dark"] .inspector-snap-dock {
@@ -7172,6 +7500,7 @@ html[data-theme="dark"] .workspace-range small,
 html[data-theme="dark"] .workspace-history-labels,
 html[data-theme="dark"] .workspace-history-note,
 html[data-theme="dark"] .workspace-global-note,
+html[data-theme="dark"] .workspace-toggle-copy small,
 html[data-theme="dark"] .workspace-section-heading span {
   color: #91a7b7;
 }
@@ -7195,10 +7524,48 @@ html[data-theme="dark"] .workspace-history-custom {
 
 html[data-theme="dark"] .workspace-select select,
 html[data-theme="dark"] .workspace-dimensions input,
-html[data-theme="dark"] .workspace-history-custom input {
+html[data-theme="dark"] .workspace-history-custom input,
+html[data-theme="dark"] .workspace-shape-picker-control select,
+html[data-theme="dark"] .workspace-shape-dimensions input,
+html[data-theme="dark"] .workspace-shape-special-fields input,
+html[data-theme="dark"] .workspace-shape-special-fields select,
+html[data-theme="dark"] .workspace-shape-limit input {
   color: #d8e6ef;
   background: #0f1921;
   border-color: #3c505d;
+}
+
+html[data-theme="dark"] .workspace-shape-picker-control img,
+html[data-theme="dark"] .workspace-shape-card {
+  background: #111b23;
+  border-color: #344854;
+}
+
+html[data-theme="dark"] .workspace-shape-card-heading strong,
+html[data-theme="dark"] .workspace-shape-limit strong,
+html[data-theme="dark"] .workspace-shape-specials-heading strong {
+  color: #dceaf3;
+}
+
+html[data-theme="dark"] .workspace-shape-card-heading small,
+html[data-theme="dark"] .workspace-shape-limit small,
+html[data-theme="dark"] .workspace-shape-dimensions label,
+html[data-theme="dark"] .workspace-shape-dimensions small,
+html[data-theme="dark"] .workspace-shape-special-fields label,
+html[data-theme="dark"] .workspace-shape-specials small,
+html[data-theme="dark"] .workspace-shape-note {
+  color: #91a7b7;
+}
+
+html[data-theme="dark"] .workspace-shape-card-heading button {
+  color: #c8dbe7;
+  background: #1b2a35;
+  border-color: #3c505d;
+}
+
+html[data-theme="dark"] .workspace-shape-limit,
+html[data-theme="dark"] .workspace-shape-specials {
+  border-color: #344854;
 }
 
 html[data-theme="dark"] .workspace-color-trigger {
@@ -7281,8 +7648,30 @@ html[data-theme="dark"] .sketch-workspace-stage {
   background: #101820;
 }
 
+html[data-theme="dark"] .sketch-revolve-preview {
+  background: rgba(17, 33, 43, 0.97);
+  border-color: rgba(73, 126, 149, 0.8);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+}
+
+html[data-theme="dark"] .sketch-revolve-preview-title {
+  color: #b9d7e5;
+}
+
+html[data-theme="dark"] .sketch-revolve-preview canvas {
+  background: radial-gradient(circle at 50% 48%, rgba(31, 58, 70, 0.98), rgba(12, 24, 32, 0.98));
+}
+
+html[data-theme="dark"] .sketch-revolve-preview-empty {
+  color: #9db9c7;
+}
+
 html[data-theme="dark"] .sketch-plate-background {
   fill: #18303a;
+}
+
+html[data-theme="dark"] .sketch-revolve-guide rect {
+  fill: rgba(3, 10, 15, 0.38);
 }
 
 html[data-theme="dark"] .sketch-plate-border {

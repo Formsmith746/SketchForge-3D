@@ -1,16 +1,18 @@
 "use client";
 
-import { ChevronDown, Grid3X3, History, Palette, RotateCcw, Ruler, X } from "lucide-react";
+import { Box as BoxIcon, ChevronDown, Grid3X3, History, Palette, RotateCcw, Ruler, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { APP_THEME_OPTIONS, type AppThemePreference } from "@/lib/appTheme";
+import { gearCenterHoleLimits, gearToothPitch } from "@/lib/gearGeometry";
 import { normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
-import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
-import type { GridSize, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import { shapeAssetDefaultDimensions, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
+import { DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MIN_CUSTOM_SHAPE_DIMENSION } from "@/lib/workplaneSettings";
+import type { GearType, GridSize, ShapeCustomization, ShapeKind, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
-type WorkspaceSettingsSection = "appearance" | "measurement" | "workplane" | "history";
+type WorkspaceSettingsSection = "appearance" | "measurement" | "workplane" | "shapes" | "history";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
 const MIN_WORKSPACE_SIZE = 60;
@@ -28,6 +30,18 @@ const WORKSPACE_SIZE_PRESETS = [
 const GRID_BLOCK_PRESETS = ["1 mm", "2.5 mm", "5 mm", "10 mm", "20 mm", "50 mm", "100 mm", "Custom"] as const;
 const HISTORY_LIMIT_OPTIONS = [30, 50, 100, "unlimited", "custom"] as const;
 const HISTORY_CUSTOM_DEFAULT = 250;
+const TEXT_FONT_OPTIONS = ["Multilanguage", "Sans", "Serif", "Script", "Monospace", "Rounded", "Stencil"];
+const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: string }> = [
+  { value: "spur", label: "Spur gear" },
+  { value: "helical", label: "Helical gear" },
+  { value: "bevel", label: "Bevel gear" },
+];
+
+type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality";
+type ShapeSpecialField =
+  | { type: "number"; key: ShapeSpecialNumberKey; label: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
+  | { type: "select"; key: "font" | "gearType"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
+  | { type: "text"; key: "text"; label: string; defaultValue: string; maxLength: number };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -44,15 +58,67 @@ function isHistoryLimitPreset(value: unknown): value is 30 | 50 | 100 {
   return value === 30 || value === 50 || value === 100;
 }
 
+function specialFieldsForShape(
+  kind: ShapeKind,
+  dimensions: { width: number; depth: number; height: number },
+  customization: ShapeCustomization,
+): ShapeSpecialField[] {
+  const defaults = shapeAssetSpecialDefaults(kind, dimensions);
+  if (kind === "cylinder") return [{ type: "number", key: "sides", label: "Sides", defaultValue: defaults.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 }];
+  if (kind === "sphere" || kind === "halfSphere") return [{ type: "number", key: "steps", label: "Steps", defaultValue: defaults.steps ?? 24, min: 6, max: 64, step: 1 }];
+  if (kind === "cone") {
+    return [
+      { type: "number", key: "topRadius", label: "Top radius", defaultValue: defaults.topRadius ?? 0, min: 0, max: MAX_CUSTOM_SHAPE_DIMENSION / 2, unit: "mm" },
+      { type: "number", key: "baseRadius", label: "Base radius", defaultValue: defaults.baseRadius ?? dimensions.width / 2, min: MIN_CUSTOM_SHAPE_DIMENSION, max: MAX_CUSTOM_SHAPE_DIMENSION / 2, unit: "mm" },
+      { type: "number", key: "sides", label: "Sides", defaultValue: defaults.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 },
+    ];
+  }
+  if (kind === "pyramid") return [{ type: "number", key: "sides", label: "Sides", defaultValue: defaults.sides ?? 4, min: 3, max: 24, step: 1 }];
+  if (kind === "roundRoof") return [{ type: "number", key: "sides", label: "Sides", defaultValue: defaults.sides ?? 64, min: 4, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 }];
+  if (kind === "tube" || kind === "ring") return [{ type: "number", key: "bevel", label: "Thickness", defaultValue: defaults.bevel ?? 4, min: 0.5, max: 20, unit: "mm" }];
+  if (kind === "text") {
+    return [
+      { type: "text", key: "text", label: "Text", defaultValue: defaults.text ?? "TEXT", maxLength: 24 },
+      { type: "select", key: "font", label: "Font", defaultValue: defaults.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS.map((value) => ({ value, label: value })) },
+      { type: "number", key: "bevel", label: "Bevel", defaultValue: defaults.bevel ?? 0, min: 0, max: 8, unit: "mm" },
+      { type: "number", key: "segments", label: "Segments", defaultValue: defaults.segments ?? 0, min: 0, max: 24, step: 1 },
+    ];
+  }
+  if (kind === "gear") {
+    const teeth = customization.teeth ?? defaults.teeth ?? 12;
+    const toothSize = customization.toothSize ?? defaults.toothSize ?? 2.5;
+    const toothPitch = gearToothPitch(dimensions.width, dimensions.depth, teeth);
+    const centerHoleLimits = gearCenterHoleLimits(dimensions.width, dimensions.depth, toothSize);
+    const gearType = customization.gearType ?? defaults.gearType ?? "spur";
+    const fields: ShapeSpecialField[] = [
+      { type: "select", key: "gearType", label: "Gear type", defaultValue: defaults.gearType ?? "spur", options: GEAR_TYPE_OPTIONS },
+      { type: "number", key: "teeth", label: "Teeth", defaultValue: defaults.teeth ?? 12, min: 6, max: 64, step: 1 },
+      { type: "number", key: "toothSize", label: "Tooth size", defaultValue: defaults.toothSize ?? 2.5, min: 0.2, max: Math.max(0.2, Math.min(dimensions.width, dimensions.depth) * 0.22), unit: "mm" },
+      { type: "number", key: "toothWidth", label: "Tooth width", defaultValue: defaults.toothWidth ?? toothPitch * 0.54, min: toothPitch * 0.12, max: toothPitch * 0.82, unit: "mm" },
+      { type: "number", key: "centerHoleSize", label: "Center hole", defaultValue: defaults.centerHoleSize ?? 6, min: centerHoleLimits.min, max: centerHoleLimits.max, unit: "mm" },
+    ];
+    if (gearType === "helical") {
+      fields.push(
+        { type: "number", key: "helixAngle", label: "Helix angle", defaultValue: defaults.helixAngle ?? 22.5, min: -45, max: 45, unit: "deg" },
+        { type: "number", key: "helixQuality", label: "Helix quality", defaultValue: defaults.helixQuality ?? 16, min: 4, max: 32, step: 1 },
+      );
+    }
+    return fields;
+  }
+  return [];
+}
+
 export function WorkspaceSettingsModal({
   workspace,
   snap,
   themePreference,
   moveDimensionsEnabled,
+  showProjectNameInToolbar,
   onWorkspaceChange,
   onSnapChange,
   onThemePreferenceChange,
   onMoveDimensionsEnabledChange,
+  onShowProjectNameInToolbarChange,
   onMakeDefault,
   onClose,
 }: {
@@ -60,15 +126,18 @@ export function WorkspaceSettingsModal({
   snap: GridSize;
   themePreference: AppThemePreference;
   moveDimensionsEnabled: boolean;
+  showProjectNameInToolbar: boolean;
   onWorkspaceChange: (next: WorkspaceSettings) => void;
   onSnapChange: (next: GridSize) => void;
   onThemePreferenceChange?: (preference: AppThemePreference) => void;
   onMoveDimensionsEnabledChange: (enabled: boolean) => void;
+  onShowProjectNameInToolbarChange?: (show: boolean) => void;
   onMakeDefault: () => void;
   onClose: () => void;
 }) {
   const [defaultSaved, setDefaultSaved] = useState(false);
   const [activeSection, setActiveSection] = useState<WorkspaceSettingsSection>("appearance");
+  const [selectedShapeKind, setSelectedShapeKind] = useState<ShapeKind>(toolbarShapeAssets[0].kind);
   const [dimensionDrafts, setDimensionDrafts] = useState(() => ({
     width: workspace.width.toFixed(workspace.accuracy),
     depth: workspace.depth.toFixed(workspace.accuracy),
@@ -88,6 +157,16 @@ export function WorkspaceSettingsModal({
   const gridColor = /^#[0-9a-f]{6}$/i.test(workspace.gridColor)
     ? workspace.gridColor
     : DEFAULT_WORKPLANE_WORKSPACE.gridColor;
+  const selectedShapeAsset = toolbarShapeAssets.find((asset) => asset.kind === selectedShapeKind) ?? toolbarShapeAssets[0];
+  const selectedShapeAppDefaults = shapeAssetDefaultDimensions(selectedShapeKind);
+  const selectedShapeCustomization = workspace.shapeCustomizations[selectedShapeKind] ?? {};
+  const selectedShapeEffectiveDimensions = {
+    width: selectedShapeCustomization.width ?? selectedShapeAppDefaults.width,
+    depth: selectedShapeCustomization.depth ?? selectedShapeAppDefaults.depth,
+    height: selectedShapeCustomization.height ?? selectedShapeAppDefaults.height,
+  };
+  const selectedShapeSpecialFields = specialFieldsForShape(selectedShapeKind, selectedShapeEffectiveDimensions, selectedShapeCustomization);
+  const selectedShapeCustomized = Object.keys(selectedShapeCustomization).length > 0;
   useEffect(() => {
     setDimensionDrafts({
       width: workspace.width.toFixed(workspace.accuracy),
@@ -106,6 +185,56 @@ export function WorkspaceSettingsModal({
     setDefaultSaved(false);
     const next = { ...workspace, ...patch };
     onWorkspaceChange({ ...next, scale: normalizeScaleForUnits(next.units, next.scale) });
+  };
+  const patchShapeCustomization = (kind: ShapeKind, patch: Partial<ShapeCustomization>) => {
+    const nextEntry = Object.fromEntries(
+      Object.entries({ ...workspace.shapeCustomizations[kind], ...patch }).filter(([, value]) => value !== undefined),
+    ) as ShapeCustomization;
+    const nextCustomizations = { ...workspace.shapeCustomizations };
+    if (Object.keys(nextEntry).length > 0) nextCustomizations[kind] = nextEntry;
+    else delete nextCustomizations[kind];
+    patchWorkspace({ shapeCustomizations: nextCustomizations });
+  };
+  const setShapeDefaultDimension = (key: "width" | "depth" | "height", rawValue: string) => {
+    const parsed = parseMeasurementInput(rawValue);
+    if (!Number.isFinite(parsed)) return;
+    const nextValue = clamp(parsed, MIN_CUSTOM_SHAPE_DIMENSION, MAX_CUSTOM_SHAPE_DIMENSION);
+    patchShapeCustomization(selectedShapeKind, key === "width" && selectedShapeKind === "cone"
+      ? { width: nextValue, baseRadius: nextValue / 2 }
+      : { [key]: nextValue });
+  };
+  const setShapeSpecialNumber = (field: Extract<ShapeSpecialField, { type: "number" }>, rawValue: string) => {
+    if (!rawValue.trim()) {
+      patchShapeCustomization(selectedShapeKind, { [field.key]: undefined });
+      return;
+    }
+    const parsed = parseMeasurementInput(rawValue);
+    if (!Number.isFinite(parsed)) return;
+    const clamped = clamp(parsed, field.min, field.max);
+    const nextValue = field.step === 1 ? Math.round(clamped) : clamped;
+    patchShapeCustomization(selectedShapeKind, field.key === "baseRadius" && selectedShapeKind === "cone"
+      ? { baseRadius: nextValue, width: nextValue * 2 }
+      : { [field.key]: nextValue });
+  };
+  const setShapeSpecialText = (field: Extract<ShapeSpecialField, { type: "text" }>, rawValue: string) => {
+    const nextValue = rawValue.slice(0, field.maxLength);
+    patchShapeCustomization(selectedShapeKind, { [field.key]: nextValue || undefined });
+  };
+  const setShapeLimit = (rawValue: string) => {
+    if (!rawValue.trim()) {
+      patchShapeCustomization(selectedShapeKind, { maxDimension: undefined });
+      return;
+    }
+    const parsed = parseMeasurementInput(rawValue);
+    if (!Number.isFinite(parsed)) return;
+    patchShapeCustomization(selectedShapeKind, {
+      maxDimension: clamp(parsed, MIN_CUSTOM_SHAPE_DIMENSION, MAX_CUSTOM_SHAPE_DIMENSION),
+    });
+  };
+  const resetSelectedShapeCustomization = () => {
+    const nextCustomizations = { ...workspace.shapeCustomizations };
+    delete nextCustomizations[selectedShapeKind];
+    patchWorkspace({ shapeCustomizations: nextCustomizations });
   };
   const setDimension = (key: "width" | "depth", value: string) => {
     const parsed = parseMeasurementInput(value);
@@ -169,6 +298,10 @@ export function WorkspaceSettingsModal({
               <Grid3X3 size={18} />
               <span>Workplane</span>
             </button>
+            <button className={activeSection === "shapes" ? "active" : ""} aria-current={activeSection === "shapes" ? "page" : undefined} onClick={() => setActiveSection("shapes")}>
+              <BoxIcon size={18} />
+              <span>Shape defaults</span>
+            </button>
             <button className={activeSection === "history" ? "active" : ""} aria-current={activeSection === "history" ? "page" : undefined} onClick={() => setActiveSection("history")}>
               <History size={18} />
               <span>History</span>
@@ -197,6 +330,11 @@ export function WorkspaceSettingsModal({
                     </select>
                   </label>
                   <p className="workspace-global-note">Theme applies across SketchForge and all projects.</p>
+                  <WorkspaceToggle
+                    label="Show project name in toolbar"
+                    checked={showProjectNameInToolbar}
+                    onChange={(show) => onShowProjectNameInToolbarChange?.(show)}
+                  />
                   <WorkspaceToggle
                     label="Show movement dimensions"
                     checked={moveDimensionsEnabled}
@@ -331,6 +469,139 @@ export function WorkspaceSettingsModal({
                       </label>
                     </div>
                   ) : null}
+                </>
+              ) : null}
+
+              {activeSection === "shapes" ? (
+                <>
+                  <div className="workspace-section-heading">
+                    <strong>Shape defaults</strong>
+                    <span>Customize how each toolbar shape starts. Existing limits stay unchanged until you enter a custom limit.</span>
+                  </div>
+                  <label className="workspace-shape-picker">
+                    <span>Shape</span>
+                    <span className="workspace-shape-picker-control">
+                      <img src={selectedShapeAsset.menuIcon} alt="" />
+                      <select value={selectedShapeKind} onChange={(event) => setSelectedShapeKind(event.currentTarget.value as ShapeKind)}>
+                        {toolbarShapeAssets.map((asset) => (
+                          <option key={asset.kind} value={asset.kind}>
+                            {asset.name}{workspace.shapeCustomizations[asset.kind] ? " — customized" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                  </label>
+                  <div className="workspace-shape-card">
+                    <div className="workspace-shape-card-heading">
+                      <span>
+                        <strong>{selectedShapeAsset.name}</strong>
+                        <small>{selectedShapeCustomized ? "Custom settings active" : "Using SketchForge defaults"}</small>
+                      </span>
+                      <button type="button" onClick={resetSelectedShapeCustomization} disabled={!selectedShapeCustomized}>
+                        <RotateCcw size={14} />
+                        <span>Use app defaults</span>
+                      </button>
+                    </div>
+                    <div className="workspace-shape-dimensions">
+                      {(["width", "depth", "height"] as const).map((key) => (
+                        <label key={`${selectedShapeKind}-${key}`}>
+                          <span>{key === "depth" ? "Length" : key[0].toUpperCase() + key.slice(1)}</span>
+                          <input
+                            key={`${selectedShapeKind}-${key}-${selectedShapeCustomization[key] ?? "app"}`}
+                            type="text"
+                            inputMode="decimal"
+                            defaultValue={(selectedShapeCustomization[key] ?? selectedShapeAppDefaults[key]).toFixed(workspace.accuracy)}
+                            onBlur={(event) => setShapeDefaultDimension(key, event.currentTarget.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") event.currentTarget.blur();
+                            }}
+                          />
+                          <small>App: {selectedShapeAppDefaults[key]} mm</small>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedShapeSpecialFields.length > 0 ? (
+                      <div className="workspace-shape-specials">
+                        <div className="workspace-shape-specials-heading">
+                          <strong>Shape details</strong>
+                          <small>Extra defaults used when this shape is added.</small>
+                        </div>
+                        <div className="workspace-shape-special-fields">
+                          {selectedShapeSpecialFields.map((field) => {
+                            const customizedValue = selectedShapeCustomization[field.key];
+                            const effectiveValue = customizedValue ?? field.defaultValue;
+                            if (field.type === "select") {
+                              return (
+                                <label key={`${selectedShapeKind}-${field.key}`}>
+                                  <span>{field.label}</span>
+                                  <select
+                                    value={String(effectiveValue)}
+                                    onChange={(event) => patchShapeCustomization(selectedShapeKind, { [field.key]: event.currentTarget.value })}
+                                  >
+                                    {field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                  </select>
+                                  <small>App: {field.options.find((option) => option.value === field.defaultValue)?.label ?? field.defaultValue}</small>
+                                </label>
+                              );
+                            }
+                            if (field.type === "text") {
+                              return (
+                                <label key={`${selectedShapeKind}-${field.key}`}>
+                                  <span>{field.label}</span>
+                                  <input
+                                    key={`${selectedShapeKind}-${field.key}-${String(customizedValue ?? "app")}`}
+                                    type="text"
+                                    maxLength={field.maxLength}
+                                    defaultValue={String(effectiveValue)}
+                                    onBlur={(event) => setShapeSpecialText(field, event.currentTarget.value)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter") event.currentTarget.blur();
+                                    }}
+                                  />
+                                  <small>App: {field.defaultValue}</small>
+                                </label>
+                              );
+                            }
+                            const numericValue = Number(effectiveValue);
+                            return (
+                              <label key={`${selectedShapeKind}-${field.key}`}>
+                                <span>{field.label}</span>
+                                <input
+                                  key={`${selectedShapeKind}-${field.key}-${String(customizedValue ?? "app")}-${field.defaultValue}`}
+                                  type="text"
+                                  inputMode="decimal"
+                                  defaultValue={field.step === 1 ? String(Math.round(numericValue)) : numericValue.toFixed(workspace.accuracy)}
+                                  onBlur={(event) => setShapeSpecialNumber(field, event.currentTarget.value)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") event.currentTarget.blur();
+                                  }}
+                                />
+                                <small>App: {field.step === 1 ? Math.round(field.defaultValue) : Number(field.defaultValue.toFixed(workspace.accuracy))}{field.unit ? ` ${field.unit}` : ""}</small>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                    <label className="workspace-shape-limit">
+                      <span>
+                        <strong>Custom size limit</strong>
+                        <small>Leave blank to keep all current inspector and drag limits for this shape.</small>
+                      </span>
+                      <input
+                        key={`${selectedShapeKind}-limit-${selectedShapeCustomization.maxDimension ?? "app"}`}
+                        type="text"
+                        inputMode="decimal"
+                        defaultValue={selectedShapeCustomization.maxDimension?.toFixed(workspace.accuracy) ?? ""}
+                        placeholder="App limits"
+                        onBlur={(event) => setShapeLimit(event.currentTarget.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") event.currentTarget.blur();
+                        }}
+                      />
+                    </label>
+                    <p className="workspace-shape-note">Custom values apply to new shapes. A custom size limit also replaces this shape&apos;s existing resize ceilings, up to 2000 mm.</p>
+                  </div>
                 </>
               ) : null}
 
@@ -618,10 +889,23 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
   );
 }
 
-function WorkspaceToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+function WorkspaceToggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
   return (
     <label className="workspace-toggle">
-      <span>{label}</span>
+      <span className="workspace-toggle-copy">
+        <span>{label}</span>
+        {description ? <small>{description}</small> : null}
+      </span>
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.currentTarget.checked)} />
     </label>
   );

@@ -12,7 +12,7 @@ import type { GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation,
 export const SKF_SCHEMA_ID = "com.sketchforge.project";
 export const SKF_FORMAT_VERSION = 1;
 export const SKF_MINIMUM_READER_VERSION = 1;
-export const SKF_CREATED_WITH_VERSION = "1.0.7";
+export const SKF_CREATED_WITH_VERSION = "1.0.9";
 export const SKF_MEDIA_TYPE = "application/vnd.sketchforge.project+zip";
 
 export const SKF_LIMITS = {
@@ -943,7 +943,7 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
   }
   if (definition.sketchRevolve !== undefined) {
     const settings = objectRecord(definition.sketchRevolve, `${label}.sketchRevolve`);
-    ["startAngle", "sweepAngle", "sides", "quality", "thickness"].forEach((field) => finiteNumber(settings[field], `${label}.sketchRevolve.${field}`));
+    ["startAngle", "sweepAngle", "sides", "quality"].forEach((field) => finiteNumber(settings[field], `${label}.sketchRevolve.${field}`));
   }
   if (kind === "gear") {
     const teeth = finiteNumber(definition.teeth, `${label}.teeth`);

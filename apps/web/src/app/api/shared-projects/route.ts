@@ -8,6 +8,10 @@ export const runtime = "nodejs";
 export const revalidate = false;
 
 const SHARED_PROJECTS_ENV = "SKETCHFORGE_SHARED_PROJECTS_DIR";
+const SHARED_THUMBNAILS_DIR = ".thumbnails";
+const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
+const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
+const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
 type SharedProjectFile = {
   fileName: string;
@@ -15,6 +19,7 @@ type SharedProjectFile = {
   updatedAt: number;
   size: number;
   revision: string;
+  thumbnailUrl?: string;
 };
 
 function sharedProjectsDirectory() {
@@ -36,14 +41,48 @@ function revisionForStat(stat: { size: number; mtimeMs: number }) {
   return `${stat.size.toString(16)}-${Math.round(stat.mtimeMs * 1000).toString(16)}`;
 }
 
-function projectRecord(fileName: string, stat: { size: number; mtimeMs: number }): SharedProjectFile {
+function sharedThumbnailPath(root: string, fileName: string, revision: string) {
+  return path.join(root, SHARED_THUMBNAILS_DIR, `${fileName}.${revision}.png`);
+}
+
+function sharedThumbnailUrl(fileName: string, revision: string) {
+  const query = new URLSearchParams({ fileName, thumbnail: "1", v: revision });
+  return `/api/shared-projects?${query.toString()}`;
+}
+
+function projectRecord(fileName: string, stat: { size: number; mtimeMs: number }, hasThumbnail = false): SharedProjectFile {
+  const revision = revisionForStat(stat);
   return {
     fileName,
     name: fileName.replace(/\.skf$/i, ""),
     updatedAt: stat.mtimeMs,
     size: stat.size,
-    revision: revisionForStat(stat),
+    revision,
+    ...(hasThumbnail ? { thumbnailUrl: sharedThumbnailUrl(fileName, revision) } : {}),
   };
+}
+
+function isPng(bytes: Uint8Array) {
+  return bytes.byteLength >= PNG_SIGNATURE.byteLength
+    && PNG_SIGNATURE.every((value, index) => bytes[index] === value);
+}
+
+async function sharedProjectRequestBytes(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
+    return { projectBytes: new Uint8Array(await request.arrayBuffer()), thumbnailBytes: null as Uint8Array | null };
+  }
+
+  const formData = await request.formData();
+  const project = formData.get("project");
+  const thumbnail = formData.get("thumbnail");
+  if (!(project instanceof Blob)) throw new Error("Shared project upload is missing its .skf file");
+  if (!(thumbnail instanceof Blob)) throw new Error("Shared project upload is missing its thumbnail");
+  const projectBytes = new Uint8Array(await project.arrayBuffer());
+  const thumbnailBytes = new Uint8Array(await thumbnail.arrayBuffer());
+  if (thumbnailBytes.byteLength > MAX_THUMBNAIL_BYTES) throw new Error("Shared project thumbnail exceeds the 5 MB size limit");
+  if (!isPng(thumbnailBytes)) throw new Error("Shared project thumbnail must be a PNG image");
+  return { projectBytes, thumbnailBytes };
 }
 
 function unquoteEtag(value: string | null) {
@@ -97,6 +136,25 @@ export async function GET(request: Request) {
       const filePath = path.join(root, fileName);
       const stat = await regularFileStat(filePath);
       if (!stat) return NextResponse.json({ error: "Shared project was not found" }, { status: 404 });
+      if (requestUrl.searchParams.get("thumbnail") === "1") {
+        const revision = revisionForStat(stat);
+        const requestedRevision = requestUrl.searchParams.get("v");
+        if (requestedRevision && requestedRevision !== revision) {
+          return new NextResponse("Shared project thumbnail revision is stale", { status: 404 });
+        }
+        const imagePath = sharedThumbnailPath(root, fileName, revision);
+        const imageStat = await regularFileStat(imagePath);
+        if (!imageStat) return new NextResponse("Shared project thumbnail was not found", { status: 404 });
+        const image = await fs.readFile(imagePath);
+        return new NextResponse(image, {
+          headers: {
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "Content-Length": String(image.byteLength),
+            "Content-Type": "image/png",
+            ETag: `"${revision}"`,
+          },
+        });
+      }
       const bytes = await fs.readFile(filePath);
       return new Response(bytes, {
         headers: {
@@ -114,7 +172,10 @@ export async function GET(request: Request) {
       .filter((entry) => entry.isFile() && /\.skf$/i.test(entry.name))
       .map(async (entry) => {
         const stat = await regularFileStat(path.join(root, entry.name));
-        return stat ? projectRecord(entry.name, stat) : null;
+        if (!stat) return null;
+        const revision = revisionForStat(stat);
+        const thumbnailStat = await regularFileStat(sharedThumbnailPath(root, entry.name, revision));
+        return projectRecord(entry.name, stat, Boolean(thumbnailStat));
       }));
     return NextResponse.json(
       { enabled: true, projects: projects.filter((entry): entry is SharedProjectFile => Boolean(entry)).sort((a, b) => b.updatedAt - a.updatedAt) },
@@ -170,7 +231,11 @@ export async function DELETE(request: Request) {
       );
     }
 
+    const thumbnailPath = sharedThumbnailPath(root, fileName, currentRevision);
     await fs.unlink(filePath);
+    await fs.unlink(thumbnailPath).catch((error) => {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    });
     return NextResponse.json(
       { deleted: true, fileName },
       { headers: { "Cache-Control": "no-store" } },
@@ -189,15 +254,18 @@ export async function POST(request: Request) {
   if (!sameOriginRequest(request)) return NextResponse.json({ error: "Shared projects only accept same-origin saves" }, { status: 403 });
 
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(declaredLength) && declaredLength > SKF_LIMITS.archiveBytes) {
+  const multipartRequest = request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data") ?? false;
+  const requestLimit = SKF_LIMITS.archiveBytes + (multipartRequest ? MAX_THUMBNAIL_BYTES + MAX_MULTIPART_OVERHEAD_BYTES : 0);
+  if (Number.isFinite(declaredLength) && declaredLength > requestLimit) {
     return NextResponse.json({ error: ".skf file exceeds the shared storage size limit" }, { status: 413 });
   }
 
   let lockHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
   let lockPath = "";
   let temporaryPath = "";
+  let temporaryThumbnailPath = "";
   try {
-    const bytes = new Uint8Array(await request.arrayBuffer());
+    const { projectBytes: bytes, thumbnailBytes } = await sharedProjectRequestBytes(request);
     if (bytes.byteLength > SKF_LIMITS.archiveBytes) return NextResponse.json({ error: ".skf file exceeds the shared storage size limit" }, { status: 413 });
     const summary = await inspectSkfProjectPackage(bytes);
     const requestUrl = new URL(request.url);
@@ -237,10 +305,31 @@ export async function POST(request: Request) {
     } finally {
       await temporaryHandle.close();
     }
+    const pendingStat = await fs.stat(temporaryPath);
+    const savedRevision = revisionForStat(pendingStat);
+    let savedThumbnailPath = "";
+    if (thumbnailBytes) {
+      const thumbnailsRoot = path.join(root, SHARED_THUMBNAILS_DIR);
+      await fs.mkdir(thumbnailsRoot, { recursive: true });
+      savedThumbnailPath = sharedThumbnailPath(root, fileName, savedRevision);
+      temporaryThumbnailPath = path.join(thumbnailsRoot, `.${fileName}.${randomUUID()}.tmp`);
+      const thumbnailHandle = await fs.open(temporaryThumbnailPath, "wx");
+      try {
+        await thumbnailHandle.writeFile(thumbnailBytes);
+        await thumbnailHandle.sync();
+      } finally {
+        await thumbnailHandle.close();
+      }
+      await fs.rename(temporaryThumbnailPath, savedThumbnailPath);
+      temporaryThumbnailPath = "";
+    }
     await fs.rename(temporaryPath, filePath);
     temporaryPath = "";
     const savedStat = await fs.stat(filePath);
-    const project = projectRecord(fileName, savedStat);
+    const project = projectRecord(fileName, savedStat, Boolean(thumbnailBytes));
+    if (currentRevision && currentRevision !== project.revision) {
+      await fs.unlink(sharedThumbnailPath(root, fileName, currentRevision)).catch(() => undefined);
+    }
     return NextResponse.json(
       { project: { ...project, name: summary.projectName } },
       { status: currentStat ? 200 : 201, headers: { "Cache-Control": "no-store", ETag: `"${project.revision}"` } },
@@ -250,6 +339,7 @@ export async function POST(request: Request) {
   } finally {
     if (lockHandle) await lockHandle.close().catch(() => undefined);
     if (temporaryPath) await fs.unlink(temporaryPath).catch(() => undefined);
+    if (temporaryThumbnailPath) await fs.unlink(temporaryThumbnailPath).catch(() => undefined);
     if (lockPath) await fs.unlink(lockPath).catch(() => undefined);
   }
 }

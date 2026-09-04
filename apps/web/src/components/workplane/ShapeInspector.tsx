@@ -24,6 +24,7 @@ import {
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeWidth } from "@/lib/workplaneShapes";
 import { normalizeSketchRevolveSettings } from "@/lib/sketchRevolve";
+import { MAX_HIGH_RESOLUTION_SIDES } from "@/lib/workplaneSettings";
 import type { GearType, GridSize, MeasurementAccuracy, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
@@ -107,7 +108,7 @@ function propertyUsesLengthUnit(label: string) {
   return ["Radius", "Length", "Width", "Height", "Bevel", "Top Radius", "Base Radius", "Thickness", "Tooth Size", "Tooth Width", "Center Hole", "Top Length", "Top Width", "Bottom Length", "Bottom Width"].includes(label);
 }
 
-function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate): ShapePropertyConfig[] {
+function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, textWidthMax = 260): ShapePropertyConfig[] {
   const baseWidth = shapeWidth(shape);
   const baseDepth = shapeDepth(shape);
   const footprint = shapeOverallFootprintDimensions(shape);
@@ -159,8 +160,7 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
     return [
       { label: "Start Angle", value: settings.startAngle, min: 0, max: 359, step: 1, onChange: (startAngle) => updateRevolve({ startAngle }) },
       { label: "Sweep", value: settings.sweepAngle, min: -360, max: 360, step: 1, onChange: (sweepAngle) => updateRevolve({ sweepAngle }) },
-      { label: "Sides", value: settings.sides, min: 3, max: 128, step: 1, onChange: (sides) => updateRevolve({ sides }) },
-      { label: "Thickness", value: settings.thickness, min: 0.1, max: 20, step: 0.1, onChange: (thickness) => updateRevolve({ thickness }) },
+      { label: "Sides", value: settings.sides, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => updateRevolve({ sides }) },
       { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
       { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
       { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
@@ -177,7 +177,7 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
 
   if (shape.kind === "cylinder") {
     return [
-      { label: "Sides", value: shape.sides ?? 96, min: 3, max: 128, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      { label: "Sides", value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
       { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
       { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
       { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
@@ -209,7 +209,7 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
       { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
       { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setConeWidth },
       { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
-      { label: "Sides", value: shape.sides ?? 96, min: 3, max: 128, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      { label: "Sides", value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
     ];
   }
 
@@ -224,7 +224,7 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
 
   if (shape.kind === "roundRoof") {
     return [
-      { label: "Sides", value: shape.sides ?? 64, min: 4, max: 128, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      { label: "Sides", value: shape.sides ?? 64, min: 4, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
       { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
       { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
       { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
@@ -334,7 +334,7 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
         value: shape.text ?? "TEXT",
         onChange: (text) => {
           const nextText = text.slice(0, 24) || " ";
-          const nextWidth = clamp(Math.max(46, nextText.length * 19), 46, 260);
+          const nextWidth = clamp(Math.max(Math.min(46, textWidthMax), nextText.length * 19), MIN_SHAPE_SIZE, textWidthMax);
           onUpdate({ text: nextText, width: nextWidth, size: nextWidth });
         },
       },
@@ -350,6 +350,18 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
     { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
     { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
   ];
+}
+
+function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, workspace: WorkplaneWorkspaceSettings): ShapePropertyConfig[] {
+  const customLimit = workspace.shapeCustomizations[shape.kind]?.maxDimension;
+  const properties = getShapePropertiesWithAppLimits(shape, onUpdate, customLimit ?? 260);
+  if (customLimit === undefined) return properties;
+  return properties.map((property) => {
+    if (property.type === "text" || property.type === "select") return property;
+    if (["Length", "Width", "Height"].includes(property.label)) return { ...property, max: customLimit };
+    if (["Top Radius", "Base Radius"].includes(property.label)) return { ...property, max: customLimit / 2 };
+    return property;
+  });
 }
 
 export function ShapeInspector({
@@ -379,7 +391,7 @@ export function ShapeInspector({
 }) {
   const solidColor = shape.color;
   const locked = Boolean(shape.locked);
-  const properties = getShapeProperties(shape, onUpdate);
+  const properties = getShapeProperties(shape, onUpdate, workspace);
   const gearType = shape.kind === "gear" ? normalizeGearType(shape.gearType) : null;
   const primaryProperties = shape.kind === "gear"
     ? properties.filter((property) => ["Center Hole", "Length", "Width", "Height"].includes(property.label))
@@ -391,33 +403,34 @@ export function ShapeInspector({
     ? properties.filter((property) => ["Helix Angle", "Quality"].includes(property.label))
     : [];
   const taper = shapeTaperDimensions(shape);
+  const taperDimensionMax = workspace.shapeCustomizations[shape.kind]?.maxDimension ?? 480;
   const taperProperties: ShapePropertyConfig[] = shape.kind === "gear" ? [] : [
     {
       label: "Top Length",
       value: taper.topDepth,
       min: MIN_SHAPE_SIZE,
-      max: 480,
+      max: taperDimensionMax,
       onChange: (taperTopDepth) => onUpdate({ taperTopDepth, taperTopWidth: taper.topWidth, taperTopScale: undefined }),
     },
     {
       label: "Top Width",
       value: taper.topWidth,
       min: MIN_SHAPE_SIZE,
-      max: 480,
+      max: taperDimensionMax,
       onChange: (taperTopWidth) => onUpdate({ taperTopWidth, taperTopDepth: taper.topDepth, taperTopScale: undefined }),
     },
     {
       label: "Bottom Length",
       value: taper.bottomDepth,
       min: MIN_SHAPE_SIZE,
-      max: 480,
+      max: taperDimensionMax,
       onChange: (taperBottomDepth) => onUpdate({ taperBottomDepth, taperBottomWidth: taper.bottomWidth, taperBottomScale: undefined }),
     },
     {
       label: "Bottom Width",
       value: taper.bottomWidth,
       min: MIN_SHAPE_SIZE,
-      max: 480,
+      max: taperDimensionMax,
       onChange: (taperBottomWidth) => onUpdate({ taperBottomWidth, taperBottomDepth: taper.bottomDepth, taperBottomScale: undefined }),
     },
   ];

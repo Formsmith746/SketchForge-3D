@@ -51,6 +51,7 @@ type SharedProject = {
   updatedAt: number;
   size: number;
   revision: string;
+  thumbnailUrl?: string;
 };
 
 type StoredDashboardProject = Partial<DashboardProject> & {
@@ -110,6 +111,7 @@ const PROJECT_SHAPES_STORE_NAME = "projectShapes";
 const PROJECT_SHAPE_RESOURCES_STORE_NAME = "projectShapeResources";
 const DOWNLOAD_MODE_STORAGE_KEY = "sketchForge.downloadMode";
 const DOWNLOAD_FOLDER_STORAGE_KEY = "sketchForge.downloadFolder";
+const PROJECT_NAME_TOOLBAR_STORAGE_KEY = "sketchForge.showProjectNameInToolbar";
 const ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY = "sketchForge.activeChallengeTutorial";
 const DISMISSED_UPDATE_VERSION_STORAGE_KEY = "sketchForge.dismissedUpdateVersion";
 const PROJECT_ACCENTS: DashboardProject["accent"][] = ["cyan", "green", "gold", "red"];
@@ -509,6 +511,7 @@ export default function Home() {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedAppTheme>("light");
   const [downloadMode, setDownloadMode] = useState<DownloadMode>("browser");
   const [downloadFolder, setDownloadFolder] = useState("");
+  const [showProjectNameInToolbar, setShowProjectNameInToolbar] = useState(true);
   const [dashboardNotice, setDashboardNotice] = useState("");
   const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
   const [sharedProjectsEnabled, setSharedProjectsEnabled] = useState(false);
@@ -563,6 +566,7 @@ export default function Home() {
     }
     setDownloadMode(!STATIC_EXPORT_BUILD && window.localStorage.getItem(DOWNLOAD_MODE_STORAGE_KEY) === "folder" ? "folder" : "browser");
     setDownloadFolder(window.localStorage.getItem(DOWNLOAD_FOLDER_STORAGE_KEY) ?? "");
+    setShowProjectNameInToolbar(window.localStorage.getItem(PROJECT_NAME_TOOLBAR_STORAGE_KEY) !== "false");
 
     const params = new URLSearchParams(window.location.search);
     if (params.has("codexBooleanCase") || params.get("editor") === "1") {
@@ -723,7 +727,8 @@ export default function Home() {
     if (!mounted) return;
     window.localStorage.setItem(DOWNLOAD_MODE_STORAGE_KEY, downloadMode);
     window.localStorage.setItem(DOWNLOAD_FOLDER_STORAGE_KEY, downloadFolder);
-  }, [downloadFolder, downloadMode, mounted]);
+    window.localStorage.setItem(PROJECT_NAME_TOOLBAR_STORAGE_KEY, String(showProjectNameInToolbar));
+  }, [downloadFolder, downloadMode, mounted, showProjectNameInToolbar]);
 
   const visibleProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -781,8 +786,9 @@ export default function Home() {
     }
   };
 
-  const updateProjectSnapshot = useCallback((snapshot: { image: string; projectId: string; shapes: number }) => {
+  const updateProjectSnapshot = useCallback(async (snapshot: { image: string; projectId: string; shapes: number }, signal?: AbortSignal) => {
     const version = Date.now();
+    if (signal?.aborted) throw new DOMException("Thumbnail upload aborted", "AbortError");
     if (STATIC_EXPORT_BUILD) {
       setProjects((current) =>
         current.map((project) =>
@@ -797,34 +803,35 @@ export default function Home() {
     setProjects((current) =>
       current.map((project) => (project.id === snapshot.projectId ? { ...project, shapes: snapshot.shapes, updatedAt: version } : project)),
     );
-    void fetch("/api/project-thumbnail", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dataUrl: snapshot.image, projectId: snapshot.projectId }),
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null) as { error?: string } | null;
-          throw new Error(payload?.error ?? "Could not save project thumbnail");
-        }
-        return response.json() as Promise<{ version?: number }>;
-      })
-      .then((payload) => {
-        const nextVersion = payload?.version ?? Date.now();
-        const thumbnailUrl = `/api/project-thumbnail?projectId=${encodeURIComponent(snapshot.projectId)}&v=${nextVersion}`;
-        setProjects((current) =>
-          current.map((project) =>
-            project.id === snapshot.projectId
-              ? { ...project, shapes: snapshot.shapes, thumbnailUrl, thumbnailVersion: nextVersion, updatedAt: nextVersion }
-              : project,
-          ),
-        );
-      })
-      .catch(() => {
-        setProjects((current) =>
-          current.map((project) => (project.id === snapshot.projectId ? { ...project, shapes: snapshot.shapes, updatedAt: version } : project)),
-        );
+    try {
+      const response = await fetch("/api/project-thumbnail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: snapshot.image, projectId: snapshot.projectId }),
+        signal,
       });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Could not save project thumbnail");
+      }
+      const payload = await response.json() as { version?: number };
+      if (signal?.aborted) throw new DOMException("Thumbnail upload aborted", "AbortError");
+      const nextVersion = payload?.version ?? Date.now();
+      const thumbnailUrl = `/api/project-thumbnail?projectId=${encodeURIComponent(snapshot.projectId)}&v=${nextVersion}`;
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === snapshot.projectId
+            ? { ...project, shapes: snapshot.shapes, thumbnailUrl, thumbnailVersion: nextVersion, updatedAt: nextVersion }
+            : project,
+        ),
+      );
+    } catch (error) {
+      if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) throw error;
+      setProjects((current) =>
+        current.map((project) => (project.id === snapshot.projectId ? { ...project, shapes: snapshot.shapes, updatedAt: version } : project)),
+      );
+      throw error;
+    }
   }, []);
 
   const updateProjectShapes = useCallback((snapshot: {
@@ -1027,7 +1034,7 @@ export default function Home() {
     }
   }, [refreshSharedProjects]);
 
-  const saveActiveProjectToShared = useCallback(async ({ exportName, bytes }: { exportName: string; bytes: Uint8Array }) => {
+  const saveActiveProjectToShared = useCallback(async ({ exportName, bytes, thumbnailDataUrl }: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string }) => {
     const activeProject = projects.find((project) => project.id === activeProjectId);
     if (!activeProject) throw new Error("Open a local project before saving it to the shared space");
     const normalizedExportName = exportName.trim() || activeProject.name;
@@ -1035,11 +1042,17 @@ export default function Home() {
     const fileName = saveBackToSource && activeProject.sharedProject
       ? activeProject.sharedProject.fileName
       : `${normalizedExportName.replace(/\.skf$/i, "")}.skf`;
-    const headers: Record<string, string> = { "Content-Type": "application/vnd.sketchforge.project+zip" };
+    const headers: Record<string, string> = {};
     if (saveBackToSource && activeProject.sharedProject) headers["If-Match"] = `"${activeProject.sharedProject.revision}"`;
     else headers["If-None-Match"] = "*";
     const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-    const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(fileName)}`, { method: "POST", headers, body });
+    const thumbnailResponse = await fetch(thumbnailDataUrl);
+    const thumbnail = await thumbnailResponse.blob();
+    if (thumbnail.type !== "image/png" || thumbnail.size === 0) throw new Error("Could not prepare the shared project thumbnail");
+    const formData = new FormData();
+    formData.append("project", new Blob([body], { type: "application/vnd.sketchforge.project+zip" }), fileName);
+    formData.append("thumbnail", thumbnail, `${fileName}.png`);
+    const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(fileName)}`, { method: "POST", headers, body: formData });
     const payload = await response.json().catch(() => ({})) as { error?: string; project?: SharedProject };
     if (!response.ok || !payload.project) throw new Error(payload.error ?? "Could not save the shared project");
     const savedProject = payload.project;
@@ -1289,8 +1302,13 @@ export default function Home() {
             onProjectShapesChange={updateProjectShapes}
             onProjectSnapshot={updateProjectSnapshot}
             onProjectWorkspaceChange={updateProjectWorkspace}
+            onProjectNameChange={(name) => {
+              if (activeProjectId) renameProject(activeProjectId, name);
+            }}
             projectId={activeProjectId}
             projectName={activeProject?.name}
+            showProjectNameInToolbar={showProjectNameInToolbar}
+            onShowProjectNameInToolbarChange={setShowProjectNameInToolbar}
             projectCreatedAt={activeProject?.createdAt}
             projectModifiedAt={activeProject?.updatedAt}
             projectRevision={activeProjectShapeEntry?.revision ?? activeProject?.revision ?? 0}
@@ -1745,7 +1763,7 @@ function Dashboard({
                   {sharedProjects.map((project, index) => (
                     <article className="project-card shared-project-card" key={project.fileName}>
                       <button className="project-card-open" type="button" onClick={() => onOpenSharedProject(project)}>
-                        <ProjectPreview accent={PROJECT_ACCENTS[index % PROJECT_ACCENTS.length]} />
+                        <ProjectPreview accent={PROJECT_ACCENTS[index % PROJECT_ACCENTS.length]} thumbnailUrl={project.thumbnailUrl} />
                         <span className="project-card-title">{project.name}</span>
                         <span className="project-card-meta">{formatUpdated(project.updatedAt)} - {formatFileSize(project.size)}</span>
                       </button>

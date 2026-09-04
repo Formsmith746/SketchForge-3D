@@ -1,6 +1,6 @@
 {
   "name": "sketchforge",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "private": true,
   "description": "A local-first 3D design editor.",
   "author": {
