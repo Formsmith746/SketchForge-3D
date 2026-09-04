@@ -1,12 +1,12 @@
 import type { ManifoldToplevel } from "manifold-3d";
 import type { SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment } from "@/types/sketchforge";
+import { MAX_HIGH_RESOLUTION_SIDES } from "@/lib/workplaneSettings";
 
 export const DEFAULT_SKETCH_REVOLVE_SETTINGS: SketchRevolveSettings = {
   startAngle: 0,
   sweepAngle: 360,
   sides: 64,
   quality: 6,
-  thickness: 1,
 };
 
 type OrderedStep = { segment: SketchSegment; from: SketchPoint; to: SketchPoint };
@@ -36,9 +36,8 @@ export function normalizeSketchRevolveSettings(settings?: Partial<SketchRevolveS
   return {
     startAngle: ((finiteOr(settings?.startAngle, DEFAULT_SKETCH_REVOLVE_SETTINGS.startAngle) % 360) + 360) % 360,
     sweepAngle,
-    sides: Math.round(clamp(finiteOr(settings?.sides, DEFAULT_SKETCH_REVOLVE_SETTINGS.sides), 3, 128)),
+    sides: Math.round(clamp(finiteOr(settings?.sides, DEFAULT_SKETCH_REVOLVE_SETTINGS.sides), 3, MAX_HIGH_RESOLUTION_SIDES)),
     quality: Math.round(clamp(finiteOr(settings?.quality, DEFAULT_SKETCH_REVOLVE_SETTINGS.quality), 1, 10)),
-    thickness: clamp(finiteOr(settings?.thickness, DEFAULT_SKETCH_REVOLVE_SETTINGS.thickness), 0.1, 20),
   };
 }
 
@@ -152,34 +151,6 @@ function clipClosedPathToRevolveSide(points: SampledPoint[]) {
   return compactSampledPath(clipped);
 }
 
-function clipOpenPathToRevolveSide(points: SampledPoint[]) {
-  const paths: SampledPoint[][] = [];
-  let current: SampledPoint[] = [];
-  const finishCurrent = () => {
-    const compact = compactSampledPath(current);
-    if (compact.length >= 2) paths.push(compact);
-    current = [];
-  };
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const from = points[index];
-    const to = points[index + 1];
-    const fromInside = from.x <= 0;
-    const toInside = to.x <= 0;
-    if (fromInside && toInside) {
-      if (current.length === 0) current.push(from);
-      current.push(to);
-    } else if (fromInside) {
-      if (current.length === 0) current.push(from);
-      current.push(axisIntersection(from, to));
-      finishCurrent();
-    } else if (toInside) {
-      current = [axisIntersection(from, to), to];
-    }
-  }
-  finishCurrent();
-  return paths;
-}
-
 function distance(a: Point2, b: Point2) {
   return Math.hypot(b[0] - a[0], b[1] - a[1]);
 }
@@ -193,55 +164,19 @@ function compactPolygon(points: Point2[]) {
   return compact;
 }
 
-function strokeOpenPath(points: Point2[], thickness: number) {
-  if (points.length < 2) return [];
-  const half = thickness / 2;
-  const normals: Point2[] = [];
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const dx = points[index + 1][0] - points[index][0];
-    const dy = points[index + 1][1] - points[index][1];
-    const length = Math.hypot(dx, dy);
-    normals.push(length > 1e-8 ? [-dy / length, dx / length] : [0, 0]);
-  }
-  const offsetAt = (index: number): Point2 => {
-    const previous = normals[Math.max(0, index - 1)];
-    const next = normals[Math.min(normals.length - 1, index)];
-    const sumX = previous[0] + next[0];
-    const sumY = previous[1] + next[1];
-    const sumLength = Math.hypot(sumX, sumY);
-    if (sumLength <= 1e-8) return [next[0] * half, next[1] * half];
-    const unit: Point2 = [sumX / sumLength, sumY / sumLength];
-    const projection = Math.abs(unit[0] * next[0] + unit[1] * next[1]);
-    const miter = Math.min(half * 4, half / Math.max(0.25, projection));
-    return [unit[0] * miter, unit[1] * miter];
-  };
-  const left: Point2[] = [];
-  const right: Point2[] = [];
-  points.forEach((point, index) => {
-    const offset = offsetAt(index);
-    left.push([point[0] + offset[0], point[1] + offset[1]]);
-    right.push([point[0] - offset[0], point[1] - offset[1]]);
-  });
-  return compactPolygon([...left, ...right.reverse()]);
-}
-
 export function sketchProfileToRevolvePolygons(profile: SketchProfile, settings?: Partial<SketchRevolveSettings>) {
   const normalized = normalizeSketchRevolveSettings(settings);
-  const paths = orderedPaths(profile).flatMap((path) => {
+  const paths = orderedPaths(profile).filter((path) => path.closed).flatMap((path) => {
     const sampled = samplePath(path, normalized.quality);
-    if (path.closed) {
-      const clipped = clipClosedPathToRevolveSide(sampled);
-      return clipped.length >= 3 ? [{ closed: true, points: clipped }] : [];
-    }
-    return clipOpenPathToRevolveSide(sampled).map((points) => ({ closed: false, points }));
+    const clipped = clipClosedPathToRevolveSide(sampled);
+    return clipped.length >= 3 ? [clipped] : [];
   });
   if (paths.length === 0) return [];
-  const maxZ = Math.max(...paths.flatMap((entry) => entry.points.map((point) => point.z)));
+  const maxZ = Math.max(...paths.flatMap((points) => points.map((point) => point.z)));
   const toSectionPoint = (point: SampledPoint): Point2 => [-point.x, maxZ - point.z];
-  return paths.flatMap(({ closed, points }) => {
+  return paths.flatMap((points) => {
     const sectionPoints = compactPolygon(points.map(toSectionPoint));
-    const polygon = closed ? sectionPoints : strokeOpenPath(sectionPoints, normalized.thickness).map((point) => [Math.max(0, point[0]), point[1]] as Point2);
-    return polygon.length >= 3 ? [compactPolygon(polygon)] : [];
+    return sectionPoints.length >= 3 ? [sectionPoints] : [];
   });
 }
 
@@ -261,7 +196,7 @@ function dispose(value: unknown) {
 export function buildSketchRevolveMesh(runtime: ManifoldToplevel, profile: SketchProfile, requestedSettings?: Partial<SketchRevolveSettings>): SketchRevolveMesh {
   const settings = normalizeSketchRevolveSettings(requestedSettings);
   const polygons = sketchProfileToRevolvePolygons(profile, settings);
-  if (polygons.length === 0) throw new Error("Draw at least one connected profile on the left side of the revolve axis");
+  if (polygons.length === 0) throw new Error("Draw at least one closed profile on the left side of the revolve axis");
   const disposable: unknown[] = [];
   try {
     const section = new runtime.CrossSection(polygons, "EvenOdd");
