@@ -88,6 +88,7 @@ import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEn
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
 import { createLocalId } from "@/lib/localIds";
+import { createButtonTooltipSync } from "@/lib/buttonTooltips";
 import { projectExportFileName } from "@/lib/exportNames";
 import { exportMeshesToObj } from "@/lib/objExport";
 import { rotateSketchPoints, selectedClosedSketchPoints } from "@/lib/sketchRotation";
@@ -5754,16 +5755,9 @@ export function SketchForgeEditor({
   }, []);
 
   useEffect(() => {
+    const syncButtonTooltips = createButtonTooltipSync();
     const applyTitles = () => {
-      document.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
-        if (button.title) {
-          return;
-        }
-        const label = button.getAttribute("aria-label") ?? button.textContent?.trim();
-        if (label) {
-          button.title = label.replace(/\s+/g, " ");
-        }
-      });
+      syncButtonTooltips(document.querySelectorAll<HTMLButtonElement>("button"));
     };
 
     applyTitles();
