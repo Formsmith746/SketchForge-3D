@@ -42,6 +42,7 @@ import {
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
+import type { CameraOrientation } from "@/lib/screenAlignedNudge";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
 import { interiorWorkplaneGridCoordinates, workplaneThemePalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
@@ -206,6 +207,8 @@ type WorkplaneViewportProps = {
   onSetPlacementWorkplane: (workplane: PlacementWorkplane, source: "shape" | "base") => void;
   onToggleWorkplaneTool: () => void;
   onInteractionActiveChange?: (active: boolean) => void;
+  /** Fires while the camera moves, so keep it out of state and park it in a ref. */
+  onCameraOrientationChange?: (orientation: CameraOrientation) => void;
   onEditSketch?: () => void;
   canSeparateParts?: boolean;
   onSeparateParts?: () => void;
@@ -2375,6 +2378,7 @@ export function WorkplaneViewport({
   onSetPlacementWorkplane,
   onToggleWorkplaneTool,
   onInteractionActiveChange,
+  onCameraOrientationChange,
   onEditSketch,
   canSeparateParts = false,
   onSeparateParts,
@@ -2491,6 +2495,9 @@ export function WorkplaneViewport({
 
   const resolvedThemeRef = useRef(resolvedTheme);
   resolvedThemeRef.current = resolvedTheme;
+
+  const onCameraOrientationChangeRef = useRef(onCameraOrientationChange);
+  onCameraOrientationChangeRef.current = onCameraOrientationChange;
 
   const clearMoveDimensions = useCallback(() => {
     moveDimensionSessionRef.current = null;
@@ -2952,6 +2959,7 @@ export function WorkplaneViewport({
       state.camera.updateMatrixWorld();
       if (now - state.lastViewCubeSync > 48 || cameraSettled || state.needsRender) {
         syncViewCube(state, viewCubeRef.current);
+        onCameraOrientationChangeRef.current?.(cameraOrientation(state));
         state.lastViewCubeSync = now;
       }
       if (controlsChanged || cameraSettled || state.needsRender || now - state.lastOverlaySync > 96) {
@@ -5538,16 +5546,25 @@ function constrainCamera(state: ThreeState, workspace: WorkspaceSettings) {
   }
 }
 
+// Straight down and straight up leave no horizontal offset to read a yaw from, and
+// atan2(0, 0) returns 0. That is the answer we want: with the camera on the pole
+// THREE.Matrix4.lookAt breaks the tie towards the same axes as the Front view.
+function cameraOrientation(state: ThreeState): CameraOrientation {
+  const offset = state.camera.position.clone().sub(state.controls.target);
+  const horizontalDistance = Math.max(0.001, Math.hypot(offset.x, offset.z));
+  return {
+    yawDegrees: THREE.MathUtils.radToDeg(Math.atan2(offset.x, offset.z)),
+    pitchDegrees: THREE.MathUtils.radToDeg(Math.atan2(offset.y, horizontalDistance)),
+  };
+}
+
 function syncViewCube(state: ThreeState, cube: HTMLDivElement | null) {
   if (!cube) {
     return;
   }
 
-  const offset = state.camera.position.clone().sub(state.controls.target);
-  const horizontalDistance = Math.max(0.001, Math.hypot(offset.x, offset.z));
-  const pitch = THREE.MathUtils.radToDeg(Math.atan2(offset.y, horizontalDistance));
-  const yaw = THREE.MathUtils.radToDeg(Math.atan2(offset.x, offset.z));
-  cube.style.transform = `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`;
+  const { yawDegrees, pitchDegrees } = cameraOrientation(state);
+  cube.style.transform = `rotateX(${-pitchDegrees}deg) rotateY(${-yawDegrees}deg)`;
 }
 
 function setObjectRenderLayer(object: THREE.Object3D, layer: number) {

@@ -115,6 +115,7 @@ import {
   type PlacementPoint,
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
+import { DEFAULT_CAMERA_ORIENTATION, screenAlignedNudge, type CameraOrientation } from "@/lib/screenAlignedNudge";
 import { placeSketchExtrusion } from "@/lib/sketchPlacement";
 import {
   SKETCHFORGE_MCP_HEARTBEAT_MS,
@@ -8840,12 +8841,18 @@ export function SketchForgeEditor({
     });
   }, []);
 
+  const cameraOrientationRef = useRef<CameraOrientation>(DEFAULT_CAMERA_ORIENTATION);
+  const rememberCameraOrientation = useCallback((orientation: CameraOrientation) => {
+    cameraOrientationRef.current = orientation;
+  }, []);
+
   const nudgeSelected = useCallback(
-    (deltaX: number, deltaZ: number) => {
+    (screenRight: number, screenDown: number) => {
       if (!hasSelection) {
         return;
       }
       const selected = new Set(selectedIds);
+      const { x: deltaX, z: deltaZ } = screenAlignedNudge(placementWorkplane, cameraOrientationRef.current, screenRight, screenDown);
       const translation = {
         x: placementWorkplane.xAxis.x * deltaX + placementWorkplane.zAxis.x * deltaZ,
         y: placementWorkplane.xAxis.y * deltaX + placementWorkplane.zAxis.y * deltaZ,
@@ -9258,6 +9265,7 @@ export function SketchForgeEditor({
           onSetPlacementWorkplane={setViewportPlacementWorkplane}
           onToggleWorkplaneTool={activateWorkplaneTool}
           onInteractionActiveChange={updateProjectInteractionActive}
+          onCameraOrientationChange={rememberCameraOrientation}
           onEditSketch={beginSketchEdit}
           canSeparateParts={canSeparateSelectedParts}
           onSeparateParts={separateSelectedParts}
