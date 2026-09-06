@@ -4800,7 +4800,9 @@ button {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  cursor: grab;
+  /* Not grab: the canvas itself already uses grab for orbiting, so the
+     rotate handle would be the only control that gives no hover feedback. */
+  cursor: pointer;
   opacity: 1;
   transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%);
 }
