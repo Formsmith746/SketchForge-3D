@@ -9837,35 +9837,7 @@ function SecondaryToolbar({
           ) : null}
         </div>
       </div>
-      {showProjectNameInToolbar ? (
-        <div className="toolbar-spacer toolbar-project-name">
-          <label ref={projectNameFieldRef} className="toolbar-project-name-field" title="Rename project">
-            <input
-              ref={projectNameInputRef}
-              aria-label="Project name"
-              value={projectNameDraft}
-              maxLength={80}
-              spellCheck={false}
-              onChange={(event) => setProjectNameDraft(event.target.value)}
-              onBlur={(event) => {
-                if (cancelProjectNameEditRef.current) {
-                  cancelProjectNameEditRef.current = false;
-                  setProjectNameDraft(projectName);
-                  return;
-                }
-                commitProjectName(event.currentTarget.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-                if (event.key === "Escape") {
-                  cancelProjectNameEditRef.current = true;
-                  event.currentTarget.blur();
-                }
-              }}
-            />
-          </label>
-        </div>
-      ) : <div className="toolbar-spacer" />}
+      <div className="toolbar-spacer" />
       <div className="tool-group right">
         <div className="toolbar-section compact toolbar-visibility-section" ref={visibilityMenuRef}>
           <div className="toolbar-section-label">Visibility</div>
@@ -10100,25 +10072,56 @@ function SecondaryToolbar({
           </div>
         )}
       </div>
-      <div className="toolbar-workspace-tabs" role="tablist" aria-label="Editor mode">
-        <button
-          className={toolbarMode === "geometry" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={toolbarMode === "geometry"}
-          onClick={() => selectToolbarMode("geometry")}
-        >
-          Geometry
-        </button>
-        <button
-          className={toolbarMode === "sketch" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={toolbarMode === "sketch"}
-          onClick={() => selectToolbarMode("sketch")}
-        >
-          Sketch
-        </button>
+      <div className="toolbar-title-row">
+        <div className="toolbar-workspace-tabs" role="tablist" aria-label="Editor mode">
+          <button
+            className={toolbarMode === "geometry" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={toolbarMode === "geometry"}
+            onClick={() => selectToolbarMode("geometry")}
+          >
+            Geometry
+          </button>
+          <button
+            className={toolbarMode === "sketch" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={toolbarMode === "sketch"}
+            onClick={() => selectToolbarMode("sketch")}
+          >
+            Sketch
+          </button>
+        </div>
+        {showProjectNameInToolbar ? (
+          <div className="toolbar-project-name">
+            <label ref={projectNameFieldRef} className="toolbar-project-name-field" title="Rename project">
+              <input
+                ref={projectNameInputRef}
+                aria-label="Project name"
+                value={projectNameDraft}
+                maxLength={80}
+                spellCheck={false}
+                onChange={(event) => setProjectNameDraft(event.target.value)}
+                onBlur={(event) => {
+                  if (cancelProjectNameEditRef.current) {
+                    cancelProjectNameEditRef.current = false;
+                    setProjectNameDraft(projectName);
+                    return;
+                  }
+                  commitProjectName(event.currentTarget.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") {
+                    cancelProjectNameEditRef.current = true;
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+            </label>
+          </div>
+        ) : null}
       </div>
     </div>
   );
