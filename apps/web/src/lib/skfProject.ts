@@ -1,5 +1,5 @@
 import { strFromU8, strToU8, unzip, zip, type AsyncZippable } from "fflate";
-import { editorHistoryEntry, hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
+import { editorHistoryEntry, hydrateEditorHistoryState, immutableResourceFingerprint, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { normalizePlacementWorkplane, placementWorkplaneIsBase, type PlacementWorkplane } from "@/lib/placementWorkplane";
 import { importedShapeFromObj } from "@/lib/objImport";
 import { normalizeProjectAsset, sha256Hex } from "@/lib/projectAssets";
@@ -76,6 +76,7 @@ export type SkfShapeNodeV1 = {
     beforeNodeId: string;
   }>;
   cadBrepAssetId?: string;
+  cadDisplayEdgesAssetId?: string;
 };
 
 export type SkfStateV1 = {
@@ -301,7 +302,7 @@ class SkfArchiveBuilder {
   readonly assets: SkfAssetRecordV1[] = [];
   readonly sourceIdMap = new Map<string, string>();
   private readonly recordByKindAndHash = new Map<string, SkfAssetRecordV1>();
-  private readonly derivedMeshByResource = new WeakMap<object, Promise<SkfAssetRecordV1>>();
+  private readonly recordByResourceKey = new Map<string, Promise<SkfAssetRecordV1>>();
 
   async addAsset(
     kind: SkfAssetKind,
@@ -333,6 +334,20 @@ class SkfArchiveBuilder {
     return record;
   }
 
+  addEncodedAsset(
+    kind: SkfAssetKind,
+    resourceKey: string,
+    encode: () => { bytes: Uint8Array; mediaType: string },
+    options: { fileName?: string; sourceFormat?: ProjectAssetSourceFormat } = {},
+  ) {
+    const cached = this.recordByResourceKey.get(resourceKey);
+    if (cached) return cached;
+    const { bytes, mediaType } = encode();
+    const pending = this.addAsset(kind, bytes, mediaType, options);
+    this.recordByResourceKey.set(resourceKey, pending);
+    return pending;
+  }
+
   async addSources(assets: ProjectAsset[], referencedIds: Set<string>) {
     const normalized = assets
       .filter((asset) => referencedIds.has(asset.id))
@@ -348,11 +363,11 @@ class SkfArchiveBuilder {
   }
 
   addDerivedMesh(mesh: NonNullable<WorkplaneShape["importedMesh"]>) {
-    const cached = this.derivedMeshByResource.get(mesh);
-    if (cached) return cached;
-    const pending = this.addAsset("derived-mesh", encodeMeshCache(mesh), "application/vnd.sketchforge.mesh");
-    this.derivedMeshByResource.set(mesh, pending);
-    return pending;
+    const resourceKey = `derived-mesh:${mesh.storageResourceId ?? immutableResourceFingerprint(mesh)}`;
+    return this.addEncodedAsset("derived-mesh", resourceKey, () => ({
+      bytes: encodeMeshCache(mesh),
+      mediaType: "application/vnd.sketchforge.mesh",
+    }));
   }
 }
 
@@ -394,6 +409,7 @@ function repairDuplicateGroupedObjectIds(shapes: WorkplaneShape[]) {
     return candidate;
   };
 
+  let changed = false;
   const repairChild = (shape: WorkplaneShape): WorkplaneShape => {
     const id = shape.id && !seenIds.has(shape.id) ? shape.id : freshRepairId(shape);
     seenIds.add(id);
@@ -402,14 +418,18 @@ function repairDuplicateGroupedObjectIds(shapes: WorkplaneShape[]) {
     if (id === shape.id && !childrenChanged) {
       return shape;
     }
+    changed = true;
     return { ...shape, id, ...(groupedShapes ? { groupedShapes } : {}) };
   };
 
-  return shapes.map((shape) => {
+  const repaired = shapes.map((shape) => {
     const groupedShapes = shape.groupedShapes?.map(repairChild);
     const childrenChanged = groupedShapes?.some((child, index) => child !== shape.groupedShapes?.[index]) ?? false;
-    return childrenChanged ? { ...shape, groupedShapes } : shape;
+    if (!childrenChanged) return shape;
+    changed = true;
+    return { ...shape, groupedShapes };
   });
+  return changed ? repaired : shapes;
 }
 
 function referencedSourceAssetIds(states: WorkplaneShape[][]) {
@@ -435,24 +455,38 @@ async function serializeShapeNode(
     groupedShapes,
     edgeTreatmentHistory,
     cadBrep,
+    cadDisplayEdges,
     imagePlate,
     sketchProfile,
     ...baseDefinition
   } = canonicalizeShape(shape);
   const definition: Record<string, unknown> = { ...baseDefinition };
 
+  let cadDisplayEdgesAssetId: string | undefined;
+  if (cadDisplayEdges?.length) {
+    const serializedEdges = JSON.stringify(cadDisplayEdges);
+    cadDisplayEdgesAssetId = (await builder.addEncodedAsset("brep", `display-edges:${serializedEdges}`, () => ({
+      bytes: strToU8(serializedEdges),
+      mediaType: "application/vnd.sketchforge.display-edges",
+    }))).id;
+  }
+
   if (imagePlate) {
     const { dataUrl, ...plateDefinition } = imagePlate;
-    const decoded = decodeDataUrl(dataUrl);
-    const asset = await builder.addAsset("image", decoded.bytes, decoded.mediaType, { fileName: `${shape.name}-image` });
+    const asset = await builder.addEncodedAsset("image", `image:${dataUrl}`, () => {
+      const decoded = decodeDataUrl(dataUrl);
+      return { bytes: decoded.bytes, mediaType: decoded.mediaType };
+    }, { fileName: `${shape.name}-image` });
     definition.imagePlate = { ...plateDefinition, assetId: asset.id };
   }
 
   if (sketchProfile) {
     const images = await Promise.all((sketchProfile.images ?? []).map(async (image) => {
       const { dataUrl, ...imageDefinition } = image;
-      const decoded = decodeDataUrl(dataUrl);
-      const asset = await builder.addAsset("image", decoded.bytes, decoded.mediaType, { fileName: image.name });
+      const asset = await builder.addEncodedAsset("image", `image:${dataUrl}`, () => {
+        const decoded = decodeDataUrl(dataUrl);
+        return { bytes: decoded.bytes, mediaType: decoded.mediaType };
+      }, { fileName: image.name });
       return { ...imageDefinition, assetId: asset.id };
     }));
     definition.sketchProfile = {
@@ -476,7 +510,11 @@ async function serializeShapeNode(
     if (!canRegenerate) {
       meshAssetId = (await builder.addDerivedMesh(importedMesh)).id;
       if (importedMesh.brepStep) {
-        brepStepAssetId = (await builder.addAsset("brep", strToU8(importedMesh.brepStep), "application/step")).id;
+        const brepStep = importedMesh.brepStep;
+        brepStepAssetId = (await builder.addEncodedAsset("brep", `step:${brepStep}`, () => ({
+          bytes: strToU8(brepStep),
+          mediaType: "application/step",
+        }))).id;
       }
     }
     importedReference = {
@@ -492,7 +530,12 @@ async function serializeShapeNode(
   }
 
   let cadBrepAssetId: string | undefined;
-  if (cadBrep) cadBrepAssetId = (await builder.addAsset("brep", strToU8(cadBrep), "application/vnd.sketchforge.brep")).id;
+  if (cadBrep) {
+    cadBrepAssetId = (await builder.addEncodedAsset("brep", `brep:${cadBrep}`, () => ({
+      bytes: strToU8(cadBrep),
+      mediaType: "application/vnd.sketchforge.brep",
+    }))).id;
+  }
 
   const groupedShapeNodeIds: string[] = [];
   for (const child of groupedShapes ?? []) {
@@ -532,6 +575,7 @@ async function serializeShapeNode(
     ...(groupedShapeNodeIds.length ? { groupedShapeNodeIds } : {}),
     ...(serializedEdgeHistory.length ? { edgeTreatmentHistory: serializedEdgeHistory } : {}),
     ...(cadBrepAssetId ? { cadBrepAssetId } : {}),
+    ...(cadDisplayEdgesAssetId ? { cadDisplayEdgesAssetId } : {}),
   });
   return nodeId;
 }
@@ -689,8 +733,10 @@ function unzipAsync(bytes: Uint8Array) {
 export async function exportSkfProject(input: SkfProjectExportInput) {
   const hydrated = hydrateEditorHistoryState(input.shapes, input.history, input.historyIndex);
   if (hydrated.entries.length > SKF_LIMITS.states) throw new Error("Project has too many undo states for the .skf format");
-  const exportEntries = hydrated.entries.map((entry) =>
-    editorHistoryEntry(repairDuplicateGroupedObjectIds(entry.shapes), entry.selectedIds));
+  const exportEntries = hydrated.entries.map((entry) => {
+    const repaired = repairDuplicateGroupedObjectIds(entry.shapes);
+    return repaired === entry.shapes ? entry : editorHistoryEntry(repaired, entry.selectedIds);
+  });
   const builder = new SkfArchiveBuilder();
   const stateShapes = exportEntries.map((entry) => entry.shapes);
   await builder.addSources(input.assets, referencedSourceAssetIds(stateShapes));
@@ -1000,6 +1046,7 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
         ["baseWidth", "baseDepth", "baseHeight", "triangleCount"].forEach((field) => finiteNumber(node.importedMesh?.[field as keyof SkfImportedMeshReferenceV1], `object '${objectId}'.${field}`));
       }
       if (node.cadBrepAssetId && assetById.get(node.cadBrepAssetId)?.kind !== "brep") throw new Error(`Object '${objectId}' has a missing exact B-Rep asset`);
+      if (node.cadDisplayEdgesAssetId && assetById.get(node.cadDisplayEdgesAssetId)?.kind !== "brep") throw new Error(`Object '${objectId}' has a missing display-edge asset`);
       nodeById.set(nodeId, node);
     });
     const roots = stringArray(state.rootNodeIds, `state '${stateId}'.rootNodeIds`);
@@ -1068,8 +1115,9 @@ async function restoreShapeFromNode(
   files: ArchiveFiles,
   runtimeAssetByArchiveId: Map<string, ProjectAsset>,
   sourceMeshCache: Map<string, Promise<NonNullable<WorkplaneShape["importedMesh"]>>>,
-  derivedMeshCache: Map<string, ReturnType<typeof decodeMeshCache>>,
+  derivedMeshCache: Map<string, NonNullable<WorkplaneShape["importedMesh"]>>,
   sourceImporter: SkfSourceImporter,
+  displayEdgesCache: Map<string, NonNullable<WorkplaneShape["cadDisplayEdges"]>>,
   restoring = new Set<string>(),
 ): Promise<WorkplaneShape> {
   if (restoring.has(nodeId)) throw new Error(`Cyclic shape dependency detected at '${nodeId}'`);
@@ -1103,44 +1151,63 @@ async function restoreShapeFromNode(
     if (!sourceAsset) throw new Error(`Object '${node.objectId}' is missing its imported source asset`);
     let promise = sourceMeshCache.get(sourceAsset.id);
     if (!promise) {
-      promise = sourceImporter(sourceAsset);
+      promise = sourceImporter(sourceAsset).then((regenerated) => ({ ...regenerated, assetId: sourceAsset.id }));
       sourceMeshCache.set(sourceAsset.id, promise);
     }
-    const regenerated = await promise;
-    importedMesh = { ...regenerated, assetId: sourceAsset.id };
+    importedMesh = await promise;
   } else if (node.importedMesh?.meshAssetId) {
     const meshRecord = assetById.get(node.importedMesh.meshAssetId);
     if (!meshRecord) throw new Error(`Object '${node.objectId}' is missing its derived mesh`);
-    let decoded = derivedMeshCache.get(meshRecord.id);
-    if (!decoded) {
-      decoded = decodeMeshCache(files[meshRecord.path]);
-      derivedMeshCache.set(meshRecord.id, decoded);
-    }
     const brepRecord = node.importedMesh.brepStepAssetId ? assetById.get(node.importedMesh.brepStepAssetId) : undefined;
-    importedMesh = {
-      ...decoded,
-      baseWidth: node.importedMesh.baseWidth,
-      baseDepth: node.importedMesh.baseDepth,
-      baseHeight: node.importedMesh.baseHeight,
-      triangleCount: node.importedMesh.triangleCount,
-      sourceFormat: node.importedMesh.sourceFormat,
-      ...(brepRecord ? { brepStep: strFromU8(files[brepRecord.path]) } : {}),
-    };
+    const cacheKey = `${meshRecord.id}:${node.importedMesh.brepStepAssetId ?? ""}:${node.importedMesh.baseWidth}:${node.importedMesh.baseDepth}:${node.importedMesh.baseHeight}:${node.importedMesh.triangleCount}:${node.importedMesh.sourceFormat}`;
+    let restored = derivedMeshCache.get(cacheKey);
+    if (!restored) {
+      restored = {
+        ...decodeMeshCache(files[meshRecord.path]),
+        baseWidth: node.importedMesh.baseWidth,
+        baseDepth: node.importedMesh.baseDepth,
+        baseHeight: node.importedMesh.baseHeight,
+        triangleCount: node.importedMesh.triangleCount,
+        sourceFormat: node.importedMesh.sourceFormat,
+        ...(brepRecord ? { brepStep: strFromU8(files[brepRecord.path]) } : {}),
+      };
+      derivedMeshCache.set(cacheKey, restored);
+    }
+    importedMesh = restored;
   }
 
   const groupedShapes = node.groupedShapeNodeIds?.length
-    ? await Promise.all(node.groupedShapeNodeIds.map((childId) => restoreShapeFromNode(childId, nodeById, assetById, files, runtimeAssetByArchiveId, sourceMeshCache, derivedMeshCache, sourceImporter, new Set(restoring))))
+    ? await Promise.all(node.groupedShapeNodeIds.map((childId) => restoreShapeFromNode(childId, nodeById, assetById, files, runtimeAssetByArchiveId, sourceMeshCache, derivedMeshCache, sourceImporter, displayEdgesCache, new Set(restoring))))
     : undefined;
   const edgeTreatmentHistory = node.edgeTreatmentHistory?.length
     ? await Promise.all(node.edgeTreatmentHistory.map(async (entry) => ({
         id: entry.id,
         createdAt: entry.createdAt,
         feature: entry.feature as NonNullable<WorkplaneShape["edgeTreatmentHistory"]>[number]["feature"],
-        before: await restoreShapeFromNode(entry.beforeNodeId, nodeById, assetById, files, runtimeAssetByArchiveId, sourceMeshCache, derivedMeshCache, sourceImporter, new Set(restoring)),
+        before: await restoreShapeFromNode(entry.beforeNodeId, nodeById, assetById, files, runtimeAssetByArchiveId, sourceMeshCache, derivedMeshCache, sourceImporter, displayEdgesCache, new Set(restoring)),
         ...(entry.appliedFrame ? { appliedFrame: entry.appliedFrame as NonNullable<WorkplaneShape["edgeTreatmentHistory"]>[number]["appliedFrame"] } : {}),
       })))
     : undefined;
   const cadBrepRecord = node.cadBrepAssetId ? assetById.get(node.cadBrepAssetId) : undefined;
+  const cadDisplayEdgesRecord = node.cadDisplayEdgesAssetId ? assetById.get(node.cadDisplayEdgesAssetId) : undefined;
+  let cadDisplayEdges = definition.cadDisplayEdges as WorkplaneShape["cadDisplayEdges"];
+  if (cadDisplayEdgesRecord) {
+    const cacheKey = `asset:${cadDisplayEdgesRecord.id}`;
+    let cached = displayEdgesCache.get(cacheKey);
+    if (!cached) {
+      cached = JSON.parse(strFromU8(files[cadDisplayEdgesRecord.path])) as NonNullable<WorkplaneShape["cadDisplayEdges"]>;
+      displayEdgesCache.set(cacheKey, cached);
+    }
+    cadDisplayEdges = cached;
+  } else if (cadDisplayEdges?.length) {
+    const cacheKey = `inline:${JSON.stringify(cadDisplayEdges)}`;
+    let cached = displayEdgesCache.get(cacheKey);
+    if (!cached) {
+      displayEdgesCache.set(cacheKey, cadDisplayEdges);
+      cached = cadDisplayEdges;
+    }
+    cadDisplayEdges = cached;
+  }
   restoring.delete(nodeId);
   return canonicalizeShape({
     ...(definition as WorkplaneShape),
@@ -1148,6 +1215,7 @@ async function restoreShapeFromNode(
     ...(groupedShapes ? { groupedShapes } : {}),
     ...(edgeTreatmentHistory ? { edgeTreatmentHistory } : {}),
     ...(cadBrepRecord ? { cadBrep: strFromU8(files[cadBrepRecord.path]) } : {}),
+    ...(cadDisplayEdges ? { cadDisplayEdges } : {}),
   });
 }
 
@@ -1167,7 +1235,8 @@ async function restoreV1(document: SkfProjectDocumentV1, assetById: Map<string, 
     runtimeAssetByArchiveId.set(record.id, asset);
   }
   const sourceMeshCache = new Map<string, Promise<NonNullable<WorkplaneShape["importedMesh"]>>>();
-  const derivedMeshCache = new Map<string, ReturnType<typeof decodeMeshCache>>();
+  const derivedMeshCache = new Map<string, NonNullable<WorkplaneShape["importedMesh"]>>();
+  const displayEdgesCache = new Map<string, NonNullable<WorkplaneShape["cadDisplayEdges"]>>();
   const sourceImporter = options.sourceImporter ?? defaultSourceImporter;
   const restoredStates = new Map<string, WorkplaneShape[]>();
   for (const state of document.states) {
@@ -1181,6 +1250,7 @@ async function restoreV1(document: SkfProjectDocumentV1, assetById: Map<string, 
       sourceMeshCache,
       derivedMeshCache,
       sourceImporter,
+      displayEdgesCache,
     )));
     restoredStates.set(state.id, shapes);
   }

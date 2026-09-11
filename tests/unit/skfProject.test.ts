@@ -274,6 +274,76 @@ describe("SketchForge .skf project packages", () => {
     expect(restored.shapes[0]).toMatchObject({ width: 30, x: 0 });
   });
 
+  it("encodes and hashes each unique history resource once instead of once per undo state", async () => {
+    const importedMesh: NonNullable<WorkplaneShape["importedMesh"]> = {
+      positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+      normals: [0, 0, 1, 0, 0, 1, 0, 0, 1],
+      baseWidth: 1,
+      baseDepth: 1,
+      baseHeight: 1,
+      triangleCount: 1,
+      sourceFormat: "json",
+    };
+    const cadBrep = "BREP ".repeat(2000);
+    const states = Array.from({ length: 200 }, (_, index) =>
+      editorHistoryEntry([shape("mesh", "history-heavy", { importedMesh, cadBrep, x: index })], []));
+    const active = { ...shape("mesh", "history-heavy", { importedMesh, cadBrep }), x: 199 };
+
+    const subtle = globalThis.crypto.subtle;
+    const realDigest = subtle.digest.bind(subtle);
+    let digestCalls = 0;
+    vi.stubGlobal("crypto", {
+      subtle: {
+        digest: (algorithm: AlgorithmIdentifier, data: BufferSource) => {
+          digestCalls += 1;
+          return realDigest(algorithm, data);
+        },
+      },
+    });
+
+    const exported = await exportSkfProject(input([active], { history: states, historyIndex: 199 }));
+    const exportDigestCalls = digestCalls;
+    const { document } = packageDocument(exported);
+
+    expect(document.assets.filter((entry) => entry.kind === "derived-mesh")).toHaveLength(1);
+    expect(document.assets.filter((entry) => entry.kind === "brep")).toHaveLength(1);
+    expect(exportDigestCalls).toBeLessThanOrEqual(4);
+
+    const restored = await importSkfProject(exported);
+    expect(restored.history).toHaveLength(200);
+    expect(restored.historyIndex).toBe(199);
+    expect(restored.shapes[0].importedMesh?.positions).toEqual(importedMesh.positions);
+    expect(restored.shapes[0].cadBrep).toBe(cadBrep);
+  });
+
+  it("deduplicates large display-edge caches across undo states", async () => {
+    const cadDisplayEdges = Array.from({ length: 50 }, (_, edge) => ({
+      points: Array.from({ length: 30 }, (_, point) => edge + point * 0.5),
+    }));
+    const importedMesh: NonNullable<WorkplaneShape["importedMesh"]> = {
+      positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+      baseWidth: 1,
+      baseDepth: 1,
+      baseHeight: 1,
+      triangleCount: 1,
+      sourceFormat: "json",
+    };
+    const base = shape("mesh", "edge-cache", { importedMesh, cadDisplayEdges, cadDisplayEdgesVersion: 2 });
+    const history = Array.from({ length: 40 }, (_, index) => editorHistoryEntry([{ ...base, x: index }], []));
+
+    const exported = await exportSkfProject(input([{ ...base, x: 39 }], { history, historyIndex: 39 }));
+    const { files, document } = packageDocument(exported);
+
+    expect(document.assets.filter((asset) => asset.mediaType === "application/vnd.sketchforge.display-edges")).toHaveLength(1);
+    expect(document.states.every((state) => state.nodes.every((node) => !("cadDisplayEdges" in node.definition)))).toBe(true);
+    expect(files["project.json"].byteLength).toBeLessThan(200_000);
+
+    const restored = await importSkfProject(exported);
+    expect(restored.history).toHaveLength(40);
+    expect(restored.shapes[0].cadDisplayEdges).toEqual(cadDisplayEdges);
+    expect(restored.history[0].shapes[0].cadDisplayEdges).toEqual(cadDisplayEdges);
+  });
+
   it("stores one original source asset for repeated imported instances and regenerates it once", async () => {
     const sourceBytes = strToU8("solid source");
     const asset = await projectAssetFromBytes("shared.stl", "stl", sourceBytes);

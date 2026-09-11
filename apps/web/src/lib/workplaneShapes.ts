@@ -205,33 +205,73 @@ export function mirroredAxisCount(shape: WorkplaneShape) {
 }
 
 export function canonicalizeShape(shape: WorkplaneShape): WorkplaneShape {
-  const next: WorkplaneShape = {
-    ...shape,
-    rotation: cleanRotationDegrees(shape.rotation ?? 0),
-    rotationX: cleanRotationDegrees(shape.rotationX ?? 0),
-    rotationZ: cleanRotationDegrees(shape.rotationZ ?? 0),
-    mirrorX: shape.mirrorX || undefined,
-    mirrorY: shape.mirrorY || undefined,
-    mirrorZ: shape.mirrorZ || undefined,
-  };
-  if (shape.groupedShapes) {
-    next.groupedShapes = shape.groupedShapes.map(canonicalizeShape);
+  const rotation = cleanRotationDegrees(shape.rotation ?? 0);
+  const rotationX = cleanRotationDegrees(shape.rotationX ?? 0);
+  const rotationZ = cleanRotationDegrees(shape.rotationZ ?? 0);
+  const mirrorX = shape.mirrorX || undefined;
+  const mirrorY = shape.mirrorY || undefined;
+  const mirrorZ = shape.mirrorZ || undefined;
+
+  let groupedShapes = shape.groupedShapes;
+  if (groupedShapes) {
+    const canonicalChildren = groupedShapes.map(canonicalizeShape);
+    if (canonicalChildren.some((child, index) => child !== groupedShapes![index])) groupedShapes = canonicalChildren;
   }
-  if (shape.sketchRevolve) {
-    next.sketchRevolve = {
-      startAngle: shape.sketchRevolve.startAngle,
-      sweepAngle: shape.sketchRevolve.sweepAngle,
-      sides: shape.sketchRevolve.sides,
-      quality: shape.sketchRevolve.quality,
+
+  let sketchRevolve = shape.sketchRevolve;
+  if (sketchRevolve) {
+    const normalized = {
+      startAngle: sketchRevolve.startAngle,
+      sweepAngle: sketchRevolve.sweepAngle,
+      sides: sketchRevolve.sides,
+      quality: sketchRevolve.quality,
     };
+    if (
+      sketchRevolve.startAngle !== normalized.startAngle
+      || sketchRevolve.sweepAngle !== normalized.sweepAngle
+      || sketchRevolve.sides !== normalized.sides
+      || sketchRevolve.quality !== normalized.quality
+      || Object.keys(sketchRevolve).length !== 4
+    ) {
+      sketchRevolve = normalized;
+    }
   }
-  if (shape.edgeTreatmentHistory) {
-    next.edgeTreatmentHistory = shape.edgeTreatmentHistory.map((entry) => ({
-      ...entry,
-      before: canonicalizeShape(entry.before),
-    }));
+
+  let edgeTreatmentHistory = shape.edgeTreatmentHistory;
+  if (edgeTreatmentHistory) {
+    const canonicalHistory = edgeTreatmentHistory.map((entry) => {
+      const before = canonicalizeShape(entry.before);
+      return before === entry.before ? entry : { ...entry, before };
+    });
+    if (canonicalHistory.some((entry, index) => entry !== edgeTreatmentHistory![index])) edgeTreatmentHistory = canonicalHistory;
   }
-  return next;
+
+  if (
+    rotation === shape.rotation
+    && rotationX === shape.rotationX
+    && rotationZ === shape.rotationZ
+    && mirrorX === shape.mirrorX
+    && mirrorY === shape.mirrorY
+    && mirrorZ === shape.mirrorZ
+    && groupedShapes === shape.groupedShapes
+    && sketchRevolve === shape.sketchRevolve
+    && edgeTreatmentHistory === shape.edgeTreatmentHistory
+  ) {
+    return shape;
+  }
+
+  return {
+    ...shape,
+    rotation,
+    rotationX,
+    rotationZ,
+    mirrorX,
+    mirrorY,
+    mirrorZ,
+    ...(groupedShapes !== shape.groupedShapes ? { groupedShapes } : {}),
+    ...(sketchRevolve !== shape.sketchRevolve ? { sketchRevolve } : {}),
+    ...(edgeTreatmentHistory !== shape.edgeTreatmentHistory ? { edgeTreatmentHistory } : {}),
+  };
 }
 
 export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
