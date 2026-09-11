@@ -51,6 +51,7 @@ import type { SketchForgeMcpViewFace } from "@/lib/sketchforgeMcpProtocol";
 import {
   TransformOverlay,
   continuousSnappedWheelRotation,
+  dimensionMarkScreenPush,
   getElevationMeasureKey,
   isPointInsideTransformBounds,
   measureKeyForHandle,
@@ -6315,32 +6316,37 @@ function makeDimensionMark(
   const railTo = project(toWorld.clone().add(outwardAxis.clone().multiplyScalar(railOffset)));
   const extensionFrom = project(fromWorld.clone().add(outwardAxis.clone().multiplyScalar(railOffset + extensionOverrun)));
   const extensionTo = project(toWorld.clone().add(outwardAxis.clone().multiplyScalar(railOffset + extensionOverrun)));
+  const edgeMidpoint = project(fromWorld.clone().lerp(toWorld, 0.5));
   const labelPoint = project(
     fromWorld
       .clone()
       .lerp(toWorld, 0.5)
       .add(outwardAxis.clone().multiplyScalar(railOffset + labelOffset)),
   );
+  // The world offset above shrinks to a few pixels when zoomed out, which puts
+  // the label under a rotate handle. Lift the whole mark together so the label
+  // keeps its distance without tearing away from its own rail.
+  const push = dimensionMarkScreenPush(edgeMidpoint, labelPoint);
 
   return {
     key,
     handleKey,
     axis,
     label,
-    x1: railFrom.x,
-    y1: railFrom.y,
-    x2: railTo.x,
-    y2: railTo.y,
+    x1: railFrom.x + push.x,
+    y1: railFrom.y + push.y,
+    x2: railTo.x + push.x,
+    y2: railTo.y + push.y,
     e1x1: from.x,
     e1y1: from.y,
-    e1x2: extensionFrom.x,
-    e1y2: extensionFrom.y,
+    e1x2: extensionFrom.x + push.x,
+    e1y2: extensionFrom.y + push.y,
     e2x1: to.x,
     e2y1: to.y,
-    e2x2: extensionTo.x,
-    e2y2: extensionTo.y,
-    labelX: labelPoint.x,
-    labelY: labelPoint.y,
+    e2x2: extensionTo.x + push.x,
+    e2y2: extensionTo.y + push.y,
+    labelX: labelPoint.x + push.x,
+    labelY: labelPoint.y + push.y,
   };
 }
 

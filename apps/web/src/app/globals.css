@@ -4629,7 +4629,9 @@ button {
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 3;
+  /* Same layer as .transform-handle: both must stay clickable above the
+     rotate handle, whose hit area is larger than its glyph. */
+  z-index: 5;
   min-width: 43px;
   padding: 5px 7px;
   border-radius: 3px;
@@ -4793,8 +4795,10 @@ button {
 
 .rotate-handle {
   z-index: 3;
-  width: 52px;
-  height: 52px;
+  /* Was 52px around a 26px glyph, so half the grab area was invisible and
+     reached over neighbouring controls. 40px still clears a finger. */
+  width: 40px;
+  height: 40px;
   color: rgba(47, 61, 70, 0.6);
   background: transparent;
   border: 0;
