@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the multi-second freeze that followed a simple transform in large projects: autosave no longer writes a full copy of every object's display edges into every undo state.
+- Raised the `.skf` format to version 2, which stores display edges as deduplicated assets. Version 1 and the version 0 prototype are still opened; SketchForge 1.0.9 and older cannot open a version 2 package.
+- Encoded and hashed mesh, display-edge, and imported-source data is now reused across saves instead of being rebuilt for every autosave, and restored undo states share one display-edge list per object.
+
 ## 1.0.9
 
 - Corrected Top and Bottom camera views so they align exactly with the vertical axis in both perspective and orthographic projection.
