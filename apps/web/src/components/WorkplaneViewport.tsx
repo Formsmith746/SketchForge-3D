@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Ruler, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crosshair, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Ruler, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
 import * as THREE from "three";
 import { Brush, Evaluator, HOLLOW_INTERSECTION } from "three-bvh-csg";
@@ -27,6 +27,7 @@ import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettings
 import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
 import type { ChallengeTutorialId } from "@/lib/challenges";
 import { cadModifierPrimitiveForBakedShape, cadTransformFromMatrix, cadTransformToMatrix } from "@/lib/cadBakeMetadata";
+import { orthographicFramingZoom, perspectiveFramingDistance } from "@/lib/cameraFraming";
 import { createGearGeometry } from "@/lib/gearGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { createMoveDimensionOverlay, type MoveDimensionAxis, type MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
@@ -4762,6 +4763,48 @@ export function WorkplaneViewport({
     [onAddShape, toPlacementWorkplanePoint],
   );
 
+  const focusSelection = useCallback(() => {
+    const state = threeRef.current;
+    if (!state) return;
+    // The real selection, not renderSelectionIds: the workplane and edge tools hide
+    // the outline while they are open, but the objects are still what to look at.
+    const bounds = new THREE.Box3();
+    selectedIdsRef.current.forEach((id) => {
+      const record = state.shapeRecords.get(id);
+      if (record) bounds.expandByObject(record.object);
+    });
+    if (bounds.isEmpty()) return;
+
+    const center = bounds.getCenter(new THREE.Vector3());
+    const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, 0.5);
+    const canvas = state.renderer.domElement;
+    const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+    const offset = state.camera.position.clone().sub(state.controls.target);
+    const direction = offset.lengthSq() > 0
+      ? offset.clone().normalize()
+      : CAMERA_HOME.clone().sub(CAMERA_TARGET).normalize();
+
+    if (state.camera instanceof THREE.OrthographicCamera) {
+      const halfHeight = Math.max(0.001, (state.camera.top - state.camera.bottom) / 2);
+      const zoom = orthographicFramingZoom(radius, halfHeight, aspect);
+      if (zoom) state.camera.zoom = clamp(zoom, 0.02, 100);
+      state.camera.position.copy(center).add(direction.multiplyScalar(clamp(offset.length(), 22, 4200)));
+    } else {
+      const distance = clamp(perspectiveFramingDistance(radius, CAMERA_FOV, aspect), 22, 4200);
+      state.camera.position.copy(center).add(direction.multiplyScalar(distance));
+    }
+
+    // constrainCamera keeps the orbit target inside the workspace on every frame,
+    // so an object parked beyond the plate edge is framed as closely as the
+    // existing camera limits allow rather than pulling the view off the grid.
+    state.controls.target.copy(center);
+    state.camera.lookAt(center);
+    state.camera.updateProjectionMatrix();
+    state.controls.update();
+    syncViewCube(state, viewCubeRef.current);
+    state.needsRender = true;
+  }, []);
+
   const resetView = useCallback(() => {
     const state = threeRef.current;
     if (state) {
@@ -5022,6 +5065,9 @@ export function WorkplaneViewport({
         if (!event.shiftKey || !setPlacementWorkplaneAtSelection()) {
           togglePlacementWorkplane();
         }
+      } else if (key === "f" && event.shiftKey) {
+        event.preventDefault();
+        focusSelection();
       } else if (key === "f" || event.key === "Home") {
         event.preventDefault();
         resetView();
@@ -5039,7 +5085,7 @@ export function WorkplaneViewport({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onWorkplaneModeChange, resetView, rulerToolsOpen, setPlacementWorkplaneAtSelection, setRulerActive, setViewCubeFace, togglePlacementWorkplane, toggleProjection, zoomCamera]);
+  }, [focusSelection, onWorkplaneModeChange, resetView, rulerToolsOpen, setPlacementWorkplaneAtSelection, setRulerActive, setViewCubeFace, togglePlacementWorkplane, toggleProjection, zoomCamera]);
 
   return (
     <main className={`workplane-stage ${challengeTutorial ? `key-tag-tutorial-active ${challengeTutorialCollapsed ? "key-tag-tutorial-collapsed" : ""}` : ""}`}>
@@ -5066,6 +5112,15 @@ export function WorkplaneViewport({
             </button>
             <button aria-label="Home" onClick={resetView}>
               <Home size={24} strokeWidth={2.25} />
+            </button>
+            <button
+              aria-label="Center view on selection"
+              aria-keyshortcuts="Shift+F"
+              title="Center view on selection (Shift+F)"
+              disabled={selectedIds.length === 0}
+              onClick={focusSelection}
+            >
+              <Crosshair size={24} strokeWidth={2.25} />
             </button>
             <button aria-label="Zoom in" onClick={() => zoomCamera(0.7)}>
               <Plus size={28} strokeWidth={2.15} />
