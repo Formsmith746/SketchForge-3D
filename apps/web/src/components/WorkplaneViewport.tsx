@@ -43,7 +43,7 @@ import {
 } from "@/lib/placementWorkplane";
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
-import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
+import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
 import { interiorWorkplaneGridCoordinates, workplaneThemePalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, fallbackSolidColor, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
@@ -524,16 +524,6 @@ function shouldBuildCutPreviews(transform: TransformDragState | null, drag: Drag
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
-}
-
-function snapStep(size: GridSize) {
-  if (size === "Off") {
-    return 0;
-  }
-  if (size === "Brick") {
-    return 8;
-  }
-  return Number.parseFloat(size) || 1;
 }
 
 function snapValue(value: number, step: number) {
@@ -2638,6 +2628,23 @@ export function WorkplaneViewport({
     lastWorkspaceSettingsSyncRef.current = fingerprint;
     onWorkspaceSettingsChange?.({ workspace: normalizedWorkspace, snap: normalizedSnap });
   }, [onWorkspaceSettingsChange, snap, workspace]);
+
+  /**
+   * Snap grid picked from a control, as opposed to hydrated from the project.
+   *
+   * The effect above suppresses one sync after hydration so the freshly loaded
+   * settings are not echoed straight back. On mount that suppression is armed
+   * but never spent, because `snap` is already seeded from `initialSnap` and
+   * hydration therefore changes no state and never triggers the effect. The
+   * first choice a user made was swallowed with it, leaving the editor — and
+   * the project file — on the previous grid until some unrelated change
+   * happened to clear the guard. A choice is never a hydration echo, so
+   * disarm the guard before recording it.
+   */
+  const chooseSnapGrid = useCallback<Dispatch<SetStateAction<GridSize>>>((value) => {
+    pendingWorkspaceHydrationFingerprintRef.current = null;
+    setSnap(value);
+  }, []);
 
   const makeWorkspaceDefault = useCallback(() => {
     const normalizedWorkspace = normalizeWorkspaceSettings(workspace);
@@ -5195,7 +5202,7 @@ export function WorkplaneViewport({
             clearMoveDimensions();
             onUpdateShape(selectedShape.id, patchWithResizeAnchor(selectedShape, patch, options?.resizeAxis, lastResizeAnchorRef.current));
           }}
-          onSnapChange={setSnap}
+          onSnapChange={chooseSnapGrid}
           onSnapOpenChange={setSnapOpen}
           onEditSketch={selectedShape.sketchProfile ? onEditSketch : undefined}
           canSeparateParts={canSeparateParts}
@@ -5206,7 +5213,7 @@ export function WorkplaneViewport({
 
       {!selectedShape ? (
         <div className="grid-settings">
-          <SnapGridControl snap={snap} snapOpen={snapOpen} onSnapChange={setSnap} onSnapOpenChange={setSnapOpen} />
+          <SnapGridControl snap={snap} snapOpen={snapOpen} onSnapChange={chooseSnapGrid} onSnapOpenChange={setSnapOpen} />
         </div>
       ) : null}
 
@@ -5218,7 +5225,7 @@ export function WorkplaneViewport({
           moveDimensionsEnabled={moveDimensionsEnabled}
           showProjectNameInToolbar={showProjectNameInToolbar}
           onWorkspaceChange={setWorkspace}
-          onSnapChange={setSnap}
+          onSnapChange={chooseSnapGrid}
           onThemePreferenceChange={onThemePreferenceChange}
           onMoveDimensionsEnabledChange={changeMoveDimensionsEnabled}
           onShowProjectNameInToolbarChange={onShowProjectNameInToolbarChange}
