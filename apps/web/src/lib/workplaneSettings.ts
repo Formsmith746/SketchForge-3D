@@ -3,6 +3,11 @@ import { normalizeScaleForUnits } from "@/lib/measurementUnits";
 import { DEFAULT_WORKPLANE_GRID_COLOR } from "@/lib/workplaneGrid";
 
 export const DEFAULT_SNAP_GRID: GridSize = "1.0 mm";
+export const BRICK_SNAP_STEP = 8;
+// Used only when the snap grid is off, so arrow keys keep their old feel.
+export const KEYBOARD_NUDGE_FALLBACK_STEP = 1;
+// Shift has always moved five times as far as a plain arrow press.
+export const KEYBOARD_NUDGE_COARSE_FACTOR = 5;
 export const MIN_CUSTOM_SHAPE_DIMENSION = 0.01;
 export const MAX_CUSTOM_SHAPE_DIMENSION = 2000;
 export const MAX_HIGH_RESOLUTION_SIDES = 512;
@@ -143,6 +148,32 @@ export function shapeDimensionLimit(workspace: WorkplaneWorkspaceSettings, kind:
 
 export function normalizeSnapGrid(value: unknown, fallback: GridSize = DEFAULT_SNAP_GRID): GridSize {
   return snapGridOptions.includes(value as GridSize) ? (value as GridSize) : fallback;
+}
+
+/** Step the snap grid setting represents, in millimetres. "Off" yields 0. */
+export function snapGridStep(size: GridSize) {
+  if (size === "Off") {
+    return 0;
+  }
+  if (size === "Brick") {
+    return BRICK_SNAP_STEP;
+  }
+  return Number.parseFloat(size) || 1;
+}
+
+/**
+ * Distance one arrow-key press moves the selection.
+ *
+ * Pointer dragging has always snapped to the snap grid, while the keyboard
+ * moved a hard-coded millimetre. With the grid at 5mm a drag landed on the
+ * 5mm lattice and the very next arrow press pushed the shape off it again.
+ * Following the grid keeps an aligned shape aligned; Shift keeps its former
+ * meaning of a coarser step. With the grid off, the old 1mm and 5mm stand.
+ */
+export function keyboardNudgeStep(size: GridSize, coarse: boolean) {
+  const grid = snapGridStep(size);
+  const base = grid > 0 ? grid : KEYBOARD_NUDGE_FALLBACK_STEP;
+  return coarse ? base * KEYBOARD_NUDGE_COARSE_FACTOR : base;
 }
 
 export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWorkspaceSettings = DEFAULT_WORKPLANE_WORKSPACE): WorkplaneWorkspaceSettings {

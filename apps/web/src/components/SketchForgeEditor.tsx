@@ -104,7 +104,7 @@ import { importedShapeFromStl } from "@/lib/stlImport";
 import { exportMeshesToStl } from "@/lib/stlExport";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
-import { normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import { keyboardNudgeStep, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import {
   normalizePlacementWorkplane,
   placementPatchForNewShape,
@@ -9041,7 +9041,10 @@ export function SketchForgeEditor({
         return;
       }
 
-      const step = event.shiftKey ? 5 : 1;
+      // Follows the Snap Grid so a keyboard nudge lands on the same lattice
+      // a pointer drag snaps to. Falls back to the old millimetre when the
+      // grid is off.
+      const step = keyboardNudgeStep(snapGridRef.current, event.shiftKey);
       if (shortcut && event.key === "ArrowUp") {
         event.preventDefault();
         raiseSelected(step);
