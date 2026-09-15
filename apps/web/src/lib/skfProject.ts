@@ -7,11 +7,14 @@ import { canonicalizeShape } from "@/lib/workplaneShapes";
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { importedShapeFromSvg } from "@/lib/svgImport";
 import { normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
-import type { GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation, SketchRevolveSettings, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import type { CadDisplayEdge, GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation, SketchRevolveSettings, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 export const SKF_SCHEMA_ID = "com.sketchforge.project";
-export const SKF_FORMAT_VERSION = 1;
-export const SKF_MINIMUM_READER_VERSION = 1;
+// Version 2 stores display edges as deduplicated archive assets instead of repeating
+// them inside every undo state. Version 1 packages are still read and migrated.
+export const SKF_FORMAT_VERSION = 2;
+export const SKF_MINIMUM_READER_VERSION = 2;
+export const SKF_OLDEST_READABLE_FORMAT_VERSION = 1;
 export const SKF_CREATED_WITH_VERSION = "1.0.9";
 export const SKF_MEDIA_TYPE = "application/vnd.sketchforge.project+zip";
 
@@ -25,6 +28,7 @@ export const SKF_LIMITS = {
   objectsPerState: 100_000,
   features: 300_000,
   meshNumbers: 30_000_000,
+  displayEdgeNumbers: 30_000_000,
 } as const;
 
 const SHAPE_KINDS = new Set([
@@ -36,7 +40,7 @@ const FEATURE_TYPES = new Set([
   "group", "boolean-subtraction", "boolean-intersection", "mirror", "sketch-extrusion", "sketch-revolve", "fillet", "chamfer",
 ]);
 
-type SkfAssetKind = "source" | "derived-mesh" | "brep" | "image";
+type SkfAssetKind = "source" | "derived-mesh" | "brep" | "image" | "display-edges";
 
 export type SkfAssetRecordV1 = {
   id: string;
@@ -76,6 +80,9 @@ export type SkfShapeNodeV1 = {
     beforeNodeId: string;
   }>;
   cadBrepAssetId?: string;
+  // Format version 2 and later. Version 1 nodes keep their display edges inline
+  // in `definition.cadDisplayEdges`.
+  cadDisplayEdgesAssetId?: string;
 };
 
 export type SkfStateV1 = {
@@ -95,7 +102,7 @@ export type SkfFeatureV1 = {
 
 export type SkfProjectDocumentV1 = {
   schema: typeof SKF_SCHEMA_ID;
-  formatVersion: 1;
+  formatVersion: 1 | 2;
   minimumReaderVersion: number;
   createdWithVersion: string;
   metadata: {
@@ -216,6 +223,7 @@ function safeArchivePath(path: string) {
 function extensionForAsset(kind: SkfAssetKind, mediaType: string, sourceFormat?: ProjectAssetSourceFormat) {
   if (kind === "source" && sourceFormat) return sourceFormat === "step" ? "step" : sourceFormat;
   if (kind === "derived-mesh") return "skfmesh";
+  if (kind === "display-edges") return "skfedges";
   if (kind === "brep") return "brep";
   if (mediaType.includes("png")) return "png";
   if (mediaType.includes("jpeg")) return "jpg";
@@ -275,6 +283,57 @@ function decodeMeshCache(bytes: Uint8Array) {
   return { positions, normals };
 }
 
+function encodeDisplayEdges(edges: CadDisplayEdge[]) {
+  let numbers = 0;
+  for (const edge of edges) {
+    if (!Array.isArray(edge?.points)) throw new Error("A display edge is missing its point list");
+    numbers += edge.points.length;
+  }
+  if (numbers > SKF_LIMITS.displayEdgeNumbers) throw new Error("Display edges are too large for a SketchForge project file");
+  const bytes = new Uint8Array(16 + edges.length * 4 + numbers * 8);
+  bytes.set(strToU8("SKFEDG1\0"), 0);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(8, edges.length, true);
+  view.setUint32(12, numbers, true);
+  let offset = 16 + edges.length * 4;
+  edges.forEach((edge, index) => {
+    view.setUint32(16 + index * 4, edge.points.length, true);
+    for (const value of edge.points) {
+      if (!Number.isFinite(value)) throw new Error("A display edge contains an invalid coordinate");
+      view.setFloat64(offset, value, true);
+      offset += 8;
+    }
+  });
+  return bytes;
+}
+
+function decodeDisplayEdges(bytes: Uint8Array): CadDisplayEdge[] {
+  if (bytes.byteLength < 16 || strFromU8(bytes.subarray(0, 8)) !== "SKFEDG1\0") {
+    throw new Error("A display edge asset has an invalid header");
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const edgeCount = view.getUint32(8, true);
+  const numbers = view.getUint32(12, true);
+  if (numbers > SKF_LIMITS.displayEdgeNumbers) throw new Error("A display edge asset exceeds the supported coordinate limit");
+  if (bytes.byteLength !== 16 + edgeCount * 4 + numbers * 8) throw new Error("A display edge asset is truncated or malformed");
+  const edges = new Array<CadDisplayEdge>(edgeCount);
+  let offset = 16 + edgeCount * 4;
+  let counted = 0;
+  for (let index = 0; index < edgeCount; index += 1) {
+    const length = view.getUint32(16 + index * 4, true);
+    counted += length;
+    if (counted > numbers) throw new Error("A display edge asset is truncated or malformed");
+    const points = new Array<number>(length);
+    for (let point = 0; point < length; point += 1) {
+      points[point] = view.getFloat64(offset, true);
+      offset += 8;
+    }
+    edges[index] = { points };
+  }
+  if (counted !== numbers) throw new Error("A display edge asset is truncated or malformed");
+  return edges;
+}
+
 function decodeDataUrl(dataUrl: string) {
   const match = dataUrl.match(/^data:([^;,]+)?(;base64)?,([\s\S]*)$/);
   if (!match) throw new Error("Embedded image has an invalid data URL");
@@ -296,21 +355,45 @@ function bytesToDataUrl(bytes: Uint8Array, mediaType: string) {
   return `data:${mediaType};base64,${globalThis.btoa(binary)}`;
 }
 
+type EncodedAssetPayload = { bytes: Uint8Array; sha256: string };
+
+// Encoding and hashing a resource is the most expensive part of an autosave, and
+// shapes keep the same immutable mesh, edge, and asset objects across every undo
+// state. Keying the result on the resource itself means an unchanged resource is
+// encoded and hashed exactly once, no matter how many states reference it or how
+// often the project is saved again.
+const encodedAssetPayloads = new WeakMap<object, Promise<EncodedAssetPayload>>();
+
+function encodedAssetPayload(resource: object, encode: () => Uint8Array) {
+  const cached = encodedAssetPayloads.get(resource);
+  if (cached) return cached;
+  const pending = (async () => {
+    try {
+      const bytes = encode();
+      return { bytes, sha256: await sha256Hex(bytes) };
+    } catch (error) {
+      encodedAssetPayloads.delete(resource);
+      throw error;
+    }
+  })();
+  encodedAssetPayloads.set(resource, pending);
+  return pending;
+}
+
 class SkfArchiveBuilder {
   readonly files: ArchiveFiles = {};
   readonly assets: SkfAssetRecordV1[] = [];
   readonly sourceIdMap = new Map<string, string>();
   private readonly recordByKindAndHash = new Map<string, SkfAssetRecordV1>();
-  private readonly derivedMeshByResource = new WeakMap<object, Promise<SkfAssetRecordV1>>();
 
-  async addAsset(
+  private registerAsset(
     kind: SkfAssetKind,
-    bytes: Uint8Array,
+    payload: EncodedAssetPayload,
     mediaType: string,
-    options: { fileName?: string; sourceFormat?: ProjectAssetSourceFormat } = {},
+    options: { fileName?: string; sourceFormat?: ProjectAssetSourceFormat },
   ) {
+    const { bytes, sha256 } = payload;
     if (bytes.byteLength > SKF_LIMITS.assetBytes) throw new Error(`${options.fileName ?? kind} exceeds the per-asset size limit`);
-    const sha256 = await sha256Hex(bytes);
     const key = `${kind}:${sha256}`;
     const existing = this.recordByKindAndHash.get(key);
     if (existing) return existing;
@@ -333,26 +416,46 @@ class SkfArchiveBuilder {
     return record;
   }
 
+  async addAsset(
+    kind: SkfAssetKind,
+    bytes: Uint8Array,
+    mediaType: string,
+    options: { fileName?: string; sourceFormat?: ProjectAssetSourceFormat } = {},
+  ) {
+    return this.registerAsset(kind, { bytes, sha256: await sha256Hex(bytes) }, mediaType, options);
+  }
+
+  private async addCachedAsset(
+    resource: object,
+    kind: SkfAssetKind,
+    encode: () => Uint8Array,
+    mediaType: string,
+    options: { fileName?: string; sourceFormat?: ProjectAssetSourceFormat } = {},
+  ) {
+    return this.registerAsset(kind, await encodedAssetPayload(resource, encode), mediaType, options);
+  }
+
   async addSources(assets: ProjectAsset[], referencedIds: Set<string>) {
-    const normalized = assets
+    const referenced = assets
       .filter((asset) => referencedIds.has(asset.id))
-      .map(normalizeProjectAsset)
       .sort((a, b) => a.id.localeCompare(b.id));
-    for (const asset of normalized) {
-      const record = await this.addAsset("source", asset.bytes, asset.mediaType, {
-        fileName: asset.name,
-        sourceFormat: asset.sourceFormat,
-      });
+    for (const asset of referenced) {
+      const options = { fileName: asset.name, sourceFormat: asset.sourceFormat };
+      const encode = () => normalizeProjectAsset(asset).bytes;
+      const source: object | null = typeof asset.bytes === "object" && asset.bytes !== null ? asset.bytes : null;
+      const record = source
+        ? await this.addCachedAsset(source, "source", encode, asset.mediaType, options)
+        : await this.addAsset("source", encode(), asset.mediaType, options);
       this.sourceIdMap.set(asset.id, record.id);
     }
   }
 
   addDerivedMesh(mesh: NonNullable<WorkplaneShape["importedMesh"]>) {
-    const cached = this.derivedMeshByResource.get(mesh);
-    if (cached) return cached;
-    const pending = this.addAsset("derived-mesh", encodeMeshCache(mesh), "application/vnd.sketchforge.mesh");
-    this.derivedMeshByResource.set(mesh, pending);
-    return pending;
+    return this.addCachedAsset(mesh, "derived-mesh", () => encodeMeshCache(mesh), "application/vnd.sketchforge.mesh");
+  }
+
+  addDisplayEdges(edges: CadDisplayEdge[]) {
+    return this.addCachedAsset(edges, "display-edges", () => encodeDisplayEdges(edges), "application/vnd.sketchforge.edges");
   }
 }
 
@@ -437,9 +540,14 @@ async function serializeShapeNode(
     cadBrep,
     imagePlate,
     sketchProfile,
+    cadDisplayEdges,
     ...baseDefinition
   } = canonicalizeShape(shape);
   const definition: Record<string, unknown> = { ...baseDefinition };
+  // Display edges are the largest part of a CAD object and stay identical across
+  // undo states, so they live in a deduplicated asset instead of in every state.
+  const cadDisplayEdgesAssetId = cadDisplayEdges?.length ? (await builder.addDisplayEdges(cadDisplayEdges)).id : undefined;
+  if (cadDisplayEdges && !cadDisplayEdges.length) definition.cadDisplayEdges = [];
 
   if (imagePlate) {
     const { dataUrl, ...plateDefinition } = imagePlate;
@@ -532,6 +640,7 @@ async function serializeShapeNode(
     ...(groupedShapeNodeIds.length ? { groupedShapeNodeIds } : {}),
     ...(serializedEdgeHistory.length ? { edgeTreatmentHistory: serializedEdgeHistory } : {}),
     ...(cadBrepAssetId ? { cadBrepAssetId } : {}),
+    ...(cadDisplayEdgesAssetId ? { cadDisplayEdgesAssetId } : {}),
   });
   return nodeId;
 }
@@ -689,8 +798,13 @@ function unzipAsync(bytes: Uint8Array) {
 export async function exportSkfProject(input: SkfProjectExportInput) {
   const hydrated = hydrateEditorHistoryState(input.shapes, input.history, input.historyIndex);
   if (hydrated.entries.length > SKF_LIMITS.states) throw new Error("Project has too many undo states for the .skf format");
-  const exportEntries = hydrated.entries.map((entry) =>
-    editorHistoryEntry(repairDuplicateGroupedObjectIds(entry.shapes), entry.selectedIds));
+  const exportEntries = hydrated.entries.map((entry) => {
+    const repaired = repairDuplicateGroupedObjectIds(entry.shapes);
+    // `hydrated` entries are already canonical and fingerprinted; only a state that
+    // needed an ID repair has to be measured again.
+    const idsWereRepaired = repaired.some((shape, index) => shape !== entry.shapes[index]);
+    return idsWereRepaired ? editorHistoryEntry(repaired, entry.selectedIds) : entry;
+  });
   const builder = new SkfArchiveBuilder();
   const stateShapes = exportEntries.map((entry) => entry.shapes);
   await builder.addSources(input.assets, referencedSourceAssetIds(stateShapes));
@@ -756,6 +870,9 @@ export async function exportSkfProject(input: SkfProjectExportInput) {
     throw new Error("Project data exceeds the 64 MB .skf limit. Export with fewer history steps or simplify the project.");
   }
   builder.files["project.json"] = projectJson;
+  if (Object.keys(builder.files).length > SKF_LIMITS.entries) {
+    throw new Error("Project has too many stored assets for the .skf format. Export with fewer history steps.");
+  }
   return zipAsync(Object.fromEntries(Object.entries(builder.files).sort(([a], [b]) => a.localeCompare(b))), input.compressionLevel);
 }
 
@@ -944,7 +1061,9 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
   if (document.formatVersion > SKF_FORMAT_VERSION) {
     throw new Error(`This project uses .skf format ${document.formatVersion}, which requires a newer SketchForge version`);
   }
-  if (document.formatVersion < SKF_FORMAT_VERSION) throw new Error(`Packaged .skf format ${document.formatVersion} requires migration support that is not available`);
+  if (document.formatVersion < SKF_OLDEST_READABLE_FORMAT_VERSION) {
+    throw new Error(`Packaged .skf format ${document.formatVersion} requires migration support that is not available`);
+  }
   if (!Number.isInteger(document.minimumReaderVersion) || document.minimumReaderVersion > SKF_FORMAT_VERSION) {
     throw new Error("This project requires a newer SketchForge reader and was not opened");
   }
@@ -963,7 +1082,7 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
     const asset = document.assets[index];
     const id = stringValue(asset?.id, `assets[${index}].id`);
     if (assetById.has(id)) throw new Error(`Duplicate asset ID '${id}'`);
-    if (!asset || !["source", "derived-mesh", "brep", "image"].includes(asset.kind)) throw new Error(`Asset '${id}' has an unknown type`);
+    if (!asset || !["source", "derived-mesh", "brep", "image", "display-edges"].includes(asset.kind)) throw new Error(`Asset '${id}' has an unknown type`);
     if (!safeArchivePath(asset.path) || assetPaths.has(asset.path)) throw new Error(`Asset '${id}' has an unsafe or duplicate path`);
     assetPaths.add(asset.path);
     const bytes = files[asset.path];
@@ -1000,6 +1119,9 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
         ["baseWidth", "baseDepth", "baseHeight", "triangleCount"].forEach((field) => finiteNumber(node.importedMesh?.[field as keyof SkfImportedMeshReferenceV1], `object '${objectId}'.${field}`));
       }
       if (node.cadBrepAssetId && assetById.get(node.cadBrepAssetId)?.kind !== "brep") throw new Error(`Object '${objectId}' has a missing exact B-Rep asset`);
+      if (node.cadDisplayEdgesAssetId && assetById.get(node.cadDisplayEdgesAssetId)?.kind !== "display-edges") {
+        throw new Error(`Object '${objectId}' has a missing display edge asset`);
+      }
       nodeById.set(nodeId, node);
     });
     const roots = stringArray(state.rootNodeIds, `state '${stateId}'.rootNodeIds`);
@@ -1069,6 +1191,7 @@ async function restoreShapeFromNode(
   runtimeAssetByArchiveId: Map<string, ProjectAsset>,
   sourceMeshCache: Map<string, Promise<NonNullable<WorkplaneShape["importedMesh"]>>>,
   derivedMeshCache: Map<string, ReturnType<typeof decodeMeshCache>>,
+  displayEdgeCache: Map<string, CadDisplayEdge[]>,
   sourceImporter: SkfSourceImporter,
   restoring = new Set<string>(),
 ): Promise<WorkplaneShape> {
@@ -1095,6 +1218,19 @@ async function restoreShapeFromNode(
         return { ...rest, dataUrl: bytesToDataUrl(files[record.path], record.mediaType) };
       }),
     };
+  }
+
+  if (node.cadDisplayEdgesAssetId) {
+    const edgeRecord = assetById.get(node.cadDisplayEdgesAssetId);
+    if (!edgeRecord) throw new Error(`Object '${node.objectId}' is missing its display edges`);
+    let edges = displayEdgeCache.get(edgeRecord.id);
+    if (!edges) {
+      edges = decodeDisplayEdges(files[edgeRecord.path]);
+      displayEdgeCache.set(edgeRecord.id, edges);
+    }
+    // Every state that references the asset shares one immutable edge list, which
+    // keeps restored history cheap in memory and in later autosaves.
+    definition.cadDisplayEdges = edges;
   }
 
   let importedMesh: WorkplaneShape["importedMesh"];
@@ -1129,14 +1265,14 @@ async function restoreShapeFromNode(
   }
 
   const groupedShapes = node.groupedShapeNodeIds?.length
-    ? await Promise.all(node.groupedShapeNodeIds.map((childId) => restoreShapeFromNode(childId, nodeById, assetById, files, runtimeAssetByArchiveId, sourceMeshCache, derivedMeshCache, sourceImporter, new Set(restoring))))
+    ? await Promise.all(node.groupedShapeNodeIds.map((childId) => restoreShapeFromNode(childId, nodeById, assetById, files, runtimeAssetByArchiveId, sourceMeshCache, derivedMeshCache, displayEdgeCache, sourceImporter, new Set(restoring))))
     : undefined;
   const edgeTreatmentHistory = node.edgeTreatmentHistory?.length
     ? await Promise.all(node.edgeTreatmentHistory.map(async (entry) => ({
         id: entry.id,
         createdAt: entry.createdAt,
         feature: entry.feature as NonNullable<WorkplaneShape["edgeTreatmentHistory"]>[number]["feature"],
-        before: await restoreShapeFromNode(entry.beforeNodeId, nodeById, assetById, files, runtimeAssetByArchiveId, sourceMeshCache, derivedMeshCache, sourceImporter, new Set(restoring)),
+        before: await restoreShapeFromNode(entry.beforeNodeId, nodeById, assetById, files, runtimeAssetByArchiveId, sourceMeshCache, derivedMeshCache, displayEdgeCache, sourceImporter, new Set(restoring)),
         ...(entry.appliedFrame ? { appliedFrame: entry.appliedFrame as NonNullable<WorkplaneShape["edgeTreatmentHistory"]>[number]["appliedFrame"] } : {}),
       })))
     : undefined;
@@ -1168,6 +1304,7 @@ async function restoreV1(document: SkfProjectDocumentV1, assetById: Map<string, 
   }
   const sourceMeshCache = new Map<string, Promise<NonNullable<WorkplaneShape["importedMesh"]>>>();
   const derivedMeshCache = new Map<string, ReturnType<typeof decodeMeshCache>>();
+  const displayEdgeCache = new Map<string, CadDisplayEdge[]>();
   const sourceImporter = options.sourceImporter ?? defaultSourceImporter;
   const restoredStates = new Map<string, WorkplaneShape[]>();
   for (const state of document.states) {
@@ -1180,6 +1317,7 @@ async function restoreV1(document: SkfProjectDocumentV1, assetById: Map<string, 
       runtimeAssetByArchiveId,
       sourceMeshCache,
       derivedMeshCache,
+      displayEdgeCache,
       sourceImporter,
     )));
     restoredStates.set(state.id, shapes);
@@ -1202,6 +1340,7 @@ async function restoreV1(document: SkfProjectDocumentV1, assetById: Map<string, 
     placementElevation: document.editor.placementElevation,
     placementWorkplane: normalizePlacementWorkplane(document.editor.placementWorkplane, document.editor.placementElevation),
     sketchPlacementWorkplane: normalizePlacementWorkplane(document.editor.sketchPlacementWorkplane),
+    ...(document.formatVersion < SKF_FORMAT_VERSION ? { migratedFromVersion: document.formatVersion } : {}),
   } satisfies SkfRestoredProject;
 }
 

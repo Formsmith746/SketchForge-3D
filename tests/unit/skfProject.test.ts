@@ -15,7 +15,7 @@ import {
   type SkfProjectExportInput,
 } from "@/lib/skfProject";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
-import type { ShapeKind, WorkplaneShape } from "@/types/sketchforge";
+import type { CadDisplayEdge, ShapeKind, WorkplaneShape } from "@/types/sketchforge";
 
 function shape(kind: ShapeKind, id = `${kind}-1`, overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
   return {
@@ -37,6 +37,12 @@ function shape(kind: ShapeKind, id = `${kind}-1`, overrides: Partial<WorkplaneSh
     hidden: false,
     ...overrides,
   };
+}
+
+function displayEdges(count: number): CadDisplayEdge[] {
+  return Array.from({ length: count }, (_unused, index) => ({
+    points: [index, 0, 0, index, 5, 0, index, 5, 5],
+  }));
 }
 
 function input(shapes: WorkplaneShape[], overrides: Partial<SkfProjectExportInput> = {}): SkfProjectExportInput {
@@ -541,5 +547,77 @@ describe("SketchForge .skf project packages", () => {
     const asset = document.assets.find((entry) => entry.kind === "derived-mesh")!;
     files[asset.path][20] ^= 0xff;
     await expect(importSkfProject(zipSync(files))).rejects.toThrow("integrity check");
+  });
+
+  it("stores display edges once instead of repeating them in every undo state", async () => {
+    const edges = displayEdges(4);
+    const placed = shape("box", "cad-box", { cadDisplayEdges: edges, cadDisplayEdgesVersion: 2 });
+    const moved = { ...placed, x: placed.x + 5 };
+    const movedAgain = { ...moved, x: moved.x + 5 };
+    const history = [placed, moved, movedAgain].map((state) => editorHistoryEntry([state], []));
+
+    const exported = await exportSkfProject(input([movedAgain], { history, historyIndex: 2 }));
+    const { document } = packageDocument(exported);
+    const edgeAssets = document.assets.filter((entry) => entry.kind === "display-edges");
+
+    expect(document.states).toHaveLength(3);
+    expect(edgeAssets).toHaveLength(1);
+    document.states.forEach((state) => state.nodes.forEach((node) => {
+      expect(node.definition.cadDisplayEdges).toBeUndefined();
+      expect(node.cadDisplayEdgesAssetId).toBe(edgeAssets[0].id);
+    }));
+
+    const restored = await importSkfProject(exported);
+    expect(restored.shapes[0].cadDisplayEdges).toEqual(edges);
+    expect(restored.shapes[0].cadDisplayEdgesVersion).toBe(2);
+    expect(restored.history).toHaveLength(3);
+    restored.history.forEach((entry) => {
+      expect(entry.shapes[0].cadDisplayEdges).toBe(restored.shapes[0].cadDisplayEdges);
+    });
+  });
+
+  it("keeps an empty display edge list inline and restores it unchanged", async () => {
+    const exported = await exportSkfProject(input([shape("box", "cad-box", { cadDisplayEdges: [], cadDisplayEdgesVersion: 2 })]));
+    const { document } = packageDocument(exported);
+
+    expect(document.assets.filter((entry) => entry.kind === "display-edges")).toHaveLength(0);
+    expect((await importSkfProject(exported)).shapes[0].cadDisplayEdges).toEqual([]);
+  });
+
+  it("encodes and hashes unchanged resources only once across repeated saves", async () => {
+    const project = input([shape("box", "cad-box", { cadDisplayEdges: displayEdges(6), cadDisplayEdgesVersion: 2 })], {
+      assets: [await projectAssetFromBytes("cube.stl", "stl", strToU8("solid cube\nendsolid cube\n"))],
+    });
+    const meshed = shape("mesh", "baked", {
+      importedMesh: {
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        baseWidth: 1,
+        baseDepth: 1,
+        baseHeight: 1,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+    });
+    const shapes = [...project.shapes, meshed];
+    const repeated = { ...project, shapes, history: [editorHistoryEntry(shapes, [])], historyIndex: 0 };
+
+    const first = await exportSkfProject(repeated);
+    const digest = vi.spyOn(globalThis.crypto.subtle, "digest");
+    try {
+      const second = await exportSkfProject(repeated);
+      expect(digest).not.toHaveBeenCalled();
+      expect(strFromU8(packageDocument(second).files["project.json"])).toBe(strFromU8(packageDocument(first).files["project.json"]));
+    } finally {
+      digest.mockRestore();
+    }
+  });
+
+  it("rejects a display edge reference that does not resolve to an edge asset", async () => {
+    const exported = await exportSkfProject(input([shape("box", "cad-box", { cadDisplayEdges: displayEdges(3), cadDisplayEdgesVersion: 2 })]));
+    const broken = mutateProject(exported, (document) => {
+      document.states[0].nodes[0].cadDisplayEdgesAssetId = "display-edges-missing";
+    });
+
+    await expect(importSkfProject(broken)).rejects.toThrow("missing display edge asset");
   });
 });

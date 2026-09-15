@@ -8,7 +8,7 @@ SketchForge uses a packaged container (format option B). A `.skf` file is a ZIP 
 
 This was selected over pure JSON because imported STL/STEP data and exact B-Rep can be large, Base64 would add size and parsing overhead, and an archive lets SketchForge validate and hash each asset independently. The editable model is still JSON and can be inspected by opening `project.json` from the package.
 
-## Version 1 layout
+## Version 2 layout
 
 ```text
 project.skf
@@ -17,6 +17,7 @@ project.skf
     ├── source/          Original imported STL, SVG, or STEP files
     ├── derived-mesh/    Exact caches for baked operations or legacy imports
     ├── brep/            Exact STEP/B-Rep payloads
+    ├── display-edges/   Deduplicated display-edge polylines of CAD objects
     └── image/           Deduplicated sketch/reference images
 ```
 
@@ -35,6 +36,8 @@ project.skf
 - `editor`: workspace dimensions, units, snap grid, and selected workplane elevation
 
 Object nodes keep stable SketchForge object IDs. Groups refer to child node IDs instead of array positions. Fillet/chamfer history refers to explicit “before” nodes. Feature dependencies are explicit and checked for cycles.
+
+Large object data lives in `assets/` and is referenced by content hash, never repeated per state. Imported and baked meshes use `importedMesh.meshAssetId`, exact CAD uses `cadBrepAssetId`, and the display edges of a CAD object use `cadDisplayEdgesAssetId` (`SKFEDG1` little-endian binary: an 8-byte magic, the edge count, the total coordinate count, one 32-bit length per edge, then the coordinates as doubles). Undo states that share an object therefore share one stored copy of its geometry, which keeps autosave proportional to what actually changed rather than to the whole history.
 
 ## What is preserved
 
@@ -59,7 +62,7 @@ Current safety limits are 512 MB compressed, 1 GB expanded, 256 MB per asset, 64
 
 ## Compatibility and migrations
 
-The current format is version 1. Readers refuse a higher `formatVersion` or `minimumReaderVersion` instead of partially loading it. The importer also contains an explicit migration for the documented version 0 pure-JSON prototype and preserves its object IDs and valid history.
+The current format is version 2. Readers refuse a higher `formatVersion` or `minimumReaderVersion` instead of partially loading it. Version 2 moves display edges out of every state into deduplicated `display-edges` assets; version 1 packages are still opened, and their inline `definition.cadDisplayEdges` is read as written. The importer also contains an explicit migration for the documented version 0 pure-JSON prototype and preserves its object IDs and valid history. SketchForge 1.0.9 and older refuse a version 2 package, so a project shared with an older installation has to be exported from that older installation.
 
 Future schema changes should add a version-to-version migration, run validation after every migration, and never mutate the user's original file.
 
