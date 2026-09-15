@@ -182,3 +182,18 @@ export function ToolbarWorkplaneIcon() {
 export function ToolbarDropToWorkplaneIcon() {
   return <ToolbarCommandImage file="toolbar-drop-workplane.png" className="toolbar-user-art-icon" />;
 }
+
+export function ToolbarCenterOnWorkplaneIcon({ className, ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      aria-hidden="true"
+      className={["toolbar-vector-art-icon", className].filter(Boolean).join(" ")}
+      {...props}
+    >
+      <rect x="5" y="5" width="38" height="38" rx="3.5" fill="#efeded" stroke="currentColor" strokeWidth="2.6" />
+      <rect x="18" y="18" width="12" height="12" rx="1.5" fill="#d0cdcd" stroke="currentColor" strokeWidth="2.4" />
+      <path d="M20 8.5h8L24 14Z M20 39.5h8L24 34Z M8.5 20v8L14 24Z M39.5 20v8L34 24Z" fill="currentColor" />
+    </svg>
+  );
+}

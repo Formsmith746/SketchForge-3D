@@ -2426,12 +2426,23 @@ button {
   height: 34px;
 }
 
-.toolbar-icon.disabled .toolbar-command-icon {
+/* Drawn toolbar art carries its own colour, so a vector icon next to it has to
+   stay just as solid instead of inheriting the muted button colour, which reads
+   as a disabled control. */
+.toolbar-icon .toolbar-vector-art-icon {
+  color: #241f20;
+  opacity: 0.96;
+  transition: filter 120ms ease, opacity 120ms ease, color 120ms ease;
+}
+
+.toolbar-icon.disabled .toolbar-command-icon,
+.toolbar-icon.disabled .toolbar-vector-art-icon {
   filter: grayscale(1) brightness(1.25);
   opacity: 0.22;
 }
 
-.toolbar-icon:not(.disabled):hover .toolbar-command-icon {
+.toolbar-icon:not(.disabled):hover .toolbar-command-icon,
+.toolbar-icon:not(.disabled):hover .toolbar-vector-art-icon {
   filter: contrast(1.08) brightness(0.94) drop-shadow(0 0 4px rgba(0, 156, 222, 0.3));
   opacity: 1;
 }
@@ -7735,6 +7746,7 @@ html[data-theme="dark"] .sketch-create-dropdown span {
 }
 
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-command-icon,
+html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-vector-art-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-user-art-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .vector-toolbar-sprite-icon,
@@ -7745,6 +7757,7 @@ html[data-theme="dark"] .action-buttons button .vector-toolbar-sprite-icon {
 }
 
 html[data-theme="dark"] .toolbar-icon.disabled .toolbar-command-icon,
+html[data-theme="dark"] .toolbar-icon.disabled .toolbar-vector-art-icon,
 html[data-theme="dark"] .toolbar-icon.disabled .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon.disabled .vector-toolbar-sprite-icon {
   filter: grayscale(1) brightness(1.4);
@@ -7752,6 +7765,7 @@ html[data-theme="dark"] .toolbar-icon.disabled .vector-toolbar-sprite-icon {
 }
 
 html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .toolbar-command-icon,
+html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .toolbar-vector-art-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .vector-toolbar-sprite-icon,
 html[data-theme="dark"] .shape-menu-trigger:hover .vector-toolbar-sprite-icon {
