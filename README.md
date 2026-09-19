@@ -65,6 +65,47 @@ There are two common ways to run SketchForge. If you are not sure which one to c
 
 SketchForge is local-first in both modes. The app files may be served from a computer or server, but projects stay in each user's browser storage. STL and OBJ exports download through the user's browser. SketchForge does not upload models to a SketchForge cloud service.
 
+## Linux Desktop Release
+
+GitHub releases include a Linux AppImage for 64-bit Intel and AMD machines (`x86_64`). An AppImage is a single file that runs without installation.
+
+1. Download `SketchForge-<version>-x86_64.AppImage`.
+2. Mark it executable.
+3. Run it.
+
+```bash
+chmod +x SketchForge-*-x86_64.AppImage
+./SketchForge-*-x86_64.AppImage
+```
+
+To get a menu entry and an icon, install [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) and open the AppImage once. AppImageLauncher moves the file to a fixed location and registers it with the desktop.
+
+Closing the SketchForge window quits the application. On desktops that provide a system tray, SketchForge also adds a tray icon while it runs.
+
+### Ubuntu 24.04 and Debian 13
+
+These releases restrict unprivileged user namespaces, which the Chromium sandbox inside Electron needs. Starting the AppImage from a terminal then fails, often without a visible error. Check whether the restriction is active:
+
+```bash
+sysctl kernel.apparmor_restrict_unprivileged_userns
+```
+
+If the value is `1`, start SketchForge from the application menu. The bundled launcher entry already handles this case. To start it from a terminal on these systems, either add an AppArmor profile for the AppImage, or pass `--no-sandbox`:
+
+```bash
+./SketchForge-*-x86_64.AppImage --no-sandbox
+```
+
+### Linux Virtual Machines
+
+Some virtual machines do not provide hardware WebGL. Launch SketchForge with software WebGL in that case:
+
+```bash
+./SketchForge-*-x86_64.AppImage \
+  --use-angle=swiftshader \
+  --enable-unsafe-swiftshader
+```
+
 ## macOS Desktop Release
 
 GitHub releases include macOS DMG files for Intel (`x64`) and Apple Silicon (`arm64`) Macs. Choose the file that matches your Mac.

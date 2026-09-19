@@ -10,6 +10,8 @@ const devUrl = process.env.SKETCHFORGE_DESKTOP_DEV_URL?.trim() || "";
 // vanish after every restart.
 const DESKTOP_PORT = Number.parseInt(process.env.SKETCHFORGE_DESKTOP_PORT || "62158", 10);
 
+const isLinux = process.platform === "linux";
+
 let mainWindow = null;
 let tray = null;
 let webServer = null;
@@ -256,8 +258,17 @@ function setupDesktopUpdater() {
 function createTray() {
   if (tray) return;
 
-  const icon = nativeImage.createFromPath(appIconPath()).resize({ width: 20, height: 20 });
-  tray = new Tray(icon);
+  let icon;
+  try {
+    icon = nativeImage.createFromPath(appIconPath()).resize({ width: 20, height: 20 });
+    tray = new Tray(icon);
+  } catch (error) {
+    // Several Linux desktops ship no StatusNotifier host, so the tray is a
+    // bonus rather than a requirement. Never let it block startup.
+    console.warn(`SketchForge could not create a tray icon: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+
   tray.setToolTip("SketchForge");
   tray.setContextMenu(Menu.buildFromTemplate([
     {
@@ -338,6 +349,10 @@ function createMainWindow(url) {
 
   mainWindow.on("close", (event) => {
     if (isQuitting) return;
+    // Hiding to the tray is only safe where a tray is dependable. GNOME has no
+    // StatusNotifier host without an extension, so a hidden window would leave
+    // SketchForge running with no way to reopen or quit it.
+    if (isLinux) return;
     event.preventDefault();
     mainWindow?.hide();
   });
@@ -398,4 +413,7 @@ app.on("before-quit", () => {
 app.on("window-all-closed", () => {
   // Keep SketchForge available from the system tray. Use Quit SketchForge
   // from the tray menu when the user wants to fully stop the application.
+  // Linux desktops cannot rely on a tray, and closing the last window is the
+  // expected way to quit there, so honour that instead.
+  if (isLinux) app.quit();
 });
