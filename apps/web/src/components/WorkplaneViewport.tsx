@@ -44,7 +44,7 @@ import {
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
-import { interiorWorkplaneGridCoordinates, workplaneThemePalette, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
+import { interiorWorkplaneGridCoordinates, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LABEL_TEXT, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, fallbackSolidColor, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { SketchForgeMcpViewFace } from "@/lib/sketchforgeMcpProtocol";
@@ -5607,14 +5607,25 @@ function rebuildWorkplane(
     surface.receiveShadow = workspace.showShadows && !muted;
     group.add(surface);
 
+    const lineColor = muted ? theme === "dark" ? "#76828a" : "#99a3aa" : workspace.gridColor;
     if (workspace.showGrid) {
       group.add(createGridLines(
         workspace.width,
         workspace.depth,
         workspace.gridBlockSize,
         theme,
-        muted ? theme === "dark" ? "#76828a" : "#99a3aa" : workspace.gridColor,
+        lineColor,
       ));
+    }
+    const labelPalette = workplaneGridPalette(theme, lineColor).major;
+    const label = createWorkplaneLabel(
+      workspace.width,
+      workspace.depth,
+      labelPalette.color,
+      muted ? labelPalette.opacity * 0.5 : labelPalette.opacity,
+    );
+    if (label) {
+      group.add(label);
     }
     if (showMarker) {
       const markerMaterial = new THREE.MeshBasicMaterial({
@@ -5739,6 +5750,64 @@ function syncWorkplaneHoverPreview(
   setObjectRenderLayer(layer, RENDER_LAYER_PREVIEWS);
   layer.updateMatrixWorld(true);
   state.needsRender = true;
+}
+
+const WORKPLANE_LABEL_TEXTURE_WIDTH = 1024;
+const WORKPLANE_LABEL_FONT_STACK = '"Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif';
+
+/**
+ * Flat label along the near edge of a workplane, so its orientation is
+ * readable at a glance instead of having to be inferred from the axis lines.
+ *
+ * Drawn into a canvas rather than built from glyph geometry: it is a single
+ * static string that never needs to be a solid, and a texture costs one quad.
+ */
+function createWorkplaneLabel(width: number, depth: number, color: string, opacity: number) {
+  const layout = workplaneLabelLayout(width, depth);
+  if (layout.width <= 0 || layout.height <= 0) {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = WORKPLANE_LABEL_TEXTURE_WIDTH;
+  canvas.height = Math.round(WORKPLANE_LABEL_TEXTURE_WIDTH / WORKPLANE_LABEL_ASPECT);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = color;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = `600 ${Math.round(canvas.height * 0.68)}px ${WORKPLANE_LABEL_FONT_STACK}`;
+  context.fillText(WORKPLANE_LABEL_TEXT, canvas.width / 2, canvas.height / 2, canvas.width * 0.94);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(layout.width, layout.height),
+    new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity,
+      // Sits on the plane it belongs to, but must never hide a model standing
+      // on that plane, so it writes no depth and still tests against it.
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  );
+  label.name = "WorkplaneLabel";
+  // Lies flat, reading along +x with its top towards the far edge, which is
+  // upright from the default camera, and tucked into the near left corner.
+  label.rotation.x = -Math.PI / 2;
+  label.position.set(layout.lateralOffset, WORKPLANE_LINE_ELEVATION + 0.01, layout.depthOffset);
+  label.renderOrder = 2;
+  return label;
 }
 
 function createGridLines(
