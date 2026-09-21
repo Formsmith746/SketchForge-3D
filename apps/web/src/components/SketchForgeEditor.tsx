@@ -24,6 +24,7 @@ import { createGearGeometry } from "@/lib/gearGeometry";
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import {
   ToolbarAlignIcon,
+  ToolbarCenterOnWorkplaneIcon,
   ToolbarChamferIcon,
   ToolbarCaretDownIcon,
   ToolbarCopyIcon,
@@ -71,6 +72,7 @@ import {
   withHoleMode,
   workplaneShapesEqual,
 } from "@/lib/workplaneShapes";
+import { workplaneCenteringOffset } from "@/lib/workplaneCentering";
 import { bakeCadMetadataForShapeTransform, cadBrepTransformForShape, cadModifierPrimitiveForAnalyticBox, cadModifierPrimitiveForBakedShape } from "@/lib/cadBakeMetadata";
 import { hasOneToOneCadComponentMapping } from "@/lib/cadModifierGroups";
 import {
@@ -7835,6 +7837,40 @@ export function SketchForgeEditor({
     );
   }, [commitShapes, hasSelection, placementWorkplane, selectedIds, shapes]);
 
+  const centerSelectionOnWorkplane = useCallback(() => {
+    if (!hasSelection) {
+      setNotice("Select a shape first");
+      return;
+    }
+    const selected = new Set(selectedIds);
+    // Locked objects stay where they are, so they must not widen the bounding box
+    // either - otherwise the objects that do move end up off-center.
+    const movable = shapes.filter((shape) => selected.has(shape.id) && !shape.locked);
+    if (movable.length === 0) {
+      setNotice("Unlock the selection before centering it");
+      return;
+    }
+    const offset = workplaneCenteringOffset(boundsForShapes(movable));
+    if (!offset) {
+      setNotice("Selection has no measurable geometry to center");
+      return;
+    }
+    const offsetX = cleanNearZero(offset.x);
+    const offsetZ = cleanNearZero(offset.z);
+    if (offsetX === 0 && offsetZ === 0) {
+      setNotice("Selection is already centered on the workplane");
+      return;
+    }
+    const movableIds = new Set(movable.map((shape) => shape.id));
+    commitShapes(
+      shapes.map((shape) => (movableIds.has(shape.id)
+        ? { ...shape, x: cleanNearZero(shape.x + offsetX), z: cleanNearZero(shape.z + offsetZ) }
+        : shape)),
+      selectedIds,
+      movable.length === 1 ? "Centered selection on the workplane" : `Centered ${movable.length} objects on the workplane`,
+    );
+  }, [commitShapes, hasSelection, selectedIds, shapes]);
+
   const activateWorkplaneTool = useCallback(() => {
     setWorkplaneMode((active) => {
       const next = !active;
@@ -9160,6 +9196,7 @@ export function SketchForgeEditor({
         onCopy={copySelected}
         onDelete={deleteSelected}
         onDuplicate={duplicateSelected}
+        onCenterOnWorkplane={centerSelectionOnWorkplane}
         onDropToWorkplane={dropSelectedToWorkplane}
         onGroup={groupSelected}
         onIntersect={intersectSelected}
@@ -9465,6 +9502,7 @@ function SecondaryToolbar({
   onCopy,
   onDelete,
   onDuplicate,
+  onCenterOnWorkplane,
   onDropToWorkplane,
   onGroup,
   onIntersect,
@@ -9520,6 +9558,7 @@ function SecondaryToolbar({
   onCopy: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onCenterOnWorkplane: () => void;
   onDropToWorkplane: () => void;
   onGroup: () => void;
   onIntersect: () => void;
@@ -9701,6 +9740,7 @@ function SecondaryToolbar({
   ];
   const arrangeTools = [
     { label: "Drop to workplane", icon: ToolbarDropToWorkplaneIcon, action: onDropToWorkplane, enabled: hasSelection },
+    { label: "Center on workplane", icon: ToolbarCenterOnWorkplaneIcon, action: onCenterOnWorkplane, enabled: hasSelection },
   ];
   const renderToolButton = (tool: (typeof leftTools)[number] | (typeof visibilityTools)[number] | (typeof combineTools)[number] | (typeof modifyTools)[number] | (typeof arrangeTools)[number]) => {
     const { icon: Icon, action, enabled, label } = tool;
