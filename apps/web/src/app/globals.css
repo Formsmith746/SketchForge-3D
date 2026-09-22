@@ -2115,14 +2115,23 @@ button {
   opacity: 1;
 }
 
-.toolbar-workspace-tabs {
+.toolbar-title-row {
   position: absolute;
   top: 0;
-  left: 10px;
+  right: 0;
+  left: 0;
   z-index: 2;
   display: flex;
-  width: max-content;
   height: calc(var(--editor-toolbar-height) - var(--editor-toolbar-tools-height));
+  align-items: stretch;
+}
+
+.toolbar-workspace-tabs {
+  display: flex;
+  width: max-content;
+  height: 100%;
+  margin-left: 10px;
+  flex: 0 0 auto;
   align-items: stretch;
 }
 
@@ -2290,17 +2299,17 @@ button {
 
 .toolbar-project-name {
   display: flex;
-  min-width: 220px;
-  height: var(--editor-toolbar-tools-height);
-  padding: 0 28px;
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  padding: 0 16px 7px;
   align-items: center;
   justify-content: center;
 }
 
 .toolbar-project-name-field {
   display: flex;
-  width: min(420px, 100%);
-  height: 100%;
+  width: min(360px, 100%);
   padding: 0;
   align-items: center;
   justify-content: center;
@@ -2311,16 +2320,21 @@ button {
 .toolbar-project-name-field input {
   min-width: 0;
   width: 100%;
-  height: 58px;
-  padding: 6px 10px 0;
+  height: 22px;
+  padding: 0 10px 2px;
   color: #294a63;
-  font: 500 22px/1.1 Arial, Helvetica, sans-serif;
+  font: 600 14px/1.1 Arial, Helvetica, sans-serif;
   text-align: center;
   text-overflow: ellipsis;
   background: transparent;
   border: 0;
   border-bottom: 1px solid rgba(96, 117, 137, 0.28);
   outline: 0;
+}
+
+.toolbar-project-name-field:hover input,
+.toolbar-project-name-field input:focus {
+  border-bottom-color: #159fd0;
 }
 
 .toolbar-icon {
@@ -7230,6 +7244,11 @@ html[data-theme="dark"] .toolbar-project-name-field {
 html[data-theme="dark"] .toolbar-project-name-field input {
   color: #e0edf5;
   border-bottom-color: rgba(183, 207, 222, 0.25);
+}
+
+html[data-theme="dark"] .toolbar-project-name-field:hover input,
+html[data-theme="dark"] .toolbar-project-name-field input:focus {
+  border-bottom-color: #42c7eb;
 }
 
 html[data-theme="dark"] .editor-nav-group,
