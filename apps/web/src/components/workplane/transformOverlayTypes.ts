@@ -71,6 +71,38 @@ export function transformOverlayScreenPoint(
 export const ROTATION_WHEEL_SNAP_DEGREES = 45;
 export const ROTATION_WHEEL_SHIFT_SNAP_DEGREES = 22.5;
 
+/**
+ * Smallest screen distance between a measured edge and its dimension label.
+ *
+ * Rotate handles sit up to 28px outside the silhouette and their hit area
+ * reaches 20px further, so a label centre closer than 28 + 20 + half a label
+ * (13px) lands under one. Labels are placed at a fixed *world* offset, which
+ * shrinks to nothing as you zoom out, so that distance has to be enforced in
+ * screen space instead.
+ */
+export const DIMENSION_LABEL_MIN_SCREEN_OFFSET = 62;
+
+/**
+ * Extra screen-space offset that lifts a whole dimension mark — rail,
+ * extension lines and label together — off the selection when the projected
+ * world offset alone would leave it too close. Returns a zero push once the
+ * mark already clears `minOffset`, so zoomed-in views are untouched.
+ */
+export function dimensionMarkScreenPush(
+  edgeMidpoint: TransformOverlayPoint,
+  labelPoint: TransformOverlayPoint,
+  minOffset = DIMENSION_LABEL_MIN_SCREEN_OFFSET,
+): TransformOverlayPoint {
+  const dx = labelPoint.x - edgeMidpoint.x;
+  const dy = labelPoint.y - edgeMidpoint.y;
+  const distance = Math.hypot(dx, dy);
+  if (!Number.isFinite(distance) || distance < 0.001 || distance >= minOffset) {
+    return { x: 0, y: 0 };
+  }
+  const scale = (minOffset - distance) / distance;
+  return { x: dx * scale, y: dy * scale };
+}
+
 type RotationDirectionVector = { x: number; y: number; z: number };
 
 export function rotationPlaneDirectionSign(
