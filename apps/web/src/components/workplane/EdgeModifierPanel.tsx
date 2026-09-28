@@ -6,6 +6,7 @@ import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumb
 import type { CadModifierKind, CadModifierQuality } from "@/lib/cadModifierTypes";
 import { CAD_MODIFIER_MAX_SHARP_ANGLE, edgeModifierSelectionStatus } from "@/lib/cadModifierRuntime";
 import type { WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import {useTranslation} from "react-i18next";
 
 const MIN_EDGE_MODIFIER_AMOUNT = 0.001;
 const EDGE_MODIFIER_AMOUNT_STEP = 0.001;
@@ -82,11 +83,12 @@ function EdgeModifierSlider({
     onChange(clamp(toModelValue(next), safeMin, safeMax));
     setDraft(formatSliderValue(next, workspace.accuracy, controlStep));
   };
+  const { t } = useTranslation();
 
   return (
     <label className="edge-modifier-field edge-modifier-slider range-property" style={{ "--slider-pos": `${position}%` } as CSSProperties}>
       <span className="range-property-header">
-        <span className="range-property-name">{label}</span>
+        <span className="range-property-name">{t(label)}</span>
         <span className="range-value-control">
           <input
             type="text"
@@ -197,11 +199,13 @@ export function EdgeModifierPanel({
   const title = kind === "fillet" ? "Fillet edges" : "Chamfer edges";
   const amountMin = Math.min(MIN_EDGE_MODIFIER_AMOUNT, Math.max(Number.EPSILON, maxAmount));
   const amountMax = Math.max(amountMin, maxAmount);
+
+  const { t } = useTranslation();
   return (
     <aside className="edge-modifier-panel" aria-label={title}>
       <div className="edge-modifier-header">
         <div>
-          <strong>{title}</strong>
+          <strong>{t(title)}</strong>
           <span>{edgeModifierSelectionStatus(prepared, selectedCount, availableCount)}</span>
         </div>
         <button type="button" aria-label={`Cancel ${kind}`} onClick={onCancel}><X size={20} /></button>
@@ -213,12 +217,12 @@ export function EdgeModifierPanel({
       </div>
 
       <div className="edge-modifier-selection-help">
-        {prepared ? "Click highlighted model edges to toggle them. Hold Shift to add or remove a single edge." : "Loading CAD edge data from the local browser worker."}
+        {t(prepared ? "Click highlighted model edges to toggle them. Hold Shift to add or remove a single edge." : "Loading CAD edge data from the local browser worker.")}
       </div>
 
       <div className="edge-modifier-quick-actions">
-        <button type="button" disabled={!prepared || busy} onClick={onSelectAll}>All sharp edges</button>
-        <button type="button" disabled={!prepared || busy} onClick={onClear}>Clear</button>
+        <button type="button" disabled={!prepared || busy} onClick={onSelectAll}>{t("All sharp edges")}</button>
+        <button type="button" disabled={!prepared || busy} onClick={onClear}>{t("Clear")}</button>
       </div>
 
       {appliedFeatureCount > 0 ? (
@@ -271,29 +275,29 @@ export function EdgeModifierPanel({
 
       <label className="edge-modifier-check">
         <input type="checkbox" checked={tangentChain} disabled={!prepared || busy} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
-        <span>Select tangent chains</span>
+        <span>{t("Select tangent chains")}</span>
       </label>
 
       <label className="edge-modifier-check">
         <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared || busy} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
-        <span>Keep edge size when resizing</span>
+        <span>{t("Keep edge size when resizing")}</span>
       </label>
 
       <label className="edge-modifier-field">
-        <span>Preview quality</span>
+        <span>{t("Preview quality")}</span>
         <select value={quality} disabled={!prepared || busy} onChange={(event) => onQualityChange(event.currentTarget.value as CadModifierQuality)}>
-          <option value="draft">Draft</option>
-          <option value="standard">Standard</option>
-          <option value="fine">Fine</option>
+          <option value="draft">{t("Draft")}</option>
+          <option value="standard">{t("Standard")}</option>
+          <option value="fine">{t("Fine")}</option>
         </select>
       </label>
 
       {error ? <div className="edge-modifier-error" role="alert">{error}</div> : null}
       <div className="edge-modifier-footer">
-        <button type="button" className="secondary" onClick={onCancel}>Cancel</button>
+        <button type="button" className="secondary" onClick={onCancel}>{t("Cancel")}</button>
         <button type="button" className="primary" disabled={!prepared || busy || selectedCount === 0 || Boolean(error)} onClick={onApply}>
           {busy ? <LoaderCircle className="edge-modifier-spinner" size={17} /> : <Check size={17} />}
-          Apply
+          {t("Apply")}
         </button>
       </div>
     </aside>

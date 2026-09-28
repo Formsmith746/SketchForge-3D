@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
+
 import { ChevronLeft, ChevronRight, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Ruler, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
 import * as THREE from "three";
@@ -2392,6 +2394,8 @@ export function WorkplaneViewport({
   resolvedTheme = "light",
   onThemePreferenceChange,
 }: WorkplaneViewportProps) {
+  const { t } = useTranslation();
+
   const [snapOpen, setSnapOpen] = useState(false);
   const [snap, setSnap] = useState<GridSize>(() => normalizeSnapGrid(initialSnap, DEFAULT_SNAP_GRID));
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -5045,12 +5049,12 @@ export function WorkplaneViewport({
     <main className={`workplane-stage ${challengeTutorial ? `key-tag-tutorial-active ${challengeTutorialCollapsed ? "key-tag-tutorial-collapsed" : ""}` : ""}`}>
       <div className="view-cube" aria-label="View orientation cube" onPointerDown={(event) => event.stopPropagation()}>
         <div className="view-cube-inner" ref={viewCubeRef}>
-          <button type="button" className="cube-face cube-top" aria-label="Bottom view" aria-keyshortcuts="6" title="Bottom view (6)" onClick={() => setViewCubeFace("bottom")}>BOTTOM</button>
-          <button type="button" className="cube-face cube-bottom" aria-label="Top view" aria-keyshortcuts="5" title="Top view (5)" onClick={() => setViewCubeFace("top")}>TOP</button>
-          <button type="button" className="cube-face cube-front" aria-label="Front view" aria-keyshortcuts="1" title="Front view (1)" onClick={() => setViewCubeFace("front")}>FRONT</button>
-          <button type="button" className="cube-face cube-back" aria-label="Back view" aria-keyshortcuts="2" title="Back view (2)" onClick={() => setViewCubeFace("back")}>BACK</button>
-          <button type="button" className="cube-face cube-right" aria-label="Right view" aria-keyshortcuts="4" title="Right view (4)" onClick={() => setViewCubeFace("right")}>RIGHT</button>
-          <button type="button" className="cube-face cube-left" aria-label="Left view" aria-keyshortcuts="3" title="Left view (3)" onClick={() => setViewCubeFace("left")}>LEFT</button>
+          <button type="button" className="cube-face cube-top" aria-label="Bottom view" aria-keyshortcuts="6" title="Bottom view (6)" onClick={() => setViewCubeFace("bottom")}>{t("BOTTOM")}</button>
+          <button type="button" className="cube-face cube-bottom" aria-label="Top view" aria-keyshortcuts="5" title="Top view (5)" onClick={() => setViewCubeFace("top")}>{t("TOP")}</button>
+          <button type="button" className="cube-face cube-front" aria-label="Front view" aria-keyshortcuts="1" title="Front view (1)" onClick={() => setViewCubeFace("front")}>{t("FRONT")}</button>
+          <button type="button" className="cube-face cube-back" aria-label="Back view" aria-keyshortcuts="2" title="Back view (2)" onClick={() => setViewCubeFace("back")}>{t("BACK")}</button>
+          <button type="button" className="cube-face cube-right" aria-label="Right view" aria-keyshortcuts="4" title="Right view (4)" onClick={() => setViewCubeFace("right")}>{t("RIGHT")}</button>
+          <button type="button" className="cube-face cube-left" aria-label="Left view" aria-keyshortcuts="3" title="Left view (3)" onClick={() => setViewCubeFace("left")}>{t("LEFT")}</button>
         </div>
       </div>
 
