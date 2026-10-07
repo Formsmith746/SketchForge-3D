@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 const KEY_TAG_STEP_STORAGE_KEY = "sketchforge:key-tag-tutorial-step";
@@ -19,6 +20,8 @@ type TutorialStep = {
   alt: string;
   dimensions?: TutorialDimension[];
   snapGrid?: string;
+  titleKey: string;
+  bodyKey: string;
 };
 
 const STEPS: TutorialStep[] = [
@@ -29,6 +32,8 @@ const STEPS: TutorialStep[] = [
     image: "/assets/challenges/key-tag/01-finished-target.png",
     alt: "Finished Key Tag shown in the SketchForge workplane",
     snapGrid: "0.5 mm",
+    titleKey: "keyTagSteps.buildKeyTag",
+    bodyKey: "keyTagSteps.buildKeyTagBody",
   },
   {
     eyebrow: "Step 1",
@@ -41,6 +46,8 @@ const STEPS: TutorialStep[] = [
       { label: "Width", value: "11.50 mm", slider: 20 },
       { label: "Height", value: "1.00 mm", slider: 5 },
     ],
+    titleKey: "keyTagSteps.makeMiddle",
+    bodyKey: "keyTagSteps.makeMiddleBody",
   },
   {
     eyebrow: "Step 2",
@@ -53,6 +60,8 @@ const STEPS: TutorialStep[] = [
       { label: "Width", value: "11.50 mm", slider: 20 },
       { label: "Height", value: "1.00 mm", slider: 5 },
     ],
+    titleKey: "keyTagSteps.addLeftRoundEnd",
+    bodyKey: "keyTagSteps.addLeftRoundEndBody",
   },
   {
     eyebrow: "Step 3",
@@ -60,6 +69,8 @@ const STEPS: TutorialStep[] = [
     body: "Duplicate the solid cylinder and place the copy on the right end.",
     image: "/assets/challenges/key-tag/04-right-round-end.png",
     alt: "Two solid cylinders forming both rounded ends of the Key Tag",
+    titleKey: "keyTagSteps.makeOtherEnd",
+    bodyKey: "keyTagSteps.makeOtherEndBody",
   },
   {
     eyebrow: "Step 4",
@@ -67,6 +78,8 @@ const STEPS: TutorialStep[] = [
     body: "Select the left solid cylinder and press Lock. It will be the alignment reference.",
     image: "/assets/challenges/key-tag/05-select-left-circle.png",
     alt: "The left solid cylinder selected in the SketchForge workplane",
+    titleKey: "keyTagSteps.lockLeftCircle",
+    bodyKey: "keyTagSteps.lockLeftCircleBody",
   },
   {
     eyebrow: "Step 5",
@@ -79,6 +92,8 @@ const STEPS: TutorialStep[] = [
       { label: "Width", value: "3.00 mm", slider: 8 },
       { label: "Height", value: "2.00 mm", slider: 7 },
     ],
+    titleKey: "keyTagSteps.createHole",
+    bodyKey: "keyTagSteps.createHoleBody",
   },
   {
     eyebrow: "Step 6",
@@ -86,6 +101,8 @@ const STEPS: TutorialStep[] = [
     body: "Select the hole and the locked left circle. Press Align and choose the middle on both horizontal axes.",
     image: "/assets/challenges/key-tag/07-align-hole.png",
     alt: "The hole aligned to the center of the left solid cylinder",
+    titleKey: "keyTagSteps.alignHole",
+    bodyKey: "keyTagSteps.alignHoleBody",
   },
   {
     eyebrow: "Step 7",
@@ -93,6 +110,8 @@ const STEPS: TutorialStep[] = [
     body: "Select the left solid circle again and press Unlock.",
     image: "/assets/challenges/key-tag/08-unlock-left-circle.png",
     alt: "The left solid cylinder selected again after the hole has been aligned",
+    titleKey: "keyTagSteps.unlockCircle",
+    bodyKey: "keyTagSteps.unlockCircleBody",
   },
   {
     eyebrow: "Step 8",
@@ -100,6 +119,8 @@ const STEPS: TutorialStep[] = [
     body: "Select the box, both solid circles, and the hole. Press Group.",
     image: "/assets/challenges/key-tag/09-grouped-key-tag.png",
     alt: "The finished grouped Key Tag selected in SketchForge",
+    titleKey: "keyTagSteps.groupKeyTag",
+    bodyKey: "keyTagSteps.groupKeyTagBody",
   },
 ];
 
@@ -119,6 +140,7 @@ export function KeyTagTutorialPanel({
   onCollapsedChange?: (collapsed: boolean) => void;
 }) {
   const [stepIndex, setStepIndex] = useState(storedStepIndex);
+  const t = useTranslations("tutorial");
   const step = STEPS[stepIndex];
   const first = stepIndex === 0;
   const last = stepIndex === STEPS.length - 1;
@@ -131,41 +153,41 @@ export function KeyTagTutorialPanel({
 
   if (collapsed) {
     return (
-      <aside className="key-tag-tutorial-panel key-tag-tutorial-panel-collapsed" aria-label="Key Tag challenge instructions">
+      <aside className="key-tag-tutorial-panel key-tag-tutorial-panel-collapsed" aria-label={t("keyTagChallenge")}>
         <button
           type="button"
           className="key-tag-tutorial-expand"
-          title="Expand challenge instructions"
-          aria-label="Expand challenge instructions"
+          title={t("expandInstructions")}
+          aria-label={t("expandInstructions")}
           onClick={() => onCollapsedChange?.(false)}
         >
           <ChevronLeft size={19} />
         </button>
-        <span className="key-tag-tutorial-collapsed-label">Key Tag</span>
+        <span className="key-tag-tutorial-collapsed-label">{t("keyTag")}</span>
         <span className="key-tag-tutorial-collapsed-count">{stepIndex + 1}/{STEPS.length}</span>
       </aside>
     );
   }
 
   return (
-    <aside
-      className="key-tag-tutorial-panel"
-      aria-label="Key Tag challenge instructions"
+      <aside
+        className="key-tag-tutorial-panel"
+        aria-label={t("keyTagChallenge")}
       onPointerDown={(event) => event.stopPropagation()}
       onWheel={(event) => event.stopPropagation()}
     >
       <header className="key-tag-tutorial-header">
         <div>
-          <span>Challenge 1</span>
-          <strong>Key Tag</strong>
+          <span>{t("challenge1")}</span>
+          <strong>{t("keyTag")}</strong>
         </div>
         <div className="key-tag-tutorial-header-actions">
           <span className="key-tag-tutorial-count">{stepIndex + 1} / {STEPS.length}</span>
           <button
             type="button"
             className="key-tag-tutorial-collapse"
-            title="Minimize challenge instructions"
-            aria-label="Minimize challenge instructions"
+            title={t("minimizeInstructions")}
+            aria-label={t("minimizeInstructions")}
             onClick={() => onCollapsedChange?.(true)}
           >
             <ChevronRight size={18} />
@@ -175,19 +197,19 @@ export function KeyTagTutorialPanel({
 
       <div className="key-tag-tutorial-body">
         <div className="key-tag-tutorial-copy">
-          <span className="key-tag-tutorial-eyebrow">{step.eyebrow}</span>
-          <h2>{step.title}</h2>
-          <p>{step.body}</p>
+          <span className="key-tag-tutorial-eyebrow">{stepIndex === 0 ? t("beforeYouStart") : t("step", { number: stepIndex + 1 })}</span>
+          <h2>{t(step.titleKey)}</h2>
+          <p>{t(step.bodyKey)}</p>
 
           {step.snapGrid ? (
             <div className="key-tag-snap-row" aria-label={`Snap Grid ${step.snapGrid}`}>
-              <span>Snap Grid</span>
+              <span>{t("snapGrid")}</span>
               <strong>{step.snapGrid}</strong>
             </div>
           ) : null}
 
           {step.dimensions ? (
-            <div className="key-tag-tutorial-dimensions" aria-label="Required dimensions">
+            <div className="key-tag-tutorial-dimensions" aria-label={t("requiredDimensions")}>
               {step.dimensions.map((dimension) => (
                 <div className="key-tag-tutorial-dimension-control" key={dimension.label}>
                   <div className="key-tag-tutorial-dimension-heading">
@@ -211,7 +233,7 @@ export function KeyTagTutorialPanel({
 
       <footer className="key-tag-tutorial-footer">
         <button type="button" className="secondary" disabled={first} onClick={() => goToStep(stepIndex - 1)}>
-          <ChevronLeft size={17} /> Previous
+          <ChevronLeft size={17} /> {t("previous")}
         </button>
         <button
           type="button"
@@ -225,7 +247,7 @@ export function KeyTagTutorialPanel({
             goToStep(stepIndex + 1);
           }}
         >
-          {last ? "Finish" : "Next"} {!last ? <ChevronRight size={17} /> : null}
+          {last ? t("finish") : t("next")} {!last ? <ChevronRight size={17} /> : null}
         </button>
       </footer>
     </aside>

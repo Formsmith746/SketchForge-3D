@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useLayoutEffect, useState } from "react";
 
 const NAMEPLATE_STEP_STORAGE_KEY = "sketchforge:nameplate-tutorial-step";
@@ -20,6 +21,9 @@ type TutorialStep = {
   dimensions?: TutorialDimension[];
   snapGrid?: string;
   callout?: string;
+  titleKey: string;
+  bodyKey: string;
+  calloutKey?: string;
 };
 
 const STEPS: TutorialStep[] = [
@@ -30,6 +34,8 @@ const STEPS: TutorialStep[] = [
     image: "/assets/challenges/nameplate/01-finished-target.webp",
     alt: "Finished blue ALEX nameplate on the SketchForge workplane",
     snapGrid: "0.5 mm",
+    titleKey: "nameplateSteps.buildNameplate",
+    bodyKey: "nameplateSteps.buildNameplateBody",
   },
   {
     eyebrow: "Step 1",
@@ -42,6 +48,8 @@ const STEPS: TutorialStep[] = [
       { label: "Width", value: "70.00 mm", slider: 70 },
       { label: "Height", value: "3.00 mm", slider: 12 },
     ],
+    titleKey: "nameplateSteps.makeBase",
+    bodyKey: "nameplateSteps.makeBaseBody",
   },
   {
     eyebrow: "Step 2",
@@ -50,6 +58,9 @@ const STEPS: TutorialStep[] = [
     image: "/assets/challenges/nameplate/03-rounded-base.webp",
     alt: "Blue nameplate base with softly rounded outer edges",
     callout: "Use a 1.00 mm fillet amount.",
+    titleKey: "nameplateSteps.roundOutside",
+    bodyKey: "nameplateSteps.roundOutsideBody",
+    calloutKey: "nameplateSteps.roundOutsideCallout",
   },
   {
     eyebrow: "Step 3",
@@ -57,6 +68,8 @@ const STEPS: TutorialStep[] = [
     body: "Open Shapes and add Text. The new object starts with the letter T.",
     image: "/assets/challenges/nameplate/04-text-added.webp",
     alt: "A red capital T Text object on the blue nameplate base",
+    titleKey: "nameplateSteps.addTextObject",
+    bodyKey: "nameplateSteps.addTextObjectBody",
   },
   {
     eyebrow: "Step 4",
@@ -67,6 +80,8 @@ const STEPS: TutorialStep[] = [
     dimensions: [
       { label: "Height", value: "2.00 mm", slider: 9 },
     ],
+    titleKey: "nameplateSteps.personalizeText",
+    bodyKey: "nameplateSteps.personalizeTextBody",
   },
   {
     eyebrow: "Step 5",
@@ -77,6 +92,8 @@ const STEPS: TutorialStep[] = [
     dimensions: [
       { label: "Elevation", value: "3.00 mm", slider: 12 },
     ],
+    titleKey: "nameplateSteps.placeOnTop",
+    bodyKey: "nameplateSteps.placeOnTopBody",
   },
   {
     eyebrow: "Step 6",
@@ -85,6 +102,9 @@ const STEPS: TutorialStep[] = [
     image: "/assets/challenges/nameplate/06-text-centered.webp",
     alt: "Red ALEX text centered on the blue nameplate base",
     callout: "The locked base stays fixed as your alignment reference.",
+    titleKey: "nameplateSteps.centerName",
+    bodyKey: "nameplateSteps.centerNameBody",
+    calloutKey: "nameplateSteps.centerNameCallout",
   },
   {
     eyebrow: "Step 7",
@@ -92,6 +112,8 @@ const STEPS: TutorialStep[] = [
     body: "Select the base and Text object, then press Group to make one finished printable model.",
     image: "/assets/challenges/nameplate/07-grouped-nameplate.webp",
     alt: "Finished grouped blue ALEX nameplate",
+    titleKey: "nameplateSteps.groupNameplate",
+    bodyKey: "nameplateSteps.groupNameplateBody",
   },
 ];
 
@@ -102,6 +124,7 @@ function storedStepIndex() {
 }
 
 function FilletButtonCoachmark() {
+  const t = useTranslations("tutorial");
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -136,7 +159,7 @@ function FilletButtonCoachmark() {
   return (
     <div className="nameplate-fillet-coachmark" style={position} role="status">
       <ArrowUp size={30} strokeWidth={3} aria-hidden="true" />
-      <strong>Click Fillet</strong>
+      <strong>{t("clickFillet")}</strong>
     </div>
   );
 }
@@ -151,6 +174,7 @@ export function NameplateTutorialPanel({
   onCollapsedChange?: (collapsed: boolean) => void;
 }) {
   const [stepIndex, setStepIndex] = useState(storedStepIndex);
+  const t = useTranslations("tutorial");
   const step = STEPS[stepIndex];
   const first = stepIndex === 0;
   const last = stepIndex === STEPS.length - 1;
@@ -163,17 +187,17 @@ export function NameplateTutorialPanel({
 
   if (collapsed) {
     return (
-      <aside className="key-tag-tutorial-panel key-tag-tutorial-panel-collapsed" aria-label="Personalized Nameplate challenge instructions">
+      <aside className="key-tag-tutorial-panel key-tag-tutorial-panel-collapsed" aria-label={t("nameplateChallenge")}>
         <button
           type="button"
           className="key-tag-tutorial-expand"
-          title="Expand challenge instructions"
-          aria-label="Expand challenge instructions"
+          title={t("expandInstructions")}
+          aria-label={t("expandInstructions")}
           onClick={() => onCollapsedChange?.(false)}
         >
           <ChevronLeft size={19} />
         </button>
-        <span className="key-tag-tutorial-collapsed-label">Nameplate</span>
+        <span className="key-tag-tutorial-collapsed-label">{t("nameplate")}</span>
         <span className="key-tag-tutorial-collapsed-count">{stepIndex + 1}/{STEPS.length}</span>
       </aside>
     );
@@ -184,22 +208,22 @@ export function NameplateTutorialPanel({
       {stepIndex === 2 ? <FilletButtonCoachmark /> : null}
       <aside
         className="key-tag-tutorial-panel"
-        aria-label="Personalized Nameplate challenge instructions"
+        aria-label={t("nameplateChallenge")}
         onPointerDown={(event) => event.stopPropagation()}
         onWheel={(event) => event.stopPropagation()}
       >
       <header className="key-tag-tutorial-header">
         <div>
-          <span>Challenge 2</span>
-          <strong>Personalized Nameplate</strong>
+          <span>{t("challenge2")}</span>
+          <strong>{t("nameplate")}</strong>
         </div>
         <div className="key-tag-tutorial-header-actions">
           <span className="key-tag-tutorial-count">{stepIndex + 1} / {STEPS.length}</span>
           <button
             type="button"
             className="key-tag-tutorial-collapse"
-            title="Minimize challenge instructions"
-            aria-label="Minimize challenge instructions"
+            title={t("minimizeInstructions")}
+            aria-label={t("minimizeInstructions")}
             onClick={() => onCollapsedChange?.(true)}
           >
             <ChevronRight size={18} />
@@ -209,21 +233,21 @@ export function NameplateTutorialPanel({
 
       <div className="key-tag-tutorial-body">
         <div className="key-tag-tutorial-copy">
-          <span className="key-tag-tutorial-eyebrow">{step.eyebrow}</span>
-          <h2>{step.title}</h2>
-          <p>{step.body}</p>
+          <span className="key-tag-tutorial-eyebrow">{stepIndex === 0 ? t("beforeYouStart") : t("step", { number: stepIndex + 1 })}</span>
+          <h2>{t(step.titleKey)}</h2>
+          <p>{t(step.bodyKey)}</p>
 
           {step.snapGrid ? (
             <div className="key-tag-snap-row" aria-label={`Snap Grid ${step.snapGrid}`}>
-              <span>Snap Grid</span>
+              <span>{t("snapGrid")}</span>
               <strong>{step.snapGrid}</strong>
             </div>
           ) : null}
 
-          {step.callout ? <div className="nameplate-tutorial-callout">{step.callout}</div> : null}
+          {step.callout ? <div className="nameplate-tutorial-callout">{step.calloutKey ? t(step.calloutKey) : step.callout}</div> : null}
 
           {step.dimensions ? (
-            <div className="key-tag-tutorial-dimensions" aria-label="Required dimensions">
+            <div className="key-tag-tutorial-dimensions" aria-label={t("requiredDimensions")}>
               {step.dimensions.map((dimension) => (
                 <div className="key-tag-tutorial-dimension-control" key={dimension.label}>
                   <div className="key-tag-tutorial-dimension-heading">
@@ -247,7 +271,7 @@ export function NameplateTutorialPanel({
 
       <footer className="key-tag-tutorial-footer">
         <button type="button" className="secondary" disabled={first} onClick={() => goToStep(stepIndex - 1)}>
-          <ChevronLeft size={17} /> Previous
+          <ChevronLeft size={17} /> {t("previous")}
         </button>
         <button
           type="button"
@@ -261,7 +285,7 @@ export function NameplateTutorialPanel({
             goToStep(stepIndex + 1);
           }}
         >
-          {last ? "Finish" : "Next"} {!last ? <ChevronRight size={17} /> : null}
+          {last ? t("finish") : t("next")} {!last ? <ChevronRight size={17} /> : null}
         </button>
       </footer>
       </aside>

@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Ruler, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
+import { useTranslations } from "next-intl";
 import * as THREE from "three";
 import { Brush, Evaluator, HOLLOW_INTERSECTION } from "three-bvh-csg";
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from "three-mesh-bvh";
@@ -1492,8 +1493,9 @@ function RulerOverlay({
   onPointPointerUp: (event: ReactPointerEvent<SVGCircleElement>, pointId: string) => void;
   onSegmentPointerDown: (event: ReactPointerEvent<SVGElement>, segmentId: string) => void;
 }) {
+  const t = useTranslations("viewport");
   return (
-    <div className={`ruler-overlay ${active ? "active" : ""} ${deleteMode ? "delete-mode" : ""} ${moveMode ? "move-mode" : ""}`} aria-label="Ruler measurements">
+    <div className={`ruler-overlay ${active ? "active" : ""} ${deleteMode ? "delete-mode" : ""} ${moveMode ? "move-mode" : ""}`} aria-label={t("rulerMeasurements")}>
       <svg className="ruler-guides" width="100%" height="100%" aria-hidden="true">
         {overlay.segments.map((segment) => (
           <g key={segment.id} className="ruler-segment-group">
@@ -2392,6 +2394,7 @@ export function WorkplaneViewport({
   resolvedTheme = "light",
   onThemePreferenceChange,
 }: WorkplaneViewportProps) {
+  const t = useTranslations("viewport");
   const [snapOpen, setSnapOpen] = useState(false);
   const [snap, setSnap] = useState<GridSize>(() => normalizeSnapGrid(initialSnap, DEFAULT_SNAP_GRID));
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -2685,9 +2688,10 @@ export function WorkplaneViewport({
         false,
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
+        t,
       );
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
-      syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
+      syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay, t);
       threeRef.current.needsRender = true;
     }
   }, [shapes]);
@@ -2746,9 +2750,10 @@ export function WorkplaneViewport({
         false,
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
+        t,
       );
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIds, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
-      syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIds, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
+      syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIds, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay, t);
       threeRef.current.needsRender = true;
     }
   }, [clearMoveDimensions, selectedIds]);
@@ -2850,6 +2855,7 @@ export function WorkplaneViewport({
         false,
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
+        t,
       );
     }
     setSelectionHelpersVisible(state, !workplaneMode && transformRef.current?.kind !== "rotate");
@@ -2891,6 +2897,7 @@ export function WorkplaneViewport({
         false,
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
+        t,
       );
       syncRulerOverlay(threeRef.current, rulerModelRef.current, rulerOverlayRef, setRulerOverlay, workspace.accuracy);
       syncMoveDimensionWorldLines(threeRef.current, moveDimensionSessionRef.current, resolvedTheme);
@@ -2967,9 +2974,10 @@ export function WorkplaneViewport({
           false,
           placementWorkplaneRef.current,
           resolvedThemeRef.current,
+          t,
         );
         syncAlignOverlay(state, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
-        syncMirrorOverlay(state, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
+        syncMirrorOverlay(state, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay, t);
         syncRulerOverlay(state, rulerModelRef.current, rulerOverlayRef, setRulerOverlay, workspaceRef.current.accuracy);
         syncMoveDimensionOverlay(
           state,
@@ -4602,6 +4610,7 @@ export function WorkplaneViewport({
           true,
           placementWorkplaneRef.current,
           resolvedThemeRef.current,
+          t,
         );
         syncCutPreviewOverlays(threeRef.current, previewShapes);
         syncMoveDimensionOverlay(
@@ -5043,41 +5052,41 @@ export function WorkplaneViewport({
 
   return (
     <main className={`workplane-stage ${challengeTutorial ? `key-tag-tutorial-active ${challengeTutorialCollapsed ? "key-tag-tutorial-collapsed" : ""}` : ""}`}>
-      <div className="view-cube" aria-label="View orientation cube" onPointerDown={(event) => event.stopPropagation()}>
+      <div className="view-cube" aria-label={t("viewOrientationCube")} onPointerDown={(event) => event.stopPropagation()}>
         <div className="view-cube-inner" ref={viewCubeRef}>
-          <button type="button" className="cube-face cube-top" aria-label="Bottom view" aria-keyshortcuts="6" title="Bottom view (6)" onClick={() => setViewCubeFace("bottom")}>BOTTOM</button>
-          <button type="button" className="cube-face cube-bottom" aria-label="Top view" aria-keyshortcuts="5" title="Top view (5)" onClick={() => setViewCubeFace("top")}>TOP</button>
-          <button type="button" className="cube-face cube-front" aria-label="Front view" aria-keyshortcuts="1" title="Front view (1)" onClick={() => setViewCubeFace("front")}>FRONT</button>
-          <button type="button" className="cube-face cube-back" aria-label="Back view" aria-keyshortcuts="2" title="Back view (2)" onClick={() => setViewCubeFace("back")}>BACK</button>
-          <button type="button" className="cube-face cube-right" aria-label="Right view" aria-keyshortcuts="4" title="Right view (4)" onClick={() => setViewCubeFace("right")}>RIGHT</button>
-          <button type="button" className="cube-face cube-left" aria-label="Left view" aria-keyshortcuts="3" title="Left view (3)" onClick={() => setViewCubeFace("left")}>LEFT</button>
+          <button type="button" className="cube-face cube-top" aria-label={t("bottomView")} aria-keyshortcuts="6" title={t("bottomView")} onClick={() => setViewCubeFace("bottom")}>{t("viewBottom")}</button>
+          <button type="button" className="cube-face cube-bottom" aria-label={t("topView")} aria-keyshortcuts="5" title={t("topView")} onClick={() => setViewCubeFace("top")}>{t("viewTop")}</button>
+          <button type="button" className="cube-face cube-front" aria-label={t("frontView")} aria-keyshortcuts="1" title={t("frontView")} onClick={() => setViewCubeFace("front")}>{t("viewFront")}</button>
+          <button type="button" className="cube-face cube-back" aria-label={t("backView")} aria-keyshortcuts="2" title={t("backView")} onClick={() => setViewCubeFace("back")}>{t("viewBack")}</button>
+          <button type="button" className="cube-face cube-right" aria-label={t("rightView")} aria-keyshortcuts="4" title={t("rightView")} onClick={() => setViewCubeFace("right")}>{t("viewRight")}</button>
+          <button type="button" className="cube-face cube-left" aria-label={t("leftView")} aria-keyshortcuts="3" title={t("leftView")} onClick={() => setViewCubeFace("left")}>{t("viewLeft")}</button>
         </div>
       </div>
 
-      <div className={`camera-controls ${cameraControlsCollapsed ? "collapsed" : ""}`} aria-label="Camera controls">
+      <div className={`camera-controls ${cameraControlsCollapsed ? "collapsed" : ""}`} aria-label={t("cameraControls")}>
         {cameraControlsCollapsed ? (
-          <button className="camera-controls-toggle" aria-label="Show camera controls" title="Show controls" aria-expanded={false} onClick={() => setCameraControlsCollapsed(false)}>
+          <button className="camera-controls-toggle" aria-label={t("showCameraControls")} title={t("showControls")} aria-expanded={false} onClick={() => setCameraControlsCollapsed(false)}>
             <ChevronRight size={24} strokeWidth={2.25} aria-hidden="true" />
           </button>
         ) : (
           <>
-            <button className="camera-controls-toggle" aria-label="Hide camera controls" title="Hide controls" aria-expanded={true} onClick={collapseCameraControls}>
+            <button className="camera-controls-toggle" aria-label={t("hideCameraControls")} title={t("hideControls")} aria-expanded={true} onClick={collapseCameraControls}>
               <ChevronLeft size={24} strokeWidth={2.25} aria-hidden="true" />
             </button>
-            <button aria-label="Home" onClick={resetView}>
+            <button aria-label={t("home")} onClick={resetView}>
               <Home size={24} strokeWidth={2.25} />
             </button>
-            <button aria-label="Zoom in" onClick={() => zoomCamera(0.7)}>
+            <button aria-label={t("zoomIn")} onClick={() => zoomCamera(0.7)}>
               <Plus size={28} strokeWidth={2.15} />
             </button>
-            <button aria-label="Zoom out" onClick={() => zoomCamera(1.35)}>
+            <button aria-label={t("zoomOut")} onClick={() => zoomCamera(1.35)}>
               <Minus size={28} strokeWidth={2.15} />
             </button>
             <div className="workplane-control-group">
               <button
                 className={workplaneMode ? "active" : ""}
-                aria-label="Place workplane"
-                title="Place workplane (W)"
+                aria-label={t("placeWorkplane")}
+                title={t("placeWorkplaneAction")}
                 aria-pressed={workplaneMode}
                 onClick={togglePlacementWorkplane}
               >
@@ -5087,8 +5096,8 @@ export function WorkplaneViewport({
             <div className="ruler-control-group">
               <button
                 className={`ruler-trigger ${rulerToolsOpen ? "active" : ""}`}
-                aria-label="Ruler tools"
-                title="Ruler tools"
+                aria-label={t("rulerTools")}
+                title={t("rulerTools")}
                 aria-expanded={rulerToolsOpen}
                 aria-controls="ruler-tool-popover"
                 onClick={toggleRulerTools}
@@ -5096,14 +5105,14 @@ export function WorkplaneViewport({
                 <Ruler size={26} strokeWidth={2.2} aria-hidden="true" />
               </button>
               {rulerToolsOpen ? (
-                <div id="ruler-tool-popover" className="ruler-tool-popover" aria-label="Ruler actions">
-                  <button className={rulerMode ? "active" : ""} aria-label="Add measurement" title="Add measurement" aria-pressed={rulerMode} onClick={activateRulerAdd}>
+                <div id="ruler-tool-popover" className="ruler-tool-popover" aria-label={t("rulerActions")}>
+                  <button className={rulerMode ? "active" : ""} aria-label={t("addMeasurement")} title={t("addMeasurement")} aria-pressed={rulerMode} onClick={activateRulerAdd}>
                     <Plus size={21} strokeWidth={2.4} aria-hidden="true" />
                   </button>
-                  <button className={rulerMoveMode ? "active" : ""} aria-label="Move measurement points" title="Move measurement points" aria-pressed={rulerMoveMode} onClick={activateRulerMove}>
+                  <button className={rulerMoveMode ? "active" : ""} aria-label={t("moveMeasurementPoints")} title={t("moveMeasurementPoints")} aria-pressed={rulerMoveMode} onClick={activateRulerMove}>
                     <MousePointer2 size={20} strokeWidth={2.25} aria-hidden="true" />
                   </button>
-                  <button className={`ruler-delete-button ${rulerDeleteMode ? "active" : ""}`} aria-label="Delete measurement part" title="Delete measurement part" aria-pressed={rulerDeleteMode} onClick={activateRulerDelete}>
+                  <button className={`ruler-delete-button ${rulerDeleteMode ? "active" : ""}`} aria-label={t("deleteMeasurementPart")} title={t("deleteMeasurementPart")} aria-pressed={rulerDeleteMode} onClick={activateRulerDelete}>
                     <X size={20} strokeWidth={2.4} aria-hidden="true" />
                   </button>
                 </div>
@@ -5113,7 +5122,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${workplaneMode ? "placing-workplane" : ""} ${rulerMode ? "ruler-mode" : ""} ${rulerDeleteMode ? "ruler-delete-mode" : ""} ${rulerMoveMode ? "ruler-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label="Workplane">
+      <section className={`workplane-wrap ${workplaneMode ? "placing-workplane" : ""} ${rulerMode ? "ruler-mode" : ""} ${rulerDeleteMode ? "ruler-delete-mode" : ""} ${rulerMoveMode ? "ruler-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label={t("workplane")}>
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -6408,6 +6417,7 @@ function syncTransformOverlay(
   updateDomImmediately = false,
   workplane: PlacementWorkplane = horizontalPlacementWorkplane(),
   theme: ResolvedAppTheme = "light",
+  t: (key: string) => string = (key: string) => key,
 ) {
   if (selectedIds.length < 1) {
     syncTransformGuideWorldLines(state, null, theme);
@@ -6668,16 +6678,16 @@ function syncTransformOverlay(
   };
 
   const handles = [
-    { point: bottom.nearLeft, handle: { key: "near-left", className: "corner", kind: "scale" as const, x: bottom.nearLeft.x, y: bottom.nearLeft.y, title: "Resize" } },
-    { point: bottom.nearRight, handle: { key: "near-right", className: "corner", kind: "scale" as const, x: bottom.nearRight.x, y: bottom.nearRight.y, title: "Resize" } },
-    { point: bottom.farRight, handle: { key: "far-right", className: "corner", kind: "scale" as const, x: bottom.farRight.x, y: bottom.farRight.y, title: "Resize" } },
-    { point: bottom.farLeft, handle: { key: "far-left", className: "corner", kind: "scale" as const, x: bottom.farLeft.x, y: bottom.farLeft.y, title: "Resize" } },
-    { point: mid.near, handle: { key: "near-mid", className: "edge dark", kind: "scale" as const, x: mid.near.x, y: mid.near.y, title: "Resize" } },
-    { point: mid.right, handle: { key: "right-mid", className: "edge dark", kind: "scale" as const, x: mid.right.x, y: mid.right.y, title: "Resize" } },
-    { point: mid.far, handle: { key: "far-mid", className: "edge dark", kind: "scale" as const, x: mid.far.x, y: mid.far.y, title: "Resize" } },
-    { point: mid.left, handle: { key: "left-mid", className: "edge dark", kind: "scale" as const, x: mid.left.x, y: mid.left.y, title: "Resize" } },
-    { point: heightPoint, handle: { key: heightHandleKey, className: "height-top", kind: "height" as const, x: heightPoint.x, y: heightPoint.y, title: "Height" } },
-    { point: liftPoint, handle: { key: liftHandleKey, className: showLowerHandles ? "height-lift lower" : "height-lift", kind: "lift" as const, x: liftPoint.x, y: liftPoint.y, title: "Lift", angle: liftHandleAngle } },
+    { point: bottom.nearLeft, handle: { key: "near-left", className: "corner", kind: "scale" as const, x: bottom.nearLeft.x, y: bottom.nearLeft.y, title: t("resize") } },
+    { point: bottom.nearRight, handle: { key: "near-right", className: "corner", kind: "scale" as const, x: bottom.nearRight.x, y: bottom.nearRight.y, title: t("resize") } },
+    { point: bottom.farRight, handle: { key: "far-right", className: "corner", kind: "scale" as const, x: bottom.farRight.x, y: bottom.farRight.y, title: t("resize") } },
+    { point: bottom.farLeft, handle: { key: "far-left", className: "corner", kind: "scale" as const, x: bottom.farLeft.x, y: bottom.farLeft.y, title: t("resize") } },
+    { point: mid.near, handle: { key: "near-mid", className: "edge dark", kind: "scale" as const, x: mid.near.x, y: mid.near.y, title: t("resize") } },
+    { point: mid.right, handle: { key: "right-mid", className: "edge dark", kind: "scale" as const, x: mid.right.x, y: mid.right.y, title: t("resize") } },
+    { point: mid.far, handle: { key: "far-mid", className: "edge dark", kind: "scale" as const, x: mid.far.x, y: mid.far.y, title: t("resize") } },
+    { point: mid.left, handle: { key: "left-mid", className: "edge dark", kind: "scale" as const, x: mid.left.x, y: mid.left.y, title: t("resize") } },
+    { point: heightPoint, handle: { key: heightHandleKey, className: "height-top", kind: "height" as const, x: heightPoint.x, y: heightPoint.y, title: t("height") } },
+    { point: liftPoint, handle: { key: liftHandleKey, className: showLowerHandles ? "height-lift lower" : "height-lift", kind: "lift" as const, x: liftPoint.x, y: liftPoint.y, title: t("lift"), angle: liftHandleAngle } },
   ].filter(({ point }) => point.visible).map(({ handle }) => handle);
   const rotationChromeVisible = !cameraInsideSelection && centerPoint.visible;
   const rotateHandles = rotationChromeVisible ? [
@@ -6824,6 +6834,7 @@ function syncMirrorOverlay(
   mirrorMode: boolean,
   overlayRef: MutableRefObject<MirrorOverlayState | null>,
   setOverlay: Dispatch<SetStateAction<MirrorOverlayState | null>>,
+  t: (key: string) => string = (key: string) => key,
 ) {
   const clear = () => {
     if (overlayRef.current) {
@@ -6916,7 +6927,7 @@ function syncMirrorOverlay(
         x: xScreen.x,
         y: xScreen.y,
         angle: screenAngle(xWorld.clone().add(new THREE.Vector3(-step, 0, 0)), xWorld.clone().add(new THREE.Vector3(step, 0, 0))),
-        title: "Mirror left-right",
+        title: t("mirrorLeftRight"),
       },
       {
         axis: "z" as const,
@@ -6924,7 +6935,7 @@ function syncMirrorOverlay(
         x: zScreen.x,
         y: zScreen.y,
         angle: screenAngle(zWorld.clone().add(new THREE.Vector3(0, 0, -step)), zWorld.clone().add(new THREE.Vector3(0, 0, step))),
-        title: "Mirror front-back",
+        title: t("mirrorFrontBack"),
       },
       {
         axis: "y" as const,
@@ -6932,7 +6943,7 @@ function syncMirrorOverlay(
         x: yScreen.x,
         y: yScreen.y,
         angle: screenAngle(yWorld.clone().add(new THREE.Vector3(0, -step, 0)), yWorld.clone().add(new THREE.Vector3(0, step, 0))),
-        title: "Mirror top-bottom",
+        title: t("mirrorTopBottom"),
       },
     ],
   };

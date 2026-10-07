@@ -50,3 +50,14 @@ Thumbs.db
 
 # Staged occt-wasm runtime (copied from node_modules by scripts/copy-occt-wasm.mjs)
 apps/web/public/occt/
+
+# Готовые сборки приложения: занимают около гигабайта и
+# собираются заново командой npm run build
+release/
+
+# Локальные инструменты агента и его кэш
+.opencode/
+opencode.json
+
+# Журналы рабочих сессий: личные записи о состоянии машины
+docs/SESSION-*.md

@@ -77,6 +77,7 @@ export type SketchForgeMcpCommandName =
   | "select_objects"
   | "delete_objects"
   | "create_shape"
+  | "extrude_sketch"
   | "import_mesh"
   | "update_object"
   | "align_objects"

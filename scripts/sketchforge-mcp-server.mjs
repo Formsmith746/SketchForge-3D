@@ -85,6 +85,31 @@ const tools = [
     },
   },
   {
+    name: "sketchforge_extrude_sketch",
+    description: "Draw a closed 2D sketch profile on the workplane and extrude it into a solid (the SketchForge 'Extrude sketch' workflow). Provide profile as a flat [x1,z1,x2,z2,...] array of at least three points around the shape center; the polygon is auto-closed. height is the extrusion distance. x/z/elevation place the resulting solid.",
+    inputSchema: {
+      ...editorTargetSchema,
+      required: ["profile", "height"],
+      properties: {
+        ...editorTargetSchema.properties,
+        profile: {
+          type: "array",
+          items: { type: "number" },
+          description: "Flat x,z coordinates of the closed profile polygon, e.g. [-10,-10, 10,-10, 10,10, -10,10]. At least 6 numbers (>=3 points). Auto-closed.",
+        },
+        height: { type: "number", description: "Extrusion height (vertical)." },
+        name: { type: "string" },
+        color: { type: "string" },
+        x: { type: "number" },
+        z: { type: "number" },
+        elevation: { type: "number" },
+        rotation: { type: "number" },
+        rotationX: { type: "number" },
+        rotationZ: { type: "number" },
+      },
+    },
+  },
+  {
     name: "sketchforge_import_mesh",
     description: "Import a triangle mesh into SketchForge from raw position and optional normal arrays.",
     inputSchema: {
@@ -309,6 +334,8 @@ async function callTool(name, args) {
       return bridgeCommand("delete_objects", args);
     case "sketchforge_create_shape":
       return bridgeCommand("create_shape", args);
+    case "sketchforge_extrude_sketch":
+      return bridgeCommand("extrude_sketch", args, 60000);
     case "sketchforge_import_mesh":
       return bridgeCommand("import_mesh", args, 60000);
     case "sketchforge_update_object":

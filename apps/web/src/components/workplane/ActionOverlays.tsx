@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useTranslations } from "next-intl";
 import type { AlignAxis, AlignHandleStatus, AlignTarget } from "@/types/sketchforge";
 
 export type AlignOverlayState = {
@@ -22,40 +23,46 @@ export function AlignOverlay({
   onPreview: (axis: AlignAxis, target: AlignTarget) => void;
   onPreviewClear: () => void;
 }) {
+  const t = useTranslations("align");
+  const te = useTranslations("editor");
+  const rt = useTranslations();
   return (
-    <div className="align-overlay" aria-label="Alignment handles">
+    <div className="align-overlay" aria-label={t("handles")}>
       <svg className="align-guides" width="100%" height="100%" aria-hidden="true">
         {overlay.guides.map((guide) => (
           <line key={guide.key} x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} />
         ))}
       </svg>
-      {overlay.handles.map((handle) => (
-        <button
-          key={handle.key}
-          className={`align-dot axis-${handle.axis} target-${handle.target} ${handle.disabled ? "disabled" : ""} ${handle.aligned ? "aligned" : ""}`}
-          style={{ left: handle.x, top: handle.y }}
-          aria-label={handle.title}
-          title={handle.title}
-          disabled={handle.disabled}
-          onMouseEnter={() => {
-            if (!handle.disabled) {
-              onPreview(handle.axis, handle.target);
-            }
-          }}
-          onMouseLeave={onPreviewClear}
-          onFocus={() => {
-            if (!handle.disabled) {
-              onPreview(handle.axis, handle.target);
-            }
-          }}
-          onBlur={onPreviewClear}
-          onClick={(event) => {
-            event.stopPropagation();
-            onPreviewClear();
-            onAlign(handle.axis, handle.target);
-          }}
-        />
-      ))}
+      {overlay.handles.map((handle) => {
+        const title = te(handle.aligned ? "alreadyAlignedTo" : "alignTo", { label: rt(handle.labelKey) });
+        return (
+          <button
+            key={handle.key}
+            className={`align-dot axis-${handle.axis} target-${handle.target} ${handle.disabled ? "disabled" : ""} ${handle.aligned ? "aligned" : ""}`}
+            style={{ left: handle.x, top: handle.y }}
+            aria-label={title}
+            title={title}
+            disabled={handle.disabled}
+            onMouseEnter={() => {
+              if (!handle.disabled) {
+                onPreview(handle.axis, handle.target);
+              }
+            }}
+            onMouseLeave={onPreviewClear}
+            onFocus={() => {
+              if (!handle.disabled) {
+                onPreview(handle.axis, handle.target);
+              }
+            }}
+            onBlur={onPreviewClear}
+            onClick={(event) => {
+              event.stopPropagation();
+              onPreviewClear();
+              onAlign(handle.axis, handle.target);
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -71,8 +78,9 @@ export function MirrorOverlay({
   onPreview: (axis: AlignAxis) => void;
   onPreviewClear: () => void;
 }) {
+  const t = useTranslations("align");
   return (
-    <div className="mirror-overlay" aria-label="Mirror handles">
+    <div className="mirror-overlay" aria-label={t("mirrorHandles")}>
       <svg className="mirror-guides" width="100%" height="100%" aria-hidden="true">
         {overlay.guides.map((guide) => (
           <line key={guide.key} x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} />

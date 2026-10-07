@@ -60,7 +60,9 @@ export function selectableCadModifierEdge(
 }
 
 export function edgeModifierSelectionStatus(prepared: boolean, selectedCount: number, availableCount: number) {
-  return prepared ? `${selectedCount} of ${availableCount} sharp edges selected` : "Preparing edges\u2026";
+  return prepared
+    ? `${selectedCount} of ${availableCount} sharp edges selected`
+    : "Preparing edges\u2026";
 }
 
 export function cadModifierPrepareTimeoutMs(meshTriangleCount: number) {

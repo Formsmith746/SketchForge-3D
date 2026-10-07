@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { NextResponse } from "next/server";
 import { appUpdateIsAvailable, OFFICIAL_UPDATE_GUIDE_URL, type AppUpdateStatus } from "@/lib/appUpdates";
 import { SKF_CREATED_WITH_VERSION } from "@/lib/skfProject";
+import { getApiMessage } from "@/lib/apiMessages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,14 @@ function sameOriginRequest(request: Request) {
   } catch {
     return false;
   }
+}
+
+function apiMsg(request: Request, id: string): string {
+  const acceptLanguage = request.headers.get("accept-language");
+  if (acceptLanguage && /(^|[\s,;])ru([\s,;]|$)/i.test(acceptLanguage)) {
+    return getApiMessage(id, "ru");
+  }
+  return getApiMessage(id, "en");
 }
 
 function loopbackRequest(request: Request) {
@@ -199,17 +208,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!sameOriginRequest(request)) return NextResponse.json({ error: "Updates only accept same-origin requests" }, { status: 403 });
+  if (!sameOriginRequest(request)) return NextResponse.json({ error: apiMsg(request, "app-update.sameOriginRequired") }, { status: 403 });
 
   const localRepo = localRepoForRequest(request);
   if (localRepo) {
     if (Date.now() < nextTriggerAt) {
-      return NextResponse.json({ error: "An update was already requested. Wait a moment before trying again." }, { status: 429 });
+      return NextResponse.json({ error: apiMsg(request, "app-update.alreadyRequested") }, { status: 429 });
     }
     const status = await statusResponse(request, true);
     if (status.checkError) return NextResponse.json({ error: status.checkError }, { status: 502 });
     if (!status.updateAvailable || !status.latestVersion) {
-      return NextResponse.json({ error: "SketchForge is already up to date", status }, { status: 409 });
+      return NextResponse.json({ error: apiMsg(request, "app-update.alreadyUpToDate"), status }, { status: 409 });
     }
 
     nextTriggerAt = Date.now() + UPDATE_TRIGGER_COOLDOWN_MS;
@@ -227,31 +236,31 @@ export async function POST(request: Request) {
       );
     } catch (error) {
       nextTriggerAt = 0;
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Could not update local SketchForge" }, { status: 409 });
+      return NextResponse.json({ error: error instanceof Error ? error.message : apiMsg(request, "app-update.couldNotUpdateLocal") }, { status: 409 });
     }
   }
 
   const trigger = updateTriggerUrl();
   const adminKey = process.env.SKETCHFORGE_UPDATE_ADMIN_KEY?.trim() || "";
   if (!trigger || !adminKey) {
-    return NextResponse.json(
-      { error: "One-click installation is not configured on this server", updateUrl: updateGuideUrl() },
-      { status: 409 },
-    );
+      return NextResponse.json(
+        { error: apiMsg(request, "app-update.notConfigured"), updateUrl: updateGuideUrl() },
+        { status: 409 },
+      );
   }
 
   const suppliedKey = request.headers.get("x-sketchforge-update-key")?.trim() || "";
   if (!suppliedKey || !safeEqual(suppliedKey, adminKey)) {
-    return NextResponse.json({ error: "The update key is incorrect" }, { status: 401 });
+    return NextResponse.json({ error: apiMsg(request, "app-update.incorrectKey") }, { status: 401 });
   }
   if (Date.now() < nextTriggerAt) {
-    return NextResponse.json({ error: "An update was already requested. Wait a moment before trying again." }, { status: 429 });
+    return NextResponse.json({ error: apiMsg(request, "app-update.alreadyRequested") }, { status: 429 });
   }
 
   const status = await statusResponse(request, true);
   if (status.checkError) return NextResponse.json({ error: status.checkError }, { status: 502 });
   if (!status.updateAvailable || !status.latestVersion) {
-    return NextResponse.json({ error: "SketchForge is already up to date", status }, { status: 409 });
+      return NextResponse.json({ error: apiMsg(request, "app-update.alreadyUpToDate"), status }, { status: 409 });
   }
 
   nextTriggerAt = Date.now() + UPDATE_TRIGGER_COOLDOWN_MS;
@@ -282,7 +291,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     nextTriggerAt = 0;
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not start the update" }, { status: 502 });
+      return NextResponse.json({ error: error instanceof Error ? error.message : apiMsg(request, "app-update.couldNotStart") }, { status: 502 });
   } finally {
     clearTimeout(timeout);
   }

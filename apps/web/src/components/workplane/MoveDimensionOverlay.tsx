@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { useTranslations } from "next-intl";
 import type { MoveDimensionAxis, MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
 
 export function MoveDimensionOverlay({
@@ -12,6 +13,8 @@ export function MoveDimensionOverlay({
   active: boolean;
   onCommit: (axis: MoveDimensionAxis, value: string) => void;
 }) {
+  const t = useTranslations("transforms");
+  const axisLabelKey = (axis: MoveDimensionAxis): "xMovement" | "zMovement" => axis === "x" ? "xMovement" : "zMovement";
   const [editing, setEditing] = useState<{ axis: MoveDimensionAxis; value: string } | null>(null);
   const nextEditingAxisRef = useRef<MoveDimensionAxis | null>(null);
   const cancelEditRef = useRef(false);
@@ -50,14 +53,14 @@ export function MoveDimensionOverlay({
   }) as CSSProperties;
 
   return (
-    <div className={`move-dimension-overlay ${active ? "active" : "settled"}`} aria-label="Movement dimensions">
+    <div className={`move-dimension-overlay ${active ? "active" : "settled"}`} aria-label={t("movementDimensions")}>
       {overlay.lines.map((line) => {
         if (editing?.axis === line.axis) {
           return (
             <input
               key={`edit-${line.axis}`}
               className="dimension-input move-dimension-input"
-              aria-label={`${line.axis.toUpperCase()} movement`}
+              aria-label={t(axisLabelKey(line.axis))}
               value={editing.value}
               autoFocus
               inputMode="decimal"
@@ -97,7 +100,7 @@ export function MoveDimensionOverlay({
             key={line.axis}
             className="dimension-label move-dimension-value"
             type="button"
-            aria-label={`${line.axis.toUpperCase()} movement`}
+            aria-label={t(axisLabelKey(line.axis))}
             style={styleForLine(line)}
             onClick={() => setEditing({ axis: line.axis, value: line.label })}
             onPointerDown={stopPointerPropagation}

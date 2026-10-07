@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { Check, LoaderCircle, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import type { CadModifierKind, CadModifierQuality } from "@/lib/cadModifierTypes";
 import { CAD_MODIFIER_MAX_SHARP_ANGLE, edgeModifierSelectionStatus } from "@/lib/cadModifierRuntime";
@@ -194,7 +195,8 @@ export function EdgeModifierPanel({
   onCancel: () => void;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
-  const title = kind === "fillet" ? "Fillet edges" : "Chamfer edges";
+  const t = useTranslations("edgeModifier");
+  const title = kind === "fillet" ? t("filletEdges") : t("chamferEdges");
   const amountMin = Math.min(MIN_EDGE_MODIFIER_AMOUNT, Math.max(Number.EPSILON, maxAmount));
   const amountMax = Math.max(amountMin, maxAmount);
   return (
@@ -204,21 +206,21 @@ export function EdgeModifierPanel({
           <strong>{title}</strong>
           <span>{edgeModifierSelectionStatus(prepared, selectedCount, availableCount)}</span>
         </div>
-        <button type="button" aria-label={`Cancel ${kind}`} onClick={onCancel}><X size={20} /></button>
+        <button type="button" aria-label={t("cancel")} onClick={onCancel}><X size={20} /></button>
       </div>
 
       <div className={`edge-modifier-target ${groupedCount > 0 ? "grouped" : ""}`}>
         <strong>{targetName}</strong>
-        <span>{groupedCount > 0 ? `${groupedCount} grouped objects` : "Single object"}{appliedFeatureCount > 0 ? ` · ${appliedFeatureCount} existing edge feature${appliedFeatureCount === 1 ? "" : "s"}` : ""}</span>
+        <span>{groupedCount > 0 ? t("groupedObjects", { count: groupedCount }) : t("singleObject")}{appliedFeatureCount > 0 ? ` · ${appliedFeatureCount} existing edge feature${appliedFeatureCount === 1 ? "" : "s"}` : ""}</span>
       </div>
 
       <div className="edge-modifier-selection-help">
-        {prepared ? "Click highlighted model edges to toggle them. Hold Shift to add or remove a single edge." : "Loading CAD edge data from the local browser worker."}
+        {prepared ? t("clickHighlightedEdges") : t("loadingCadEdges")}
       </div>
 
       <div className="edge-modifier-quick-actions">
-        <button type="button" disabled={!prepared || busy} onClick={onSelectAll}>All sharp edges</button>
-        <button type="button" disabled={!prepared || busy} onClick={onClear}>Clear</button>
+        <button type="button" disabled={!prepared || busy} onClick={onSelectAll}>{t("allSharpEdges")}</button>
+        <button type="button" disabled={!prepared || busy} onClick={onClear}>{t("clear")}</button>
       </div>
 
       {appliedFeatureCount > 0 ? (
@@ -231,9 +233,9 @@ export function EdgeModifierPanel({
             onClick={() => setHistoryOpen((open) => !open)}
           >
             {historyOpen ? <Minus size={15} /> : <Plus size={15} />}
-            <span>Edge feature history</span>
+            <span>{t("edgeFeatureHistory")}</span>
           </button>
-          {reversibleFeatureCount === 0 ? <span>Older edge features do not have stored undo history.</span> : null}
+          {reversibleFeatureCount === 0 ? <span>{t("olderNoHistory")}</span> : null}
           {historyOpen && historyOptions.length > 0 ? (
             <div className="edge-modifier-history-list">
               {historyOptions.map((option) => (
@@ -243,7 +245,7 @@ export function EdgeModifierPanel({
                     <strong>{option.label}</strong>
                     <small>
                       {option.targetName}
-                      {option.removesNewerCount > 0 ? ` · also removes ${option.removesNewerCount} newer` : ""}
+                      {option.removesNewerCount > 0 ? ` · ${t("alsoRemoves", { count: option.removesNewerCount })}` : ""}
                     </small>
                   </span>
                 </button>
@@ -254,7 +256,7 @@ export function EdgeModifierPanel({
       ) : null}
 
       <EdgeModifierSlider
-        label={kind === "fillet" ? "Radius" : "Distance"}
+        label={kind === "fillet" ? t("radius") : t("distance")}
         value={amount}
         min={amountMin}
         max={amountMax}
@@ -265,35 +267,35 @@ export function EdgeModifierPanel({
         onChange={onAmountChange}
       />
 
-      {kind === "chamfer" ? <EdgeModifierSlider label="Angle" value={chamferAngle} min={5} max={85} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy} onChange={onChamferAngleChange} /> : null}
+      {kind === "chamfer" ? <EdgeModifierSlider label={t("angle")} value={chamferAngle} min={5} max={85} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy} onChange={onChamferAngleChange} /> : null}
 
-      <EdgeModifierSlider label="Sharp-edge threshold" value={sharpAngle} min={1} max={CAD_MODIFIER_MAX_SHARP_ANGLE} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy} onChange={onSharpAngleChange} />
+      <EdgeModifierSlider label={t("sharpEdgeThreshold")} value={sharpAngle} min={1} max={CAD_MODIFIER_MAX_SHARP_ANGLE} step={1} unit="deg" workspace={workspace} disabled={!prepared || busy} onChange={onSharpAngleChange} />
 
       <label className="edge-modifier-check">
         <input type="checkbox" checked={tangentChain} disabled={!prepared || busy} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
-        <span>Select tangent chains</span>
+        <span>{t("selectTangentChains")}</span>
       </label>
 
       <label className="edge-modifier-check">
         <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared || busy} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
-        <span>Keep edge size when resizing</span>
+        <span>{t("keepEdgeSize")}</span>
       </label>
 
       <label className="edge-modifier-field">
-        <span>Preview quality</span>
+        <span>{t("previewQuality")}</span>
         <select value={quality} disabled={!prepared || busy} onChange={(event) => onQualityChange(event.currentTarget.value as CadModifierQuality)}>
-          <option value="draft">Draft</option>
-          <option value="standard">Standard</option>
-          <option value="fine">Fine</option>
+          <option value="draft">{t("draft")}</option>
+          <option value="standard">{t("standard")}</option>
+          <option value="fine">{t("fine")}</option>
         </select>
       </label>
 
       {error ? <div className="edge-modifier-error" role="alert">{error}</div> : null}
       <div className="edge-modifier-footer">
-        <button type="button" className="secondary" onClick={onCancel}>Cancel</button>
+        <button type="button" className="secondary" onClick={onCancel}>{t("cancel")}</button>
         <button type="button" className="primary" disabled={!prepared || busy || selectedCount === 0 || Boolean(error)} onClick={onApply}>
           {busy ? <LoaderCircle className="edge-modifier-spinner" size={17} /> : <Check size={17} />}
-          Apply
+          {t("apply")}
         </button>
       </div>
     </aside>

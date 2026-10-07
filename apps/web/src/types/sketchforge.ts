@@ -95,7 +95,7 @@ export type AlignHandleStatus = {
   target: AlignTarget;
   disabled: boolean;
   aligned: boolean;
-  title: string;
+  labelKey: string;
 };
 
 export type SketchPoint = {

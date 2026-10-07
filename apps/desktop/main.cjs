@@ -4,6 +4,48 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const locale = (app.getLocale() || "").toLowerCase();
+const isRu = locale.startsWith("ru");
+
+const STRINGS = {
+  en: {
+    trayTooltip: "SketchForge",
+    trayOpen: "Open SketchForge",
+    trayCheckUpdates: "Check for Updates",
+    trayQuit: "Quit SketchForge",
+    trayDownloading: "SketchForge - downloading update {percent}%",
+    trayReadyToInstall: "SketchForge {version} ready to install",
+    updateWindowTitle: "SketchForge updates",
+    updateWindowNotPackaged: "Automatic updates are tested from the installed SketchForge app.",
+    updateWindowAvailable: "SketchForge {version} is available.",
+    updateWindowAvailableDetail: "Open Settings and press Update to install it.",
+    updateWindowUpToDate: "SketchForge is up to date.",
+    updateErrorTitle: "Could not check for updates",
+    updateNotAvailableTitle: "Could not update SketchForge",
+    startErrorTitle: "SketchForge could not start",
+  },
+  ru: {
+    trayTooltip: "SketchForge",
+    trayOpen: "Открыть SketchForge",
+    trayCheckUpdates: "Проверить обновления",
+    trayQuit: "Выйти из SketchForge",
+    trayDownloading: "SketchForge — загрузка обновления {percent}%",
+    trayReadyToInstall: "SketchForge {version} готов к установке",
+    updateWindowTitle: "Обновления SketchForge",
+    updateWindowNotPackaged: "Автоматические обновления тестируются на установленном приложении SketchForge.",
+    updateWindowAvailable: "Доступна версия SketchForge {version}.",
+    updateWindowAvailableDetail: "Откройте настройки и нажмите «Обновить» для установки.",
+    updateWindowUpToDate: "SketchForge обновлён.",
+    updateErrorTitle: "Не удалось проверить обновления",
+    updateNotAvailableTitle: "Не удалось обновить SketchForge",
+    startErrorTitle: "SketchForge не удалось запустить",
+  },
+};
+const S = STRINGS[isRu ? "ru" : "en"];
+function tmpl(str, vars) {
+  return str.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? `{${k}}`);
+}
+
 const devUrl = process.env.SKETCHFORGE_DESKTOP_DEV_URL?.trim() || "";
 // Keep the desktop origin stable. localStorage and IndexedDB are scoped to the
 // full origin (including the port), so a random port made projects appear to
@@ -161,8 +203,8 @@ async function checkForDesktopUpdates(manual = false) {
     if (manual) {
       await dialog.showMessageBox({
         type: "info",
-        title: "SketchForge updates",
-        message: "Automatic updates are tested from the installed SketchForge app.",
+        title: S.updateWindowTitle,
+        message: S.updateWindowNotPackaged,
       });
     }
     return desktopUpdatePayload(null);
@@ -185,7 +227,7 @@ async function checkForDesktopUpdates(manual = false) {
     const message = error instanceof Error ? error.message : String(error);
     lastUpdateCheckError = message;
     if (manualUpdateCheck) {
-      dialog.showErrorBox("Could not check for updates", message);
+      dialog.showErrorBox(S.updateErrorTitle, message);
       manualUpdateCheck = false;
     }
     return desktopUpdatePayload(null, message);
@@ -216,9 +258,9 @@ function setupDesktopUpdater() {
     manualUpdateCheck = false;
     void dialog.showMessageBox({
       type: "info",
-      title: "SketchForge update",
-      message: `SketchForge ${info.version} is available.`,
-      detail: "Open Settings and press Update to install it.",
+      title: tmpl(S.updateWindowAvailable, { version: info.version }),
+      message: tmpl(S.updateWindowAvailable, { version: info.version }),
+      detail: S.updateWindowAvailableDetail,
     });
   });
 
@@ -227,26 +269,26 @@ function setupDesktopUpdater() {
     manualUpdateCheck = false;
     void dialog.showMessageBox({
       type: "info",
-      title: "SketchForge updates",
-      message: "SketchForge is up to date.",
+      title: S.updateWindowTitle,
+      message: S.updateWindowUpToDate,
     });
   });
 
   autoUpdater.on("download-progress", (progress) => {
-    if (tray) tray.setToolTip(`SketchForge - downloading update ${Math.round(progress.percent)}%`);
+    if (tray) tray.setToolTip(tmpl(S.trayDownloading, { percent: Math.round(progress.percent) }));
   });
 
   autoUpdater.on("update-downloaded", (info) => {
     downloadedUpdateReady = true;
-    if (tray) tray.setToolTip(`SketchForge ${info.version} ready to install`);
+    if (tray) tray.setToolTip(tmpl(S.trayReadyToInstall, { version: info.version }));
     if (updateInstallRequested) installDownloadedUpdate();
   });
 
   autoUpdater.on("error", (error) => {
-    if (tray) tray.setToolTip("SketchForge");
+    if (tray) tray.setToolTip(S.trayTooltip);
     if (!manualUpdateCheck) return;
     manualUpdateCheck = false;
-    dialog.showErrorBox("Could not update SketchForge", error instanceof Error ? error.message : String(error));
+    dialog.showErrorBox(S.updateNotAvailableTitle, error instanceof Error ? error.message : String(error));
   });
 
   setTimeout(() => void checkForDesktopUpdates(false), 4_000).unref();
@@ -258,19 +300,19 @@ function createTray() {
 
   const icon = nativeImage.createFromPath(appIconPath()).resize({ width: 20, height: 20 });
   tray = new Tray(icon);
-  tray.setToolTip("SketchForge");
+  tray.setToolTip(S.trayTooltip);
   tray.setContextMenu(Menu.buildFromTemplate([
     {
-      label: "Open SketchForge",
+      label: S.trayOpen,
       click: showMainWindow,
     },
     {
-      label: "Check for Updates",
+      label: S.trayCheckUpdates,
       click: () => void checkForDesktopUpdates(true),
     },
     { type: "separator" },
     {
-      label: "Quit SketchForge",
+      label: S.trayQuit,
       click: () => {
         if (downloadedUpdateReady) {
           installDownloadedUpdate();
@@ -362,7 +404,7 @@ async function startDesktop() {
     const message = error instanceof Error ? error.message : String(error);
     const detail = webServerOutput.trim();
     dialog.showErrorBox(
-      "SketchForge could not start",
+      S.startErrorTitle,
       detail ? `${message}\n\n${detail}` : message,
     );
     app.quit();

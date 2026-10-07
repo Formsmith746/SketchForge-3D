@@ -34,6 +34,45 @@ export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "gear", name: "Gear", src: "assets/sketchforge/gear-types/spur.png", menuIcon: "assets/sketchforge/gear-types/spur.png", kind: "gear", color: "#6f7f8d" },
 ];
 
+const SHAPE_KIND_LABEL_KEYS: Record<string, string> = {
+  box: "shapes.box",
+  cylinder: "shapes.cylinder",
+  sphere: "shapes.sphere",
+  cone: "shapes.cone",
+  pyramid: "shapes.pyramid",
+  wedge: "shapes.wedge",
+  text: "shapes.text",
+  roundRoof: "shapes.roundRoof",
+  halfSphere: "shapes.halfSphere",
+  torus: "shapes.torus",
+  tube: "shapes.tube",
+  gear: "shapes.gear",
+  ring: "shapes.ring",
+  roof: "shapes.roundRoof",
+  sketch: "shapes.sketch",
+  scribble: "shapes.scribble",
+  importedMesh: "shapes.importedMesh",
+  imagePlate: "shapes.imagePlate",
+};
+
+export function shapeKindLabelKey(kind: string): string {
+  return SHAPE_KIND_LABEL_KEYS[kind] ?? kind;
+}
+
+export const TEXT_FONT_OPTIONS: ReadonlyArray<{ value: string; labelKey: string }> = [
+  { value: "Multilanguage", labelKey: "shapes.multilanguage" },
+  { value: "Sans", labelKey: "shapes.sans" },
+  { value: "Serif", labelKey: "shapes.serif" },
+  { value: "Script", labelKey: "shapes.script" },
+  { value: "Monospace", labelKey: "shapes.monospace" },
+  { value: "Rounded", labelKey: "shapes.rounded" },
+  { value: "Stencil", labelKey: "shapes.stencil" },
+];
+
+export function textFontLabelKey(font: string) {
+  return TEXT_FONT_OPTIONS.find((option) => option.value === font)?.labelKey ?? "shapes.multilanguage";
+}
+
 export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   const roundProfile = kind === "sphere" || kind === "torus" || kind === "ring" || kind === "halfSphere";
   const flatProfile = kind === "torus" || kind === "ring" || kind === "text" || kind === "gear";

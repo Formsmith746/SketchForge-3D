@@ -1,47 +1,57 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Box as BoxIcon, ChevronDown, Grid3X3, History, Palette, RotateCcw, Ruler, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { APP_THEME_OPTIONS, type AppThemePreference } from "@/lib/appTheme";
 import { gearCenterHoleLimits, gearToothPitch } from "@/lib/gearGeometry";
-import { normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
-import { shapeAssetDefaultDimensions, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
+import { normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS, unitLabelKey, scaleLabelKey } from "@/lib/measurementUnits";
+import { shapeAssetDefaultDimensions, shapeAssetSpecialDefaults, toolbarShapeAssets, TEXT_FONT_OPTIONS } from "@/lib/shapeCatalog";
 import { DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MIN_CUSTOM_SHAPE_DIMENSION } from "@/lib/workplaneSettings";
 import type { GearType, GridSize, ShapeCustomization, ShapeKind, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
 type WorkspaceSettingsSection = "appearance" | "measurement" | "workplane" | "shapes" | "history";
 
-const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
+const SNAP_GRID_KEYS: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
+const SNAP_GRID_LABEL_KEYS: ("off" | "pointOne" | "pointTwoFive" | "pointFive" | "oneZero" | "twoZero" | "fiveZero" | "brick")[] = ["off", "pointOne", "pointTwoFive", "pointFive", "oneZero", "twoZero", "fiveZero", "brick"];
 const MIN_WORKSPACE_SIZE = 60;
 const MAX_WORKSPACE_SIZE = 2000;
 const MIN_GRID_BLOCK_SIZE = 1;
 const MAX_GRID_BLOCK_SIZE = 200;
 const WORKSPACE_SIZE_PRESETS = [
-  { label: "200 x 200 mm", width: 200, depth: 200 },
-  { label: "300 x 300 mm", width: 300, depth: 300 },
-  { label: "500 x 500 mm", width: 500, depth: 500 },
-  { label: "1000 x 1000 mm", width: 1000, depth: 1000 },
-  { label: "2000 x 2000 mm", width: 2000, depth: 2000 },
-  { label: "Custom", width: 200, depth: 200 },
+  { label: "200 x 200 mm", labelKey: "200x200", width: 200, depth: 200 },
+  { label: "300 x 300 mm", labelKey: "300x300", width: 300, depth: 300 },
+  { label: "500 x 500 mm", labelKey: "500x500", width: 500, depth: 500 },
+  { label: "1000 x 1000 mm", labelKey: "1000x1000", width: 1000, depth: 1000 },
+  { label: "2000 x 2000 mm", labelKey: "2000x2000", width: 2000, depth: 2000 },
+  { label: "Custom", labelKey: "custom", width: 200, depth: 200 },
 ];
-const GRID_BLOCK_PRESETS = ["1 mm", "2.5 mm", "5 mm", "10 mm", "20 mm", "50 mm", "100 mm", "Custom"] as const;
+const GRID_BLOCK_PRESETS = [
+  { label: "1 mm", labelKey: "1mm" },
+  { label: "2.5 mm", labelKey: "2point5mm" },
+  { label: "5 mm", labelKey: "5mm" },
+  { label: "10 mm", labelKey: "10mm" },
+  { label: "20 mm", labelKey: "20mm" },
+  { label: "50 mm", labelKey: "50mm" },
+  { label: "100 mm", labelKey: "100mm" },
+  { label: "Custom", labelKey: "custom" },
+];
 const HISTORY_LIMIT_OPTIONS = [30, 50, 100, "unlimited", "custom"] as const;
 const HISTORY_CUSTOM_DEFAULT = 250;
-const TEXT_FONT_OPTIONS = ["Multilanguage", "Sans", "Serif", "Script", "Monospace", "Rounded", "Stencil"];
-const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: string }> = [
-  { value: "spur", label: "Spur gear" },
-  { value: "helical", label: "Helical gear" },
-  { value: "bevel", label: "Bevel gear" },
+const GEAR_TYPE_OPTIONS: Array<{ value: GearType; labelKey: string }> = [
+  { value: "spur", labelKey: "shapes.spurGear" },
+  { value: "helical", labelKey: "shapes.helicalGear" },
+  { value: "bevel", labelKey: "shapes.bevelGear" },
 ];
 
 type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality";
 type ShapeSpecialField =
-  | { type: "number"; key: ShapeSpecialNumberKey; label: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
-  | { type: "select"; key: "font" | "gearType"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
-  | { type: "text"; key: "text"; label: string; defaultValue: string; maxLength: number };
+  | { type: "number"; key: ShapeSpecialNumberKey; labelKey: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
+  | { type: "select"; key: "font" | "gearType"; labelKey: string; defaultValue: string; options: Array<{ value: string; labelKey: string }> }
+  | { type: "text"; key: "text"; labelKey: string; defaultValue: string; maxLength: number };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -64,24 +74,24 @@ function specialFieldsForShape(
   customization: ShapeCustomization,
 ): ShapeSpecialField[] {
   const defaults = shapeAssetSpecialDefaults(kind, dimensions);
-  if (kind === "cylinder") return [{ type: "number", key: "sides", label: "Sides", defaultValue: defaults.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 }];
-  if (kind === "sphere" || kind === "halfSphere") return [{ type: "number", key: "steps", label: "Steps", defaultValue: defaults.steps ?? 24, min: 6, max: 64, step: 1 }];
+  if (kind === "cylinder") return [{ type: "number", key: "sides", labelKey: "sides", defaultValue: defaults.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 }];
+  if (kind === "sphere" || kind === "halfSphere") return [{ type: "number", key: "steps", labelKey: "steps", defaultValue: defaults.steps ?? 24, min: 6, max: 64, step: 1 }];
   if (kind === "cone") {
     return [
-      { type: "number", key: "topRadius", label: "Top radius", defaultValue: defaults.topRadius ?? 0, min: 0, max: MAX_CUSTOM_SHAPE_DIMENSION / 2, unit: "mm" },
-      { type: "number", key: "baseRadius", label: "Base radius", defaultValue: defaults.baseRadius ?? dimensions.width / 2, min: MIN_CUSTOM_SHAPE_DIMENSION, max: MAX_CUSTOM_SHAPE_DIMENSION / 2, unit: "mm" },
-      { type: "number", key: "sides", label: "Sides", defaultValue: defaults.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 },
+      { type: "number", key: "topRadius", labelKey: "topRadius", defaultValue: defaults.topRadius ?? 0, min: 0, max: MAX_CUSTOM_SHAPE_DIMENSION / 2, unit: "mm" },
+      { type: "number", key: "baseRadius", labelKey: "baseRadius", defaultValue: defaults.baseRadius ?? dimensions.width / 2, min: MIN_CUSTOM_SHAPE_DIMENSION, max: MAX_CUSTOM_SHAPE_DIMENSION / 2, unit: "mm" },
+      { type: "number", key: "sides", labelKey: "sides", defaultValue: defaults.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 },
     ];
   }
-  if (kind === "pyramid") return [{ type: "number", key: "sides", label: "Sides", defaultValue: defaults.sides ?? 4, min: 3, max: 24, step: 1 }];
-  if (kind === "roundRoof") return [{ type: "number", key: "sides", label: "Sides", defaultValue: defaults.sides ?? 64, min: 4, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 }];
-  if (kind === "tube" || kind === "ring") return [{ type: "number", key: "bevel", label: "Thickness", defaultValue: defaults.bevel ?? 4, min: 0.5, max: 20, unit: "mm" }];
+  if (kind === "pyramid") return [{ type: "number", key: "sides", labelKey: "sides", defaultValue: defaults.sides ?? 4, min: 3, max: 24, step: 1 }];
+  if (kind === "roundRoof") return [{ type: "number", key: "sides", labelKey: "sides", defaultValue: defaults.sides ?? 64, min: 4, max: MAX_HIGH_RESOLUTION_SIDES, step: 1 }];
+  if (kind === "tube" || kind === "ring") return [{ type: "number", key: "bevel", labelKey: "bevel", defaultValue: defaults.bevel ?? 4, min: 0.5, max: 20, unit: "mm" }];
   if (kind === "text") {
     return [
-      { type: "text", key: "text", label: "Text", defaultValue: defaults.text ?? "TEXT", maxLength: 24 },
-      { type: "select", key: "font", label: "Font", defaultValue: defaults.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS.map((value) => ({ value, label: value })) },
-      { type: "number", key: "bevel", label: "Bevel", defaultValue: defaults.bevel ?? 0, min: 0, max: 8, unit: "mm" },
-      { type: "number", key: "segments", label: "Segments", defaultValue: defaults.segments ?? 0, min: 0, max: 24, step: 1 },
+      { type: "text", key: "text", labelKey: "text", defaultValue: defaults.text ?? "TEXT", maxLength: 24 },
+      { type: "select", key: "font", labelKey: "font", defaultValue: defaults.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS.map((option) => ({ value: option.value, labelKey: option.labelKey })) },
+      { type: "number", key: "bevel", labelKey: "bevel", defaultValue: defaults.bevel ?? 0, min: 0, max: 8, unit: "mm" },
+      { type: "number", key: "segments", labelKey: "segments", defaultValue: defaults.segments ?? 0, min: 0, max: 24, step: 1 },
     ];
   }
   if (kind === "gear") {
@@ -91,16 +101,16 @@ function specialFieldsForShape(
     const centerHoleLimits = gearCenterHoleLimits(dimensions.width, dimensions.depth, toothSize);
     const gearType = customization.gearType ?? defaults.gearType ?? "spur";
     const fields: ShapeSpecialField[] = [
-      { type: "select", key: "gearType", label: "Gear type", defaultValue: defaults.gearType ?? "spur", options: GEAR_TYPE_OPTIONS },
-      { type: "number", key: "teeth", label: "Teeth", defaultValue: defaults.teeth ?? 12, min: 6, max: 64, step: 1 },
-      { type: "number", key: "toothSize", label: "Tooth size", defaultValue: defaults.toothSize ?? 2.5, min: 0.2, max: Math.max(0.2, Math.min(dimensions.width, dimensions.depth) * 0.22), unit: "mm" },
-      { type: "number", key: "toothWidth", label: "Tooth width", defaultValue: defaults.toothWidth ?? toothPitch * 0.54, min: toothPitch * 0.12, max: toothPitch * 0.82, unit: "mm" },
-      { type: "number", key: "centerHoleSize", label: "Center hole", defaultValue: defaults.centerHoleSize ?? 6, min: centerHoleLimits.min, max: centerHoleLimits.max, unit: "mm" },
+      { type: "select", key: "gearType", labelKey: "gearType", defaultValue: defaults.gearType ?? "spur", options: GEAR_TYPE_OPTIONS },
+      { type: "number", key: "teeth", labelKey: "teeth", defaultValue: defaults.teeth ?? 12, min: 6, max: 64, step: 1 },
+      { type: "number", key: "toothSize", labelKey: "toothSize", defaultValue: defaults.toothSize ?? 2.5, min: 0.2, max: Math.max(0.2, Math.min(dimensions.width, dimensions.depth) * 0.22), unit: "mm" },
+      { type: "number", key: "toothWidth", labelKey: "toothWidth", defaultValue: defaults.toothWidth ?? toothPitch * 0.54, min: toothPitch * 0.12, max: toothPitch * 0.82, unit: "mm" },
+      { type: "number", key: "centerHoleSize", labelKey: "centerHole", defaultValue: defaults.centerHoleSize ?? 6, min: centerHoleLimits.min, max: centerHoleLimits.max, unit: "mm" },
     ];
     if (gearType === "helical") {
       fields.push(
-        { type: "number", key: "helixAngle", label: "Helix angle", defaultValue: defaults.helixAngle ?? 22.5, min: -45, max: 45, unit: "deg" },
-        { type: "number", key: "helixQuality", label: "Helix quality", defaultValue: defaults.helixQuality ?? 16, min: 4, max: 32, step: 1 },
+        { type: "number", key: "helixAngle", labelKey: "helixAngle", defaultValue: defaults.helixAngle ?? 22.5, min: -45, max: 45, unit: "deg" },
+        { type: "number", key: "helixQuality", labelKey: "quality", defaultValue: defaults.helixQuality ?? 16, min: 4, max: 32, step: 1 },
       );
     }
     return fields;
@@ -135,6 +145,8 @@ export function WorkspaceSettingsModal({
   onMakeDefault: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations();
+
   const [defaultSaved, setDefaultSaved] = useState(false);
   const [activeSection, setActiveSection] = useState<WorkspaceSettingsSection>("appearance");
   const [selectedShapeKind, setSelectedShapeKind] = useState<ShapeKind>(toolbarShapeAssets[0].kind);
@@ -167,6 +179,14 @@ export function WorkspaceSettingsModal({
   };
   const selectedShapeSpecialFields = specialFieldsForShape(selectedShapeKind, selectedShapeEffectiveDimensions, selectedShapeCustomization);
   const selectedShapeCustomized = Object.keys(selectedShapeCustomization).length > 0;
+
+  const sizePresetOptions = WORKSPACE_SIZE_PRESETS.map((preset) => t(`workspaceSettings.sizePresets.${preset.labelKey}`));
+  const gridBlockPresetOptions = GRID_BLOCK_PRESETS.map((preset) => t(`workspaceSettings.gridBlockPresets.${preset.labelKey}`));
+  const snapGridOptions = SNAP_GRID_LABEL_KEYS.map((key) => t(`snapGrid.${key}`));
+  const sizePresetDisplayValue = sizePresetOptions[WORKSPACE_SIZE_PRESETS.findIndex((preset) => preset.label === workspace.sizePreset)] ?? sizePresetOptions[WORKSPACE_SIZE_PRESETS.length - 1];
+  const gridBlockPresetDisplayValue = gridBlockPresetOptions[GRID_BLOCK_PRESETS.findIndex((preset) => preset.label === workspace.gridBlockPreset)] ?? gridBlockPresetOptions[GRID_BLOCK_PRESETS.length - 1];
+  const snapDisplayValue = snapGridOptions[SNAP_GRID_KEYS.indexOf(snap)] ?? snap;
+
   useEffect(() => {
     setDimensionDrafts({
       width: workspace.width.toFixed(workspace.accuracy),
@@ -275,36 +295,36 @@ export function WorkspaceSettingsModal({
   };
 
   return (
-    <div className="workspace-modal" role="dialog" aria-modal="true" aria-label="Workspace settings">
+    <div className="workspace-modal" role="dialog" aria-modal="true" aria-label={t("workspaceSettings.title")}>
       <div className="workspace-modal-card" onPointerDown={(event) => event.stopPropagation()}>
         <header className="workspace-modal-header">
-          <strong>Workspace settings</strong>
-          <button aria-label="Close settings" onClick={onClose}>
+          <strong>{t("workspaceSettings.title")}</strong>
+          <button aria-label={t("workspaceSettings.closeSettings")} onClick={onClose}>
             <X size={18} />
           </button>
         </header>
 
         <div className="workspace-modal-layout">
-          <nav className="workspace-settings-nav" aria-label="Workspace settings sections">
+          <nav className="workspace-settings-nav" aria-label={t("workspaceSettings.workspaceSettingsSections")}>
             <button className={activeSection === "appearance" ? "active" : ""} aria-current={activeSection === "appearance" ? "page" : undefined} onClick={() => setActiveSection("appearance")}>
               <Palette size={18} />
-              <span>Appearance</span>
+              <span>{t("workspaceSettings.appearance")}</span>
             </button>
             <button className={activeSection === "measurement" ? "active" : ""} aria-current={activeSection === "measurement" ? "page" : undefined} onClick={() => setActiveSection("measurement")}>
               <Ruler size={18} />
-              <span>Measurement</span>
+              <span>{t("workspaceSettings.measurement")}</span>
             </button>
             <button className={activeSection === "workplane" ? "active" : ""} aria-current={activeSection === "workplane" ? "page" : undefined} onClick={() => setActiveSection("workplane")}>
               <Grid3X3 size={18} />
-              <span>Workplane</span>
+              <span>{t("workspaceSettings.workplane")}</span>
             </button>
             <button className={activeSection === "shapes" ? "active" : ""} aria-current={activeSection === "shapes" ? "page" : undefined} onClick={() => setActiveSection("shapes")}>
               <BoxIcon size={18} />
-              <span>Shape defaults</span>
+              <span>{t("workspaceSettings.shapeDefaults")}</span>
             </button>
             <button className={activeSection === "history" ? "active" : ""} aria-current={activeSection === "history" ? "page" : undefined} onClick={() => setActiveSection("history")}>
               <History size={18} />
-              <span>History</span>
+              <span>{t("workspaceSettings.history")}</span>
             </button>
           </nav>
 
@@ -313,46 +333,46 @@ export function WorkspaceSettingsModal({
               {activeSection === "appearance" ? (
                 <>
                   <div className="workspace-section-heading">
-                    <strong>Appearance</strong>
-                    <span>Adjust the canvas and navigation behavior.</span>
+                    <strong>{t("workspaceSettings.appearance")}</strong>
+                    <span>{t("workspaceSettings.appearanceDescription")}</span>
                   </div>
                   <label className="workspace-select">
-                    <span>Theme</span>
+                    <span>{t("workspaceSettings.theme")}</span>
                     <select
                       value={themePreference}
                       onChange={(event) => onThemePreferenceChange?.(event.currentTarget.value as AppThemePreference)}
                     >
                       {APP_THEME_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
-                          {option.label}
+                          {t(`theme.${option.value}`)}
                         </option>
                       ))}
                     </select>
                   </label>
-                  <p className="workspace-global-note">Theme applies across SketchForge and all projects.</p>
+                  <p className="workspace-global-note">{t("workspaceSettings.themeAppliesAcross")}</p>
                   <WorkspaceToggle
-                    label="Show project name in toolbar"
+                    label={t("workspaceSettings.showProjectName")}
                     checked={showProjectNameInToolbar}
                     onChange={(show) => onShowProjectNameInToolbarChange?.(show)}
                   />
                   <WorkspaceToggle
-                    label="Show movement dimensions"
+                    label={t("workspaceSettings.showMovementDimensions")}
                     checked={moveDimensionsEnabled}
                     onChange={onMoveDimensionsEnabledChange}
                   />
                   <WorkspaceToggle
-                    label="Select before moving"
+                    label={t("workspaceSettings.selectBeforeMove")}
                     checked={workspace.selectBeforeMove}
                     onChange={(selectBeforeMove) => patchWorkspace({ selectBeforeMove })}
                   />
-                  <WorkspaceToggle label="Show shadows" checked={workspace.showShadows} onChange={(showShadows) => patchWorkspace({ showShadows })} />
+                  <WorkspaceToggle label={t("workspaceSettings.showShadows")} checked={workspace.showShadows} onChange={(showShadows) => patchWorkspace({ showShadows })} />
                   <WorkspaceToggle
-                    label="Cruise when adding new shapes"
+                    label={t("workspaceSettings.cruiseWhenAdding")}
                     checked={workspace.cruiseShapes}
                     onChange={(cruiseShapes) => patchWorkspace({ cruiseShapes })}
                   />
                   <label className="workspace-range">
-                    <span>Zoom speed</span>
+                    <span>{t("workspaceSettings.zoomSpeed")}</span>
                     <input
                       type="range"
                       min={1}
@@ -361,8 +381,8 @@ export function WorkspaceSettingsModal({
                       onChange={(event) => patchWorkspace({ zoomSpeed: Number(event.currentTarget.value) })}
                     />
                     <small>
-                      <span>Slow</span>
-                      <span>Fast</span>
+                      <span>{t("workspaceSettings.slow")}</span>
+                      <span>{t("workspaceSettings.fast")}</span>
                     </small>
                   </label>
                 </>
@@ -371,34 +391,51 @@ export function WorkspaceSettingsModal({
               {activeSection === "measurement" ? (
                 <>
                   <div className="workspace-section-heading">
-                    <strong>Measurement</strong>
-                    <span>Choose units, precision, scale, and snapping.</span>
+                    <strong>{t("workspaceSettings.measurement")}</strong>
+                    <span>{t("workspaceSettings.measurementDescription")}</span>
+                  </div>
+                  <div className="workspace-select">
+                    <span>{t("workspaceSettings.units")}</span>
+                    <select
+                      value={workspace.units}
+                      onChange={(event) => patchWorkspace({ units: event.currentTarget.value })}
+                    >
+                      {WORKSPACE_UNIT_OPTIONS.map((unit) => (
+                        <option key={unit} value={unit}>
+                          {t(unitLabelKey(unit))}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="workspace-select">
+                    <span>{t("workspaceSettings.scale")}</span>
+                    <select
+                      value={scaleValue}
+                      onChange={(event) => patchWorkspace({ scale: event.currentTarget.value })}
+                    >
+                      {scaleOptions.map((scale) => (
+                        <option key={scale} value={scale}>
+                          {t(scaleLabelKey(workspace.units, scale))}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <WorkspaceSelect
-                    label="Units"
-                    value={workspace.units}
-                    options={WORKSPACE_UNIT_OPTIONS}
-                    onChange={(units) => patchWorkspace({ units })}
-                  />
-                  <WorkspaceSelect
-                    label="Scale"
-                    value={scaleValue}
-                    options={scaleOptions}
-                    onChange={(scale) => patchWorkspace({ scale })}
-                  />
-                  <WorkspaceSelect
-                    label="Accuracy"
+                    label={t("workspaceSettings.accuracy")}
                     value={`0.${"0".repeat(workspace.accuracy)}`}
                     options={["0.0", "0.00", "0.000"]}
                     onChange={(accuracy) => patchWorkspace({ accuracy: accuracy.slice(2).length as WorkspaceSettings["accuracy"] })}
                   />
                   <WorkspaceSelect
-                    label="Snap Grid"
-                    value={snap}
-                    options={GRID_SIZES}
+                    label={t("snapGrid.label")}
+                    value={snapDisplayValue}
+                    options={snapGridOptions}
                     onChange={(next) => {
+                      const index = snapGridOptions.indexOf(next);
+                      const gridSize = SNAP_GRID_KEYS[index];
+                      if (!gridSize) return;
                       setDefaultSaved(false);
-                      onSnapChange(next as GridSize);
+                      onSnapChange(gridSize);
                     }}
                   />
                 </>
@@ -407,18 +444,22 @@ export function WorkspaceSettingsModal({
               {activeSection === "workplane" ? (
                 <>
                   <div className="workspace-section-heading">
-                    <strong>Workplane</strong>
-                    <span>Set the plate dimensions and visible grid spacing.</span>
+                    <strong>{t("workspaceSettings.workplane")}</strong>
+                    <span>{t("workspaceSettings.workplaneDescription")}</span>
                   </div>
                   <WorkspaceSelect
-                    label="Workplane size"
-                    value={workspace.sizePreset}
-                    options={WORKSPACE_SIZE_PRESETS.map((preset) => preset.label)}
-                    onChange={setWorkspaceSizePreset}
+                    label={t("workspaceSettings.workplaneSize")}
+                    value={sizePresetDisplayValue}
+                    options={sizePresetOptions}
+                    onChange={(label) => {
+                      const index = sizePresetOptions.indexOf(label);
+                      const preset = WORKSPACE_SIZE_PRESETS[index];
+                      if (preset) setWorkspaceSizePreset(preset.label);
+                    }}
                   />
                   <div className="workspace-dimensions">
                     <label>
-                      <span>Width</span>
+                      <span>{t("workspaceSettings.width")}</span>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -434,7 +475,7 @@ export function WorkspaceSettingsModal({
                       />
                     </label>
                     <label>
-                      <span>Length</span>
+                      <span>{t("workspaceSettings.length")}</span>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -450,12 +491,21 @@ export function WorkspaceSettingsModal({
                       />
                     </label>
                   </div>
-                  <WorkspaceSelect label="Grid block size" value={workspace.gridBlockPreset} options={GRID_BLOCK_PRESETS} onChange={setGridBlockPreset} />
+                  <WorkspaceSelect
+                    label={t("workspaceSettings.gridBlockSize")}
+                    value={gridBlockPresetDisplayValue}
+                    options={gridBlockPresetOptions}
+                    onChange={(label) => {
+                      const index = gridBlockPresetOptions.indexOf(label);
+                      const preset = GRID_BLOCK_PRESETS[index];
+                      if (preset) setGridBlockPreset(preset.label);
+                    }}
+                  />
                   <GridColorControl color={gridColor} onChange={(nextGridColor) => patchWorkspace({ gridColor: nextGridColor })} />
                   {workspace.gridBlockPreset === "Custom" ? (
                     <div className="workspace-dimensions workspace-grid-dimensions">
                       <label>
-                        <span>Block size</span>
+                        <span>{t("workspaceSettings.blockSize")}</span>
                         <input
                           type="text"
                           inputMode="decimal"
@@ -475,17 +525,17 @@ export function WorkspaceSettingsModal({
               {activeSection === "shapes" ? (
                 <>
                   <div className="workspace-section-heading">
-                    <strong>Shape defaults</strong>
-                    <span>Customize how each toolbar shape starts. Existing limits stay unchanged until you enter a custom limit.</span>
+                    <strong>{t("workspaceSettings.shapeDefaults")}</strong>
+                    <span>{t("workspaceSettings.shapeDefaultsDescription")}</span>
                   </div>
                   <label className="workspace-shape-picker">
-                    <span>Shape</span>
+                    <span>{t("workspaceSettings.shape")}</span>
                     <span className="workspace-shape-picker-control">
                       <img src={selectedShapeAsset.menuIcon} alt="" />
                       <select value={selectedShapeKind} onChange={(event) => setSelectedShapeKind(event.currentTarget.value as ShapeKind)}>
                         {toolbarShapeAssets.map((asset) => (
                           <option key={asset.kind} value={asset.kind}>
-                            {asset.name}{workspace.shapeCustomizations[asset.kind] ? " — customized" : ""}
+                            {asset.name}{workspace.shapeCustomizations[asset.kind] ? ` ${t("shapes.shapeCustomized")}` : ""}
                           </option>
                         ))}
                       </select>
@@ -495,17 +545,17 @@ export function WorkspaceSettingsModal({
                     <div className="workspace-shape-card-heading">
                       <span>
                         <strong>{selectedShapeAsset.name}</strong>
-                        <small>{selectedShapeCustomized ? "Custom settings active" : "Using SketchForge defaults"}</small>
+                        <small>{selectedShapeCustomized ? t("shapes.customSettingsActive") : t("shapes.usingDefaults")}</small>
                       </span>
                       <button type="button" onClick={resetSelectedShapeCustomization} disabled={!selectedShapeCustomized}>
                         <RotateCcw size={14} />
-                        <span>Use app defaults</span>
+                        <span>{t("shapes.useAppDefaults")}</span>
                       </button>
                     </div>
                     <div className="workspace-shape-dimensions">
                       {(["width", "depth", "height"] as const).map((key) => (
                         <label key={`${selectedShapeKind}-${key}`}>
-                          <span>{key === "depth" ? "Length" : key[0].toUpperCase() + key.slice(1)}</span>
+                          <span>{key === "depth" ? t("workspaceSettings.length") : key[0].toUpperCase() + key.slice(1)}</span>
                           <input
                             key={`${selectedShapeKind}-${key}-${selectedShapeCustomization[key] ?? "app"}`}
                             type="text"
@@ -516,38 +566,39 @@ export function WorkspaceSettingsModal({
                               if (event.key === "Enter") event.currentTarget.blur();
                             }}
                           />
-                          <small>App: {selectedShapeAppDefaults[key]} mm</small>
+                          <small>{t("workspaceSettings.appDefault", { value: selectedShapeAppDefaults[key] })} mm</small>
                         </label>
                       ))}
                     </div>
                     {selectedShapeSpecialFields.length > 0 ? (
                       <div className="workspace-shape-specials">
                         <div className="workspace-shape-specials-heading">
-                          <strong>Shape details</strong>
-                          <small>Extra defaults used when this shape is added.</small>
+                          <strong>{t("shapes.shapeDetails")}</strong>
+                          <small>{t("shapes.extraDefaults")}</small>
                         </div>
                         <div className="workspace-shape-special-fields">
                           {selectedShapeSpecialFields.map((field) => {
                             const customizedValue = selectedShapeCustomization[field.key];
                             const effectiveValue = customizedValue ?? field.defaultValue;
                             if (field.type === "select") {
+                              const defaultOption = field.options.find((option) => option.value === field.defaultValue);
                               return (
                                 <label key={`${selectedShapeKind}-${field.key}`}>
-                                  <span>{field.label}</span>
+                                  <span>{t(`shapes.${field.labelKey}`)}</span>
                                   <select
                                     value={String(effectiveValue)}
                                     onChange={(event) => patchShapeCustomization(selectedShapeKind, { [field.key]: event.currentTarget.value })}
                                   >
-                                    {field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                    {field.options.map((option) => <option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}
                                   </select>
-                                  <small>App: {field.options.find((option) => option.value === field.defaultValue)?.label ?? field.defaultValue}</small>
+                                  <small>{t("workspaceSettings.appDefault", { value: defaultOption ? t(defaultOption.labelKey) : field.defaultValue })}</small>
                                 </label>
                               );
                             }
                             if (field.type === "text") {
                               return (
                                 <label key={`${selectedShapeKind}-${field.key}`}>
-                                  <span>{field.label}</span>
+                                  <span>{t(`shapes.${field.labelKey}`)}</span>
                                   <input
                                     key={`${selectedShapeKind}-${field.key}-${String(customizedValue ?? "app")}`}
                                     type="text"
@@ -558,14 +609,14 @@ export function WorkspaceSettingsModal({
                                       if (event.key === "Enter") event.currentTarget.blur();
                                     }}
                                   />
-                                  <small>App: {field.defaultValue}</small>
+                                  <small>{t("workspaceSettings.appDefault", { value: field.defaultValue })}</small>
                                 </label>
                               );
                             }
                             const numericValue = Number(effectiveValue);
                             return (
                               <label key={`${selectedShapeKind}-${field.key}`}>
-                                <span>{field.label}</span>
+                                <span>{t(`shapes.${field.labelKey}`)}</span>
                                 <input
                                   key={`${selectedShapeKind}-${field.key}-${String(customizedValue ?? "app")}-${field.defaultValue}`}
                                   type="text"
@@ -576,7 +627,7 @@ export function WorkspaceSettingsModal({
                                     if (event.key === "Enter") event.currentTarget.blur();
                                   }}
                                 />
-                                <small>App: {field.step === 1 ? Math.round(field.defaultValue) : Number(field.defaultValue.toFixed(workspace.accuracy))}{field.unit ? ` ${field.unit}` : ""}</small>
+                                <small>{t("workspaceSettings.appDefault", { value: field.step === 1 ? Math.round(field.defaultValue) : Number(field.defaultValue.toFixed(workspace.accuracy)) })}{field.unit ? ` ${field.unit}` : ""}</small>
                               </label>
                             );
                           })}
@@ -585,22 +636,22 @@ export function WorkspaceSettingsModal({
                     ) : null}
                     <label className="workspace-shape-limit">
                       <span>
-                        <strong>Custom size limit</strong>
-                        <small>Leave blank to keep all current inspector and drag limits for this shape.</small>
+                        <strong>{t("shapes.customSizeLimit")}</strong>
+                        <small>{t("shapes.leaveBlankKeepLimits")}</small>
                       </span>
                       <input
                         key={`${selectedShapeKind}-limit-${selectedShapeCustomization.maxDimension ?? "app"}`}
                         type="text"
                         inputMode="decimal"
                         defaultValue={selectedShapeCustomization.maxDimension?.toFixed(workspace.accuracy) ?? ""}
-                        placeholder="App limits"
+                        placeholder={t("shapes.custom")}
                         onBlur={(event) => setShapeLimit(event.currentTarget.value)}
                         onKeyDown={(event) => {
                           if (event.key === "Enter") event.currentTarget.blur();
                         }}
                       />
                     </label>
-                    <p className="workspace-shape-note">Custom values apply to new shapes. A custom size limit also replaces this shape&apos;s existing resize ceilings, up to 2000 mm.</p>
+                    <p className="workspace-shape-note">{t("shapes.customValuesApplyToNew")} A custom size limit also replaces this shape&apos;s existing resize ceilings, up to 2000 mm.</p>
                   </div>
                 </>
               ) : null}
@@ -608,8 +659,8 @@ export function WorkspaceSettingsModal({
               {activeSection === "history" ? (
                 <>
                   <div className="workspace-section-heading">
-                    <strong>Saved history</strong>
-                    <span>Choose how many completed actions remain available after saving or reopening this project.</span>
+                    <strong>{t("workspaceSettings.savedHistory")}</strong>
+                    <span>{t("workspaceSettings.historyDescription")}</span>
                   </div>
                   <div className="workspace-history-setting">
                     <div
@@ -622,21 +673,21 @@ export function WorkspaceSettingsModal({
                         max={HISTORY_LIMIT_OPTIONS.length - 1}
                         step={1}
                         value={historyLimitIndex}
-                        aria-label="Saved history actions"
-                        aria-valuetext={historyLimitMode === "unlimited" ? "Unlimited" : historyLimitMode === "custom" ? `${workspace.historyLimit} actions` : `${historyLimitMode} actions`}
+                        aria-label={t("workspaceSettings.actionsToRetain")}
+                        aria-valuetext={historyLimitMode === "unlimited" ? t("workspaceSettings.unlimited") : historyLimitMode === "custom" ? `${workspace.historyLimit} actions` : `${historyLimitMode} actions`}
                         onChange={(event) => setHistoryLimitMode(HISTORY_LIMIT_OPTIONS[Number(event.currentTarget.value)] ?? "unlimited")}
                       />
                     </div>
                     <div className="workspace-history-labels" aria-hidden="true">
                       {HISTORY_LIMIT_OPTIONS.map((option) => (
                         <span key={option} className={historyLimitMode === option ? "active" : undefined}>
-                          {option === "unlimited" ? "Unlimited" : option === "custom" ? "Custom" : option}
+                          {option === "unlimited" ? t("workspaceSettings.unlimited") : option === "custom" ? t("workspaceSettings.custom") : option}
                         </span>
                       ))}
                     </div>
                     {historyLimitMode === "custom" ? (
                       <label className="workspace-history-custom">
-                        <span>Actions to retain</span>
+                        <span>{t("workspaceSettings.actionsToRetain")}</span>
                         <input
                           type="number"
                           min={1}
@@ -651,16 +702,14 @@ export function WorkspaceSettingsModal({
                         />
                       </label>
                     ) : null}
-                    <p className="workspace-history-note">
-                      100 actions is the default. Lower limits permanently discard older Undo states from this project.
-                    </p>
+                    <p className="workspace-history-note">{t("workspaceSettings.actionsDefault")}</p>
                   </div>
                 </>
               ) : null}
             </div>
 
             <div className="workspace-modal-footer">
-              <span>Save the current settings for this project.</span>
+              <span>{t("workspaceSettings.saveSettings")}</span>
               <button
                 className="make-default-button"
                 onClick={() => {
@@ -668,13 +717,13 @@ export function WorkspaceSettingsModal({
                   setDefaultSaved(true);
                 }}
               >
-                {defaultSaved ? "Default saved" : "Make default"}
+                {defaultSaved ? t("workspaceSettings.defaultSaved") : t("workspaceSettings.makeDefault")}
               </button>
             </div>
           </div>
         </div>
       </div>
-      <button className="workspace-modal-backdrop" aria-label="Close settings" onClick={onClose} />
+      <button className="workspace-modal-backdrop" aria-label={t("workspaceSettings.closeSettings")} onClick={onClose} />
     </div>
   );
 }
@@ -690,6 +739,7 @@ const GRID_COLOR_PRESETS = [
 ] as const;
 
 function GridColorControl({ color, onChange }: { color: string; onChange: (color: string) => void }) {
+  const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [draftColor, setDraftColor] = useState(color);
   const draftColorRef = useRef(color);
@@ -791,7 +841,7 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
         ref={popoverRef}
         className="workspace-color-popover"
         role="group"
-        aria-label="Grid color picker"
+        aria-label={t("workspaceSettings.gridColorPicker")}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             setOpen(false);
@@ -810,13 +860,13 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
             }}
           />
         </div>
-        <div className="workspace-color-presets" aria-label="Grid color presets">
+        <div className="workspace-color-presets" aria-label={t("workspaceSettings.gridColorPresets")}>
           {GRID_COLOR_PRESETS.map((preset) => (
             <button
               key={preset}
               className={preset.toLowerCase() === draftColor.toLowerCase() ? "selected" : ""}
               type="button"
-              aria-label={`Use grid color ${preset}`}
+              aria-label={`${t("workspaceSettings.gridColorPicker")} — ${preset}`}
               aria-pressed={preset.toLowerCase() === draftColor.toLowerCase()}
               style={{ backgroundColor: preset }}
               onClick={() => {
@@ -828,20 +878,20 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
         </div>
         <div className="workspace-color-popover-footer">
           <label>
-            <span>HEX</span>
+            <span>{t("workspaceSettings.hex")}</span>
             <HexColorInput
               color={draftColor}
               onChange={previewColor}
               onBlur={commitDraftColor}
               prefixed
-              aria-label="Grid color hexadecimal value"
+              aria-label={t("workspaceSettings.gridColorPicker")}
             />
           </label>
           <button
             className="workspace-color-reset"
             type="button"
-            title="Reset grid color"
-            aria-label="Reset grid color"
+            title={t("workspaceSettings.resetGridColor")}
+            aria-label={t("workspaceSettings.resetGridColor")}
             onClick={() => {
               previewColor(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
               onChange(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
@@ -857,7 +907,7 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
 
   return (
     <div className="workspace-row workspace-grid-color-row">
-      <span>Grid color</span>
+      <span>{t("workspaceSettings.gridColor")}</span>
       <div
         className="workspace-color-control"
         ref={rootRef}
@@ -869,7 +919,7 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
           ref={triggerRef}
           className="workspace-color-trigger"
           type="button"
-          aria-label={`Grid color ${color}`}
+          aria-label={`${t("workspaceSettings.gridColor")} ${color}`}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => {

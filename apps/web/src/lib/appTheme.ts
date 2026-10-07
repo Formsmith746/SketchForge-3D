@@ -9,6 +9,12 @@ export const APP_THEME_OPTIONS = [
 export type AppThemePreference = (typeof APP_THEME_OPTIONS)[number]["value"];
 export type ResolvedAppTheme = Exclude<AppThemePreference, "system">;
 
+export const APP_THEME_LABEL_KEYS: Record<AppThemePreference, string> = {
+  system: "theme.system",
+  light: "theme.light",
+  dark: "theme.dark",
+};
+
 export function normalizeAppThemePreference(value: unknown): AppThemePreference {
   return value === "light" || value === "dark" || value === "system" ? value : "system";
 }

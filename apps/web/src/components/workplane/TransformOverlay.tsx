@@ -1,4 +1,7 @@
+"use client";
+
 import type { CSSProperties } from "react";
+import { useTranslations } from "next-intl";
 import * as THREE from "three";
 import {
   measureKeyForHandle,
@@ -60,6 +63,7 @@ export function TransformOverlay({
   onCommitRotationEdit,
   onCancelRotationEdit,
 }: TransformOverlayProps) {
+  const t = useTranslations("transforms");
   const marks = measureKey ? (box.dimensions[measureKey] ?? []) : [];
   const visibleMarks = (hideDimensionMarks ? [] : marks).filter((mark) => mark.key !== editingDimension?.key);
   const handleMeasureKey = (handle: TransformOverlayState["handles"][number]) => measureKeyForHandle(handle.kind, handle.key, box);
@@ -136,7 +140,7 @@ export function TransformOverlay({
             <line className="rotation-zero-line" x1="0" y1="0" x2="0" y2="-92" />
             <line className="rotation-current-line" x1="0" y1="0" x2={activeLine.x} y2={activeLine.y} />
             <text className="rotation-zero-label" x="0" y="-75">
-              0&deg;
+              {t("zeroDegrees")}
             </text>
           </g>
         </svg>
@@ -259,7 +263,7 @@ export function TransformOverlay({
             "--rotate-plane-c": handle.plane.c,
             "--rotate-plane-d": handle.plane.d,
           } as CSSProperties}
-          title="Rotate"
+          title={t("rotate")}
           onPointerDown={(event) => {
             if (event.button === 0) {
               onBeginTransform("rotate", handle.key, event);

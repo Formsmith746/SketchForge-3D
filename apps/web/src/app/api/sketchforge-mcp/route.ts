@@ -23,7 +23,11 @@ function isLocalRequest(request: Request) {
   if (origin) {
     try {
       const originUrl = new URL(origin);
-      if (originUrl.origin !== requestUrl.origin || !LOCAL_HOSTS.has(originUrl.hostname)) {
+      const originHost = originUrl.hostname.replace(/^\[|\]$/g, "");
+      // Allow any loopback host to talk to any other loopback host. Next.js dev
+      // canonicalizes request.url to "localhost", so a strict origin equality
+      // would reject pages opened via 127.0.0.1 (heartbeats would 403).
+      if (!LOCAL_HOSTS.has(originHost)) {
         return false;
       }
     } catch {

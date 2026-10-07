@@ -2,6 +2,7 @@
 
 import { Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, HomeIcon, List, Palette, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { SketchForgeEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/SketchForgeEditor";
 import ChallengesDashboard from "@/components/official/ChallengesDashboard";
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
@@ -120,11 +121,11 @@ const SOURCE_CODE_URL = process.env.NEXT_PUBLIC_SOURCE_CODE_URL?.trim() || "http
 const EDITOR_SKELETON_MIN_DURATION_MS = 320;
 const knownProjectResourceKeys = new Map<string, Set<string>>();
 
-function formatUpdated(timestamp: number) {
+function formatUpdated(timestamp: number, t: (key: string, values?: Record<string, string | number | Date>) => string) {
   const age = Date.now() - timestamp;
-  if (age < 60_000) return "Just now";
-  if (age < 3_600_000) return `${Math.max(1, Math.round(age / 60_000))} min ago`;
-  if (age < 86_400_000) return "Today";
+  if (age < 60_000) return t("justNow");
+  if (age < 3_600_000) return t("minAgo", { count: Math.max(1, Math.round(age / 60_000)) });
+  if (age < 86_400_000) return t("today");
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(timestamp));
 }
 
@@ -523,6 +524,7 @@ export default function Home() {
   const nextProjectRevisionRef = useRef(0);
   const projectShapeSaveQueuesRef = useRef<Record<string, Promise<void>>>({});
   const editorLoadingStartedAtRef = useRef(0);
+  const t = useTranslations("dashboard");
 
   const startEditorTransition = useCallback(() => {
     editorLoadingStartedAtRef.current = Date.now();
@@ -537,7 +539,7 @@ export default function Home() {
       const payload = await response.json() as { enabled?: boolean; projects?: SharedProject[]; error?: string };
       setSharedProjectsEnabled(Boolean(payload.enabled));
       setSharedProjects(Array.isArray(payload.projects) ? payload.projects : []);
-      if (!response.ok && payload.enabled) setDashboardNotice(payload.error ?? "Could not load shared projects");
+      if (!response.ok && payload.enabled) setDashboardNotice(payload.error ?? t("couldNotLoadSharedProjects"));
     } catch {
       setSharedProjectsEnabled(false);
       setSharedProjects([]);
@@ -560,7 +562,7 @@ export default function Home() {
         const project = storedProjects.find((candidate) => candidate.id === projectId);
         if (!project) return;
         void saveProjectShapes(projectId, entry, projectShapeSaveContext(project)).catch(() => {
-          setDashboardNotice("Could not migrate project shapes to larger storage");
+          setDashboardNotice(t("couldNotMigrateProjectShapes"));
         });
       });
     }
@@ -621,7 +623,7 @@ export default function Home() {
         window.localStorage.removeItem(PROJECTS_STORAGE_KEY);
         window.localStorage.setItem(PROJECTS_STORAGE_KEY, serialized);
       } catch {
-        setDashboardNotice(error instanceof Error ? error.message : "Could not save project list");
+        setDashboardNotice(error instanceof Error ? error.message : t("couldNotSaveProjectList"));
         return;
       }
     }
@@ -690,7 +692,7 @@ export default function Home() {
       })
       .catch((error) => {
         if (!canceled) {
-          setDashboardNotice(error instanceof Error ? error.message : "Could not load project shapes");
+          setDashboardNotice(error instanceof Error ? error.message : t("couldNotLoadProjectShapes"));
           setProjectShapesById((current) => {
             // A failed background read must not erase a project that has already
             // received live editor changes while the read was pending.
@@ -812,7 +814,7 @@ export default function Home() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? "Could not save project thumbnail");
+        throw new Error(payload?.error ?? t("couldNotSaveProjectThumbnail"));
       }
       const payload = await response.json() as { version?: number };
       if (signal?.aborted) throw new DOMException("Thumbnail upload aborted", "AbortError");
@@ -887,7 +889,7 @@ export default function Home() {
       })
       .catch((error) => {
         if (projectShapeSaveQueuesRef.current[snapshot.projectId] === queuedSave) {
-          setDashboardNotice(error instanceof Error ? error.message : "Could not save project shapes");
+          setDashboardNotice(error instanceof Error ? error.message : t("couldNotSaveProjectShapes"));
         }
       })
       .finally(() => {
@@ -952,7 +954,7 @@ export default function Home() {
   }, []);
 
   const createAndOpenProject = (name?: string, challengeTutorial: ChallengeTutorialId | null = null) => {
-    const project = newProject(name ?? `Untitled design ${projects.length + 1}`, projects.length);
+    const project = newProject(name ?? t("untitledDesign", { index: projects.length + 1 }), projects.length);
     setProjectShapesById((current) => ({
       ...current,
       [project.id]: projectShapeCacheEntry(project.revision ?? project.updatedAt, []),
@@ -962,14 +964,14 @@ export default function Home() {
       projectShapeCacheEntry(project.revision ?? project.updatedAt, []),
       projectShapeSaveContext(project),
     ).catch(() => {
-      setDashboardNotice("Could not prepare project shape storage");
+      setDashboardNotice(t("couldNotPrepareProjectShapeStorage"));
     });
     setProjects((current) => [project, ...current]);
     openEditor(project.id, { allowMissingFromStorage: true, challengeTutorial });
   };
 
   const openSkfProjectFromFile = useCallback(async (file: File, sharedProject?: SharedProject) => {
-    setDashboardNotice(`Validating ${file.name} before opening it as a new project`);
+    setDashboardNotice(t("validatingFile", { name: file.name }));
     try {
       const restored = await importSkfProject(await file.arrayBuffer());
       const now = Date.now();
@@ -989,18 +991,18 @@ export default function Home() {
       await saveProjectShapes(project.id, entry, projectShapeSaveContext(project));
       setProjectShapesById((current) => ({ ...current, [project.id]: entry }));
       setProjects((current) => [project, ...current]);
-      setDashboardNotice(sharedProject ? `Opened shared project ${sharedProject.name}; edits autosave locally until you save back to shared` : `Opened ${file.name} as a new editable local project`);
-      openEditor(project.id, { allowMissingFromStorage: true });
-      return { ok: true, message: sharedProject ? `Opened shared project ${sharedProject.name}` : `Opened ${file.name} as a new editable local project` };
+        setDashboardNotice(sharedProject ? t("openedSharedProject", { name: sharedProject.name }) : t("openedAsNewLocalProject", { name: file.name }));
+        openEditor(project.id, { allowMissingFromStorage: true });
+        return { ok: true, message: sharedProject ? t("openedSharedProject", { name: sharedProject.name }) : t("openedAsNewLocalProject", { name: file.name }) };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not open SketchForge project";
+      const message = error instanceof Error ? error.message : t("couldNotOpenSketchForgeProject");
       setDashboardNotice(message);
       return { ok: false, message };
     }
   }, [projects.length]);
 
   const openSharedProject = useCallback(async (sharedProject: SharedProject) => {
-    setDashboardNotice(`Opening shared project ${sharedProject.name}`);
+    setDashboardNotice(t("openingSharedProject", { name: sharedProject.name }));
     try {
       const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(sharedProject.fileName)}`, { cache: "no-store" });
       if (!response.ok) {
@@ -1330,6 +1332,7 @@ export default function Home() {
 }
 
 function EditorLoadingSkeleton() {
+  const t = useTranslations("dashboard");
   const leftToolbarSections = [
     { className: "home", controls: 1 },
     { className: "clipboard", controls: 4 },
@@ -1356,7 +1359,7 @@ function EditorLoadingSkeleton() {
   );
 
   return (
-    <div className="editor-loading-screen" role="status" aria-label="Loading editor" aria-live="polite">
+    <div className="editor-loading-screen" role="status" aria-label={t("loadingEditor")} aria-live="polite">
       <div className="editor-loading-toolbar">
         <div className="editor-loading-tabs">
           <span className="editor-skeleton-shimmer" />
@@ -1487,6 +1490,7 @@ function Dashboard({
   const projectPendingDelete = projects.find((project) => project.id === projectPendingDeleteId) ?? null;
   const sharedProjectPendingDelete = sharedProjects.find((project) => project.fileName === sharedProjectPendingDeleteFileName) ?? null;
   const projectPendingRename = projects.find((project) => project.id === projectPendingRenameId) ?? null;
+  const t = useTranslations("dashboard");
 
   useEffect(() => {
     const desktop = window.sketchforgeDesktop;
@@ -1700,62 +1704,62 @@ function Dashboard({
         </a>
         <div className="dashboard-search">
           <Search size={18} strokeWidth={2.4} />
-          <input value={query} onChange={(event) => onQueryChange(event.currentTarget.value)} placeholder="Search projects" aria-label="Search projects" />
+          <input value={query} onChange={(event) => onQueryChange(event.currentTarget.value)} placeholder={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} />
         </div>
         <button className="dashboard-primary" type="button" onClick={onCreate}>
           <Plus size={20} strokeWidth={2.6} />
-          <span>Create</span>
+          <span>{t("newProject")}</span>
         </button>
       </header>
 
       <div className="dashboard-layout">
         <aside className="dashboard-sidebar">
           <div className="dashboard-nav-stack">
-            <button className={`dashboard-nav-item ${dashboardSection === "home" ? "active" : ""}`} type="button" aria-label="Home" title="Home" onClick={onDashboardHome}>
+            <button className={`dashboard-nav-item ${dashboardSection === "home" ? "active" : ""}`} type="button" aria-label={t("home")} title={t("home")} onClick={onDashboardHome}>
               <HomeIcon size={20} />
-              <span>Home</span>
+              <span>{t("home")}</span>
             </button>
             {sharedProjectsEnabled ? (
-              <button className={`dashboard-nav-item ${dashboardSection === "shared" ? "active" : ""}`} type="button" aria-label="Shared projects" title="Shared projects" onClick={onSharedProjects}>
+              <button className={`dashboard-nav-item ${dashboardSection === "shared" ? "active" : ""}`} type="button" aria-label={t("shared")} title={t("shared")} onClick={onSharedProjects}>
                 <FolderKanban size={20} />
-                <span>Shared</span>
+                <span>{t("shared")}</span>
               </button>
             ) : null}
-            <button className={`dashboard-nav-item ${dashboardSection === "challenges" ? "active" : ""}`} type="button" aria-label="Challenges" title="Challenges" onClick={onChallenges}>
+            <button className={`dashboard-nav-item ${dashboardSection === "challenges" ? "active" : ""}`} type="button" aria-label={t("challenges")} title={t("challenges")} onClick={onChallenges}>
               <SlidersHorizontal size={20} />
-              <span>Challenges</span>
+              <span>{t("challenges")}</span>
             </button>
-            <button className={`dashboard-nav-item ${dashboardSection === "customization" ? "active" : ""}`} type="button" aria-label="Customization" title="Customization" onClick={onCustomization}>
+            <button className={`dashboard-nav-item ${dashboardSection === "customization" ? "active" : ""}`} type="button" aria-label={t("customization")} title={t("customization")} onClick={onCustomization}>
               <Palette size={20} />
-              <span>Customization</span>
+              <span>{t("customization")}</span>
             </button>
           </div>
           <div className="dashboard-sidebar-footer">
-            <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
+            <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label={t("settings")} title={t("settings")} onClick={onOpenSettings}>
               <Settings size={20} />
-              <span>Settings</span>
+              <span>{t("settings")}</span>
             </button>
           </div>
         </aside>
 
-        <section className="dashboard-main" aria-label={dashboardSection === "challenges" ? "Challenges" : dashboardSection === "shared" ? "Shared projects" : dashboardSection === "customization" ? "Customization" : "Dashboard"}>
+        <section className="dashboard-main" aria-label={dashboardSection === "challenges" ? t("challenges") : dashboardSection === "shared" ? t("shared") : dashboardSection === "customization" ? t("customization") : t("dashboard")}>
           {dashboardSection === "challenges" ? (
             <ChallengesDashboard onStartChallenge={onStartChallenge} />
           ) : dashboardSection === "customization" ? (
             <div className="dashboard-coming-soon" role="status">
-              <strong>Coming soon</strong>
+              <strong>{t("comingSoon")}</strong>
             </div>
           ) : dashboardSection === "shared" ? (
             <>
               {dashboardNotice ? <div className="dashboard-import-notice" role="status">{dashboardNotice}</div> : null}
               <div className="dashboard-section-header shared-projects-header">
                 <div>
-                  <h1>Shared projects</h1>
-                  <span>{sharedProjects.length} available from Docker storage</span>
+                  <h1>{t("sharedProjects")}</h1>
+                  <span>{t("availableFromDockerStorage", { count: sharedProjects.length })}</span>
                 </div>
                 <button className="shared-projects-refresh" type="button" onClick={onRefreshSharedProjects} disabled={sharedProjectsLoading}>
                   <RefreshCw size={16} className={sharedProjectsLoading ? "spinning" : undefined} />
-                  <span>Refresh</span>
+                  <span>{t("refresh")}</span>
                 </button>
               </div>
               {sharedProjects.length > 0 ? (
@@ -1765,15 +1769,15 @@ function Dashboard({
                       <button className="project-card-open" type="button" onClick={() => onOpenSharedProject(project)}>
                         <ProjectPreview accent={PROJECT_ACCENTS[index % PROJECT_ACCENTS.length]} thumbnailUrl={project.thumbnailUrl} />
                         <span className="project-card-title">{project.name}</span>
-                        <span className="project-card-meta">{formatUpdated(project.updatedAt)} - {formatFileSize(project.size)}</span>
+                        <span className="project-card-meta">{formatUpdated(project.updatedAt, t)} - {formatFileSize(project.size)}</span>
                       </button>
-                      <span className="shared-project-badge">Shared</span>
+                      <span className="shared-project-badge">{t("shared")}</span>
                       <button
                         className="project-menu-trigger"
                         type="button"
-                        aria-label={`Shared project options for ${project.name}`}
+                        aria-label={t("sharedProjectOptions", { name: project.name })}
                         aria-expanded={openSharedProjectMenuFileName === project.fileName}
-                        title="Shared project options"
+                        title={t("sharedProjectOptions")}
                         onClick={() => {
                           setOpenProjectMenuId(null);
                           setOpenSharedProjectMenuFileName((current) => (current === project.fileName ? null : project.fileName));
@@ -1782,7 +1786,7 @@ function Dashboard({
                         <EllipsisVertical size={19} strokeWidth={2.5} />
                       </button>
                       {openSharedProjectMenuFileName === project.fileName ? (
-                        <div className="project-card-menu" role="menu" aria-label={`Options for shared project ${project.name}`}>
+                        <div className="project-card-menu" role="menu" aria-label={t("optionsForSharedProject", { name: project.name })}>
                           <button
                             className="delete"
                             type="button"
@@ -1793,7 +1797,7 @@ function Dashboard({
                             }}
                           >
                             <Trash2 size={16} />
-                            <span>Delete</span>
+                            <span>{t("delete")}</span>
                           </button>
                         </div>
                       ) : null}
@@ -1802,8 +1806,8 @@ function Dashboard({
                 </div>
               ) : (
                 <div className="project-empty">
-                  <strong>{sharedProjectsLoading ? "Loading shared projects" : "No shared projects yet"}</strong>
-                  <span>Save an SKF project to the shared space from the Export window.</span>
+                  <strong>{sharedProjectsLoading ? t("loadingSharedProjects") : t("noSharedProjectsYet")}</strong>
+                  <span>{t("saveAnSkfProjectToSharedSpace")}</span>
                 </div>
               )}
             </>
@@ -1814,19 +1818,19 @@ function Dashboard({
                   <span className="dashboard-action-icon">
                     <Plus size={25} strokeWidth={2.8} />
                   </span>
-                  <span>Create new 3D design</span>
+                  <span>{t("newProject")}</span>
                 </button>
                 <button className="dashboard-action-tile" type="button" onClick={onImportFile}>
                   <span className="dashboard-action-icon">
                     <FileUp size={24} strokeWidth={2.4} />
                   </span>
-                  <span>Open SKF or import geometry</span>
+                  <span>{t("openSkfOrImportGeometry")}</span>
                 </button>
                 <button className="dashboard-action-tile" type="button" onClick={onWorkspace}>
                   <span className="dashboard-action-icon">
                     <Clock3 size={24} strokeWidth={2.4} />
                   </span>
-                  <span>Continue workplane</span>
+                  <span>{t("continueWorkplane")}</span>
                 </button>
               </div>
               {dashboardNotice ? (
@@ -1837,22 +1841,22 @@ function Dashboard({
 
               <div className="dashboard-section-header">
                 <div>
-                  <h1>Projects</h1>
-                  <span>{projects.length} visible</span>
+                  <h1>{t("projects")}</h1>
+                  <span>{t("visibleCount", { count: projects.length })}</span>
                 </div>
                 <div className="dashboard-controls">
                   <label className="dashboard-select">
                     <SlidersHorizontal size={17} />
-                    <select value={sortMode} onChange={(event) => onSortModeChange(event.currentTarget.value)} aria-label="Sort projects">
-                      <option value="recent">Recent</option>
-                      <option value="name">Name</option>
+                    <select value={sortMode} onChange={(event) => onSortModeChange(event.currentTarget.value)} aria-label={t("sortProjects")}>
+                      <option value="recent">{t("recent")}</option>
+                      <option value="name">{t("name")}</option>
                     </select>
                   </label>
-                  <div className="dashboard-segmented" aria-label="Project view">
-                    <button className={viewMode === "grid" ? "active" : ""} type="button" aria-label="Grid view" onClick={() => onViewModeChange("grid")}>
+                  <div className="dashboard-segmented" aria-label={t("projectView")}>
+                    <button className={viewMode === "grid" ? "active" : ""} type="button" aria-label={t("gridView")} onClick={() => onViewModeChange("grid")}>
                       <Grid3X3 size={17} />
                     </button>
-                    <button className={viewMode === "list" ? "active" : ""} type="button" aria-label="List view" onClick={() => onViewModeChange("list")}>
+                    <button className={viewMode === "list" ? "active" : ""} type="button" aria-label={t("listView")} onClick={() => onViewModeChange("list")}>
                       <List size={18} />
                     </button>
                   </div>
@@ -1867,15 +1871,15 @@ function Dashboard({
                         <ProjectPreview accent={project.accent} thumbnailUrl={project.thumbnailUrl} />
                         <span className="project-card-title">{project.name}</span>
                         <span className="project-card-meta">
-                          {formatUpdated(project.updatedAt)} - {project.shapes} shapes
+                          {formatUpdated(project.updatedAt, t)} - {project.shapes} {t("shapes", { count: project.shapes })}
                         </span>
                       </button>
                       <button
                         className="project-menu-trigger"
                         type="button"
-                        aria-label={`Project options for ${project.name}`}
+                        aria-label={t("projectOptions", { name: project.name })}
                         aria-expanded={openProjectMenuId === project.id}
-                        title="Project options"
+                        title={t("projectOptions")}
                         onClick={() => {
                           setOpenSharedProjectMenuFileName(null);
                           setOpenProjectMenuId((current) => (current === project.id ? null : project.id));
@@ -1884,10 +1888,10 @@ function Dashboard({
                         <EllipsisVertical size={19} strokeWidth={2.5} />
                       </button>
                       {openProjectMenuId === project.id ? (
-                        <div className="project-card-menu" role="menu" aria-label={`Options for ${project.name}`}>
+                        <div className="project-card-menu" role="menu" aria-label={t("optionsFor", { name: project.name })}>
                           <button type="button" role="menuitem" onClick={() => startProjectRename(project)}>
                             <Pencil size={16} />
-                            <span>Rename</span>
+                            <span>{t("rename")}</span>
                           </button>
                           <button
                             className="delete"
@@ -1899,7 +1903,7 @@ function Dashboard({
                             }}
                           >
                             <Trash2 size={16} />
-                            <span>Delete</span>
+                            <span>{t("delete")}</span>
                           </button>
                         </div>
                       ) : null}
@@ -1908,8 +1912,8 @@ function Dashboard({
                 </div>
               ) : (
                 <div className="project-empty">
-                  <strong>No projects yet</strong>
-                  <span>Create a 3D design and it will appear here.</span>
+                  <strong>{t("noProjectsYet")}</strong>
+                  <span>{t("createAndAppear")}</span>
                 </div>
               )}
             </>
@@ -1921,20 +1925,20 @@ function Dashboard({
         <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-project-title">
           <div className="dashboard-confirm-dialog">
             <header>
-              <strong id="delete-project-title">Delete project?</strong>
-              <button type="button" aria-label="Cancel project deletion" onClick={() => setProjectPendingDeleteId(null)}>
+              <strong id="delete-project-title">{t("deleteProjectTitle")}</strong>
+              <button type="button" aria-label={t("cancelProjectDeletion")} onClick={() => setProjectPendingDeleteId(null)}>
                 <X size={18} />
               </button>
             </header>
             <p>
-              Do you actually want the project <span>{projectPendingDelete.name}</span> to be deleted?
+              {t("confirmDeleteProject", { name: projectPendingDelete.name })}
             </p>
             <div className="dashboard-confirm-actions">
               <button className="dashboard-confirm-cancel" type="button" onClick={() => setProjectPendingDeleteId(null)}>
-                Cancel
+                {t("cancel")}
               </button>
               <button className="dashboard-confirm-delete" type="button" onClick={confirmProjectDelete}>
-                Delete
+                {t("delete")}
               </button>
             </div>
           </div>
@@ -1945,20 +1949,20 @@ function Dashboard({
         <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-shared-project-title">
           <div className="dashboard-confirm-dialog">
             <header>
-              <strong id="delete-shared-project-title">Delete shared project?</strong>
-              <button type="button" aria-label="Cancel shared project deletion" onClick={() => setSharedProjectPendingDeleteFileName(null)}>
+              <strong id="delete-shared-project-title">{t("deleteSharedProjectTitle")}</strong>
+              <button type="button" aria-label={t("cancelSharedProjectDeletion")} onClick={() => setSharedProjectPendingDeleteFileName(null)}>
                 <X size={18} />
               </button>
             </header>
             <p>
-              Delete <span>{sharedProjectPendingDelete.name}</span> from shared storage? This removes it for everyone using this shared space.
+              {t("confirmDeleteSharedProject", { name: sharedProjectPendingDelete.name })}
             </p>
             <div className="dashboard-confirm-actions">
               <button className="dashboard-confirm-cancel" type="button" onClick={() => setSharedProjectPendingDeleteFileName(null)}>
-                Cancel
+                {t("cancel")}
               </button>
               <button className="dashboard-confirm-delete" type="button" onClick={confirmSharedProjectDelete}>
-                Delete
+                {t("delete")}
               </button>
             </div>
           </div>
@@ -1975,27 +1979,27 @@ function Dashboard({
             }}
           >
             <header>
-              <strong id="rename-project-title">Rename project</strong>
-              <button type="button" aria-label="Cancel project rename" onClick={closeProjectRename}>
+              <strong id="rename-project-title">{t("renameProject")}</strong>
+              <button type="button" aria-label={t("cancelProjectRename")} onClick={closeProjectRename}>
                 <X size={18} />
               </button>
             </header>
             <label>
-              <span>Project name</span>
+              <span>{t("projectName")}</span>
               <input
                 autoFocus
                 maxLength={80}
                 value={projectNameDraft}
                 onChange={(event) => setProjectNameDraft(event.currentTarget.value)}
-                aria-label="Project name"
+                aria-label={t("projectName")}
               />
             </label>
             <div className="dashboard-confirm-actions">
               <button className="dashboard-confirm-cancel" type="button" onClick={closeProjectRename}>
-                Cancel
+                {t("cancel")}
               </button>
               <button className="dashboard-confirm-save" type="submit" disabled={!projectNameDraft.trim()}>
-                Save
+                {t("save")}
               </button>
             </div>
           </form>
@@ -2006,26 +2010,26 @@ function Dashboard({
         <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="app-update-title">
           <div className="dashboard-confirm-dialog dashboard-update-dialog">
             <header>
-              <strong id="app-update-title">SketchForge {updateStatus.latestVersion} is available</strong>
-              <button type="button" aria-label="Dismiss update" onClick={dismissUpdate} disabled={updateStarting}>
+              <strong id="app-update-title">{t("updateAvailable", { version: updateStatus.latestVersion })}</strong>
+              <button type="button" aria-label={t("dismissUpdate")} onClick={dismissUpdate} disabled={updateStarting}>
                 <X size={18} />
               </button>
             </header>
             <div className="dashboard-update-copy">
-              <p>Do you want to update from version {updateStatus.currentVersion}?</p>
+              <p>{t("updateFromVersion", { fromVersion: updateStatus.currentVersion })}</p>
               <div className="dashboard-update-safety">
                 {updateStatus.updateMode === "local" ? (
-                  <>Your browser projects are kept. The updater only replaces the local SketchForge application files.</>
+                  <>{t("localUpdateSafety")}</>
                 ) : (
-                  <>Your projects are kept. Private projects stay in this browser, and Docker shared projects remain in the persistent <code>/data/projects</code> volume.</>
+                  <>{t("serverUpdateSafety")}</>
                 )}
               </div>
               {!updateStatus.installationReady ? (
-                <div className="dashboard-update-note">One-click installation is not configured on this server. Continue to the safe update guide.</div>
+                <div className="dashboard-update-note">{t("noOneClickInstallation")}</div>
               ) : null}
               {updateStatus.requiresUpdateKey ? (
                 <label className="dashboard-update-key">
-                  <span>Server update key</span>
+                  <span>{t("serverUpdateKey")}</span>
                   <input
                     type="password"
                     autoComplete="off"
@@ -2039,10 +2043,10 @@ function Dashboard({
             </div>
             <div className="dashboard-confirm-actions">
               <button className="dashboard-confirm-cancel" type="button" onClick={dismissUpdate} disabled={updateStarting}>
-                Not now
+                {t("notNow")}
               </button>
               <button className="dashboard-confirm-save" type="button" onClick={() => void requestUpdate()} disabled={updateStarting}>
-                {updateStarting ? "Starting…" : updateStatus.installationReady ? "Update" : "Open update guide"}
+                {updateStarting ? t("starting") : updateStatus.installationReady ? t("update") : t("openUpdateGuide")}
               </button>
             </div>
           </div>
@@ -2050,25 +2054,25 @@ function Dashboard({
       ) : null}
 
       {settingsOpen ? (
-        <section className="dashboard-settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
+        <section className="dashboard-settings-panel" role="dialog" aria-modal="true" aria-label={t("settings")}>
           <header>
-            <strong>Settings</strong>
-            <button type="button" aria-label="Close settings" onClick={onCloseSettings}>
+            <strong>{t("settings")}</strong>
+            <button type="button" aria-label={t("closeSettings")} onClick={onCloseSettings}>
               <X size={18} />
             </button>
           </header>
           <label className="dashboard-setting-row">
-            <span>Save method</span>
+            <span>{t("saveMethod")}</span>
             <select
               value={downloadMode}
               onChange={(event) => onDownloadModeChange(!staticExportBuild && event.currentTarget.value === "folder" ? "folder" : "browser")}
             >
-              <option value="browser">Browser downloads</option>
-              {!staticExportBuild ? <option value="folder">Save to folder</option> : null}
+              <option value="browser">{t("browserDownloads")}</option>
+              {!staticExportBuild ? <option value="folder">{t("saveToFolder")}</option> : null}
             </select>
           </label>
           <label className="dashboard-setting-row">
-            <span>Folder path</span>
+            <span>{t("folderPath")}</span>
             <input
               disabled={staticExportBuild || downloadMode !== "folder"}
               value={downloadFolder}
@@ -2077,16 +2081,16 @@ function Dashboard({
             />
           </label>
           <div className="dashboard-version-row">
-            <span>SketchForge version</span>
+            <span>{t("sketchForgeVersion")}</span>
             <strong>{desktopAppVersion ?? updateStatus?.currentVersion ?? SKF_CREATED_WITH_VERSION}</strong>
           </div>
-          <section className="dashboard-update-settings" aria-label="Software updates">
+          <section className="dashboard-update-settings" aria-label={t("softwareUpdates")}>
             <div>
-              <strong>Software updates</strong>
-              <span>Updates are checked automatically but are never installed without your approval.</span>
+              <strong>{t("softwareUpdates")}</strong>
+              <span>{t("autoChecked")}</span>
             </div>
             {staticExportBuild ? (
-              <span className="dashboard-update-status">Managed by the website owner</span>
+              <span className="dashboard-update-status">{t("managedByWebsiteOwner")}</span>
             ) : updateStatus?.checkError ? (
               <span className="dashboard-update-status error">{updateStatus.checkError}</span>
             ) : desktopUpdaterConnected && updateStatus?.updateAvailable && updateStatus.latestVersion ? (
@@ -2096,7 +2100,7 @@ function Dashboard({
                 onClick={() => void requestUpdate()}
                 disabled={updateStarting}
               >
-                {updateStarting ? "Downloading update…" : `Update to ${updateStatus.latestVersion}`}
+                {updateStarting ? t("downloadingUpdate") : t("updateTo", { version: updateStatus.latestVersion })}
               </button>
             ) : updateStatus?.updateAvailable && updateStatus.latestVersion ? (
               <button
@@ -2108,26 +2112,26 @@ function Dashboard({
                   setUpdatePromptOpen(true);
                 }}
               >
-                Update to {updateStatus.latestVersion}
+                {t("updateTo", { version: updateStatus.latestVersion })}
               </button>
             ) : updateStatus ? (
-              <span className="dashboard-update-status ready">Up to date</span>
+              <span className="dashboard-update-status ready">{t("upToDate")}</span>
             ) : null}
             {!staticExportBuild ? (
               <button className="dashboard-check-update" type="button" onClick={() => void checkForUpdates(true, true)} disabled={updateChecking}>
                 <RefreshCw size={15} className={updateChecking ? "spin" : ""} />
-                <span>{updateChecking ? "Checking…" : "Check for updates"}</span>
+                <span>{updateChecking ? t("checking") : t("checkForUpdates")}</span>
               </button>
             ) : null}
             {updateMessage && settingsOpen ? <span className="dashboard-update-status" role="status">{updateMessage}</span> : null}
           </section>
           <div className="dashboard-version-row">
-            <span>License</span>
+            <span>{t("license")}</span>
             <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">AGPLv3</a>
           </div>
           <div className="dashboard-version-row">
-            <span>Corresponding source</span>
-            <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer">View source</a>
+            <span>{t("correspondingSource")}</span>
+            <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer">{t("viewSource")}</a>
           </div>
         </section>
       ) : null}

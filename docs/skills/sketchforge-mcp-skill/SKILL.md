@@ -31,6 +31,24 @@ Codex can use this folder as a skill and the MCP server as tools. Install the fo
 
 Claude Desktop does not read Codex skills, but it can use the same `scripts/sketchforge-mcp-server.mjs` MCP server through Claude's `mcpServers` JSON config. Use the repository README for client setup examples.
 
+## Auto-Start (do this when asked to build a 3D model)
+
+When the user asks to create/make something in 3D, bootstrap the live environment yourself rather than asking. In Windows/PowerShell:
+
+1. Start the dev server if port 3000 is down (avoid `npm run dev` — it can be blocked by ExecutionPolicy):
+   ```bash
+   node node_modules\next\dist\bin\next dev apps/web
+   ```
+2. Open an editor tab (heartbeat required) and wait ~8–10s:
+   ```bash
+   Start-Process "http://127.0.0.1:3000/?editor=1"
+   ```
+3. Call `sketchforge_list_editors` and remember the `editorNumber` to pass to every following call.
+4. Build the model with `sketchforge_*` tools.
+5. Verify with `sketchforge_inspect_errors` and `sketchforge_capture_image` (home + top/front for 3D).
+
+Prefer the local free provider (`freetoken`) over paid cloud models unless the user asks otherwise.
+
 ## Targeting Editors
 
 Always call `sketchforge_list_editors` first when the user mentions multiple projects, tabs, or a number like `49536`.
@@ -56,6 +74,7 @@ Useful tools:
 - `sketchforge_select_objects`: select ids in the live editor.
 - `sketchforge_delete_objects`: delete ids in the live editor, or delete the current selection when ids are omitted.
 - `sketchforge_create_shape`: create `box`, `cube`, `cylinder`, or `sketch`.
+- `sketchforge_extrude_sketch`: extrude an arbitrary closed 2D polyline profile into a solid. Pass `profile` as flat `[x1,z1,x2,z2,…]` points around the shape center (auto-closed) plus `height`; this is the SketchForge "Extrude sketch" workflow.
 - `sketchforge_import_mesh`: import STL-style mesh data into the editor.
 - `sketchforge_update_object`: set exact dimensions, position, color, name, hole state, and `rotation`/`rotationX`/`rotationZ`.
 - `sketchforge_align_objects`: align two or more ids using the same logic as the editor Alignment button.

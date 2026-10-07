@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import * as THREE from "three";
 
 export function SketchRevolvePreview({ positions }: { positions: number[] | null }) {
+  const t = useTranslations("editor");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -64,9 +66,9 @@ export function SketchRevolvePreview({ positions }: { positions: number[] | null
   }, [positions]);
 
   return (
-    <aside className="sketch-revolve-preview" aria-label="Revolve 3D preview">
-      <div className="sketch-revolve-preview-title">3D preview</div>
-      {positions?.length ? <canvas ref={canvasRef} /> : <div className="sketch-revolve-preview-empty">Draw a closed profile left of the axis</div>}
+    <aside className="sketch-revolve-preview" aria-label={t("revolvePreview")}>
+      <div className="sketch-revolve-preview-title">{t("revolvePreview")}</div>
+      {positions?.length ? <canvas ref={canvasRef} /> : <div className="sketch-revolve-preview-empty">{t("drawClosedProfile")}</div>}
     </aside>
   );
 }

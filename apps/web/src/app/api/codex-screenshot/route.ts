@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
+import { getApiMessage } from "@/lib/apiMessages";
 
 export const revalidate = false;
 
@@ -8,6 +9,14 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 const PNG_DATA_URL_PREFIX = "data:image/png;base64,";
 const MAX_SCREENSHOT_BYTES = 25 * 1024 * 1024;
 const MAX_SCREENSHOT_REQUEST_BYTES = Math.ceil((MAX_SCREENSHOT_BYTES * 4) / 3) + PNG_DATA_URL_PREFIX.length + 2048;
+
+function apiMsg(request: Request, id: string): string {
+  const acceptLanguage = request.headers.get("accept-language");
+  if (acceptLanguage && /(^|[\s,;])ru([\s,;]|$)/i.test(acceptLanguage)) {
+    return getApiMessage(id, "ru");
+  }
+  return getApiMessage(id, "en");
+}
 
 function sanitizeFileName(value: unknown) {
   const fallback = `codex-screenshot-${Date.now()}.png`;
@@ -50,36 +59,36 @@ function decodedBase64ByteLength(value: string) {
 
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Codex screenshot capture is only available in local development." }, { status: 404 });
+    return NextResponse.json({ error: apiMsg(request, "codex-screenshot.notAvailable") }, { status: 404 });
   }
 
   if (!isLocalSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Codex screenshot capture only accepts local requests." }, { status: 403 });
+    return NextResponse.json({ error: apiMsg(request, "codex-screenshot.localOnly") }, { status: 403 });
   }
 
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_SCREENSHOT_REQUEST_BYTES) {
-    return NextResponse.json({ error: "Screenshot image is too large." }, { status: 413 });
+    return NextResponse.json({ error: apiMsg(request, "codex-screenshot.tooLarge") }, { status: 413 });
   }
 
   let body: { dataUrl?: unknown; name?: unknown };
   try {
     body = (await request.json()) as { dataUrl?: unknown; name?: unknown };
   } catch {
-    return NextResponse.json({ error: "Invalid screenshot request." }, { status: 400 });
+    return NextResponse.json({ error: apiMsg(request, "codex-screenshot.invalidRequest") }, { status: 400 });
   }
 
   if (typeof body.dataUrl !== "string" || !body.dataUrl.startsWith(PNG_DATA_URL_PREFIX)) {
-    return NextResponse.json({ error: "Expected a PNG data URL." }, { status: 400 });
+    return NextResponse.json({ error: apiMsg(request, "codex-screenshot.expectedPng") }, { status: 400 });
   }
 
   const encodedImage = body.dataUrl.slice(PNG_DATA_URL_PREFIX.length);
   const decodedBytes = decodedBase64ByteLength(encodedImage);
   if (decodedBytes === null) {
-    return NextResponse.json({ error: "Expected a PNG data URL." }, { status: 400 });
+    return NextResponse.json({ error: apiMsg(request, "codex-screenshot.expectedPng") }, { status: 400 });
   }
   if (decodedBytes > MAX_SCREENSHOT_BYTES) {
-    return NextResponse.json({ error: "Screenshot image is too large." }, { status: 413 });
+    return NextResponse.json({ error: apiMsg(request, "codex-screenshot.tooLarge") }, { status: 413 });
   }
 
   const bytes = Buffer.from(encodedImage, "base64");

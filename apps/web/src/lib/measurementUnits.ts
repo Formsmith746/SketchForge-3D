@@ -27,6 +27,44 @@ const BRICK_SCALE_OPTIONS: WorkspaceScaleOption[] = [
 
 export const WORKSPACE_UNIT_OPTIONS = ["Metric (Default)", "Imperial", "Bricks"] as const;
 
+export const WORKSPACE_UNIT_LABEL_KEYS: Record<string, string> = {
+  "Metric (Default)": "units.metric",
+  Imperial: "units.imperial",
+  Bricks: "units.bricks",
+};
+
+export function unitLabelKey(units: string) {
+  return WORKSPACE_UNIT_LABEL_KEYS[units] ?? "units.metric";
+}
+
+export function scaleLabelKey(units: string, label: string) {
+  if (units === "Imperial") {
+    if (label === "1:1 (inches)") return "units.scales.1to1in";
+    if (label === "1:1 (feet)") return "units.scales.1to1ft";
+  }
+  if (units === "Bricks") {
+    if (label === "1:1 (studs)") return "units.scales.1to1stud";
+  }
+  if (label === "1:1 (millimeters)") return "units.scales.1to1mm";
+  if (label === "1:10 (centimeters)") return "units.scales.1to10cm";
+  if (label === "1:1000 (meters)") return "units.scales.1to1000m";
+  return label;
+}
+
+export function displayUnitLabelKey(units: string, displayLabel: string) {
+  if (units === "Imperial") {
+    if (displayLabel === "in") return "units.displayUnits.in";
+    if (displayLabel === "ft") return "units.displayUnits.ft";
+  }
+  if (units === "Bricks") {
+    if (displayLabel === "stud") return "units.displayUnits.stud";
+  }
+  if (displayLabel === "mm") return "units.displayUnits.mm";
+  if (displayLabel === "cm") return "units.displayUnits.cm";
+  if (displayLabel === "m") return "units.displayUnits.m";
+  return displayLabel;
+}
+
 export type LengthDisplayUnit = {
   label: string;
   millimetersPerUnit: number;
