@@ -1,4 +1,6 @@
 import type { SketchPoint, SketchProfile, SketchSegment } from "@/types/sketchforge";
+// Imported by the sketch CAD worker: use only "@/i18n/LocalizedError" here, never "@/i18n" (it pulls React into the worker).
+import { LocalizedError } from "@/i18n/LocalizedError";
 
 export type OrderedCadSketchStep = { segment: SketchSegment; from: SketchPoint; to: SketchPoint };
 export type OrderedCadSketchPath = { id: string; points: SketchPoint[]; steps: OrderedCadSketchStep[]; closed: boolean };
@@ -145,7 +147,7 @@ export function cadSketchRegions(profile: SketchProfile): CadSketchRegion[] {
   });
 
   if (regions.length === 0 && openCount > 0 && allPaths.length > 0) {
-    throw new Error("All profile paths are open. Close at least one loop before finishing the sketch.");
+    throw new LocalizedError("errors.sketch.allPathsOpen");
   }
   return regions;
 }

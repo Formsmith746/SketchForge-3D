@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { LocalizedError } from "@/i18n/LocalizedError";
 import { createLocalId } from "@/lib/localIds";
 import { zUpToSketchForge } from "@/lib/meshCoordinates";
 import type { WorkplaneShape } from "@/types/sketchforge";
@@ -56,7 +57,7 @@ export function importedShapeFromTriangleSoup(
 
   const box = geometry.boundingBox;
   if (!box) {
-    throw new Error("STL has no readable geometry");
+    throw new LocalizedError("errors.stl.noGeometry");
   }
 
   const size = new THREE.Vector3();
@@ -66,7 +67,7 @@ export function importedShapeFromTriangleSoup(
 
   const maxDimension = Math.max(size.x, size.y, size.z);
   if (!Number.isFinite(maxDimension) || maxDimension <= 0) {
-    throw new Error("STL geometry is empty");
+    throw new LocalizedError("errors.stl.emptyGeometry");
   }
 
   const scale = 1;

@@ -1,0 +1,1400 @@
+{
+  "common": {
+    "language": {
+      "label": "Язык",
+      "system": "Как в системе",
+      "note": "Язык применяется ко всему SketchForge и всем проектам."
+    },
+    "appTitle": "SketchForge — 3D-редактор",
+    "theme": {
+      "system": "Как в системе",
+      "light": "Светлая",
+      "dark": "Тёмная"
+    },
+    "shape": {
+      "box": "Параллелепипед",
+      "cylinder": "Цилиндр",
+      "sphere": "Сфера",
+      "sketch": "Эскиз",
+      "scribble": "Рисунок от руки",
+      "cone": "Конус",
+      "pyramid": "Пирамида",
+      "roof": "Крыша",
+      "text": "Текст",
+      "roundRoof": "Круглая крыша",
+      "halfSphere": "Полусфера",
+      "torus": "Тор",
+      "tube": "Труба",
+      "gear": "Зубчатое колесо",
+      "ring": "Кольцо",
+      "wedge": "Клин",
+      "polygon": "Многоугольник",
+      "icosahedron": "Икосаэдр",
+      "mesh": "Модель"
+    },
+    "shapeName": {
+      "cube": "Куб",
+      "group": "Группа",
+      "intersection": "Пересечение",
+      "sketchExtrusion": "Выдавливание эскиза",
+      "sketchRevolve": "Вращение эскиза",
+      "sketchImage": "Изображение эскиза",
+      "part": "{name}, часть {index}"
+    },
+    "unit": {
+      "mm": "мм",
+      "cm": "см",
+      "m": "м",
+      "in": "дюйм",
+      "ft": "фут",
+      "stud": "шип"
+    }
+  },
+  "dashboard": {
+    "topbar": {
+      "homeLink": "Главная страница SketchForge",
+      "search": "Поиск проектов",
+      "create": "Создать"
+    },
+    "nav": {
+      "home": "Главная",
+      "shared": "Общие",
+      "challenges": "Задания",
+      "customization": "Оформление",
+      "dashboard": "Главная"
+    },
+    "customization": {
+      "comingSoon": "Скоро появится"
+    },
+    "button": {
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "save": "Сохранить"
+    },
+    "time": {
+      "justNow": "Только что",
+      "minutesAgo": "{count, plural, one {{count} минуту назад} few {{count} минуты назад} many {{count} минут назад} other {{count} минуты назад}}",
+      "today": "Сегодня"
+    },
+    "fileSize": {
+      "bytes": "{size} Б",
+      "kilobytes": "{size} КБ",
+      "megabytes": "{size} МБ"
+    },
+    "actions": {
+      "create": "Создать 3D-проект",
+      "import": "Открыть SKF или импортировать модель",
+      "continue": "Продолжить работу"
+    },
+    "projects": {
+      "title": "Проекты",
+      "visible": "{count, plural, one {Показан {count} проект} few {Показано {count} проекта} many {Показано {count} проектов} other {Показано {count} проекта}}",
+      "sort": "Сортировка проектов",
+      "sortRecent": "По дате изменения",
+      "sortName": "По имени",
+      "view": "Вид списка проектов",
+      "gridView": "Плитка",
+      "listView": "Список",
+      "shapeCount": "{count, plural, one {{count} фигура} few {{count} фигуры} many {{count} фигур} other {{count} фигуры}}",
+      "noSnapshot": "Изображения пока нет",
+      "options": "Действия с проектом",
+      "optionsFor": "Действия с проектом «{name}»",
+      "menuFor": "Меню проекта «{name}»",
+      "rename": "Переименовать",
+      "empty": "Проектов пока нет",
+      "emptyHint": "Создайте 3D-проект, и он появится здесь.",
+      "deleteTitle": "Удалить проект?",
+      "deleteCancel": "Отменить удаление проекта",
+      "deleteConfirm": "Вы действительно хотите удалить проект «<b>{name}</b>»?",
+      "renameTitle": "Переименовать проект",
+      "renameCancel": "Отменить переименование проекта",
+      "nameLabel": "Название проекта"
+    },
+    "shared": {
+      "title": "Общие проекты",
+      "available": "{count, plural, one {{count} проект в хранилище Docker} few {{count} проекта в хранилище Docker} many {{count} проектов в хранилище Docker} other {{count} проекта в хранилище Docker}}",
+      "refresh": "Обновить",
+      "badge": "Общий",
+      "options": "Действия с общим проектом",
+      "optionsFor": "Действия с общим проектом «{name}»",
+      "menuFor": "Меню общего проекта «{name}»",
+      "loading": "Загрузка общих проектов",
+      "empty": "Общих проектов пока нет",
+      "emptyHint": "Сохраните проект в общие проекты из окна «Экспорт».",
+      "deleteTitle": "Удалить общий проект?",
+      "deleteCancel": "Отменить удаление общего проекта",
+      "deleteConfirm": "Удалить «<b>{name}</b>» из общих проектов? Он пропадёт у всех, кто работает с этими общими проектами.",
+      "opening": "Открытие общего проекта «{name}»",
+      "opened": "Открыт общий проект «{name}»",
+      "openedAutosave": "Открыт общий проект «{name}». Изменения сохраняются в этом браузере, пока вы не сохраните проект обратно в общие проекты",
+      "downloadFailed": "Не удалось скачать общий проект",
+      "openFailed": "Не удалось открыть общий проект",
+      "deleting": "Удаление общего проекта «{name}»",
+      "deleted": "Общий проект «{name}» удалён",
+      "saved": "Проект «{name}» сохранён в общие проекты (хранилище Docker)"
+    },
+    "open": {
+      "validating": "Проверка файла {fileName} перед открытием",
+      "opened": "Файл {fileName} открыт как новый проект в этом браузере",
+      "failed": "Не удалось открыть проект SketchForge"
+    },
+    "import": {
+      "oneSkfAtATime": "Открывайте проекты .skf по одному, а файлы STL, OBJ, STEP и SVG импортируйте отдельно",
+      "unsupportedType": "Этот тип файла не поддерживается",
+      "progress": "Импорт {index} из {count}: {fileName}",
+      "readFailed": "Не удалось прочитать файл",
+      "importedOne": "Файл {fileName} импортирован.",
+      "importedSome": "{count, plural, one {Импортировано {imported} из {count} файла.} few {Импортировано {imported} из {count} файлов.} many {Импортировано {imported} из {count} файлов.} other {Импортировано {imported} из {count} файла.}}",
+      "noneImported": "Не удалось импортировать ни один из выбранных файлов ({count}).",
+      "failures": "Ошибки: {details}",
+      "failuresMore": "{details}; и ещё {count}",
+      "createProjectFailed": "Не удалось создать проект для импортированных файлов"
+    },
+    "storage": {
+      "unavailable": "Хранилище проектов в браузере недоступно",
+      "openFailed": "Не удалось открыть хранилище проектов в браузере",
+      "loadFailed": "Не удалось загрузить фигуры проекта",
+      "resourcesLoadFailed": "Не удалось загрузить импортированные модели проекта",
+      "resourcesIncomplete": "Часть импортированных моделей проекта не найдена",
+      "saveFailed": "Не удалось сохранить фигуры проекта",
+      "prepareFailed": "Не удалось подготовить место для сохранения проекта",
+      "migrateFailed": "Не удалось перенести фигуры проектов в хранилище большего объёма",
+      "deleteFailed": "Не удалось удалить фигуры проекта из браузера",
+      "saveListFailed": "Не удалось сохранить список проектов"
+    },
+    "updates": {
+      "promptTitle": "Доступен SketchForge {version}",
+      "dismiss": "Закрыть окно обновления",
+      "promptQuestion": "Обновить с версии {version}?",
+      "safetyLocal": "Проекты в браузере не пропадут. Обновление заменит только файлы программы SketchForge на этом компьютере.",
+      "safetyServer": "Проекты не пропадут. Личные проекты остаются в этом браузере, а общие — в постоянной папке <code>/data/projects</code> на сервере.",
+      "notConfigured": "Установка в один клик на этом сервере не настроена. Перейдите к инструкции по безопасному обновлению.",
+      "keyLabel": "Ключ обновления сервера",
+      "notNow": "Не сейчас",
+      "starting": "Запуск…",
+      "update": "Обновить",
+      "openGuide": "Открыть инструкцию",
+      "sectionTitle": "Обновления",
+      "sectionNote": "Обновления проверяются автоматически, но устанавливаются только с вашего согласия.",
+      "managed": "Управляется владельцем сайта",
+      "downloading": "Загрузка обновления…",
+      "updateTo": "Обновить до {version}",
+      "upToDateStatus": "Последняя версия",
+      "checking": "Проверка…",
+      "check": "Проверить обновления",
+      "readyToInstall": "SketchForge {version} готов к установке.",
+      "availableDesktop": "Доступен SketchForge {version}. Нажмите «Обновить», чтобы скачать, установить и перезапустить.",
+      "upToDate": "Установлена последняя версия SketchForge.",
+      "alreadyUpToDate": "У вас уже последняя версия SketchForge.",
+      "downloadingVersion": "Загрузка SketchForge {version}…",
+      "downloadingUpdate": "Загрузка обновления SketchForge…",
+      "restartingToInstall": "Обновление загружено. SketchForge перезапускается для установки…",
+      "installFailed": "Не удалось установить обновление",
+      "keyRequired": "Введите ключ обновления сервера, чтобы продолжить.",
+      "localRestarting": "Обновление установлено. SketchForge на этом компьютере перезапускается…",
+      "localReload": "Обновление установлено. Перезагрузите страницу, когда SketchForge на этом компьютере перезапустится.",
+      "serverStarted": "Обновление запущено. Сервер может ненадолго отключиться — откройте страницу снова после перезапуска."
+    },
+    "settings": {
+      "title": "Настройки",
+      "close": "Закрыть настройки",
+      "saveMethod": "Способ сохранения",
+      "browserDownloads": "Скачивать через браузер",
+      "saveToFolder": "Сохранять в папку",
+      "folderPath": "Путь к папке",
+      "version": "Версия SketchForge",
+      "license": "Лицензия",
+      "source": "Исходный код",
+      "viewSource": "Открыть исходный код"
+    },
+    "challenges": {
+      "skills": "Навыки в этом задании",
+      "start": "Начать задание",
+      "skill": {
+        "basicShapes": "Основные фигуры",
+        "align": "Выравнивание",
+        "hole": "Отверстие",
+        "lock": "Блокировка",
+        "group": "Группировка",
+        "fillet": "Скругление",
+        "elevation": "Высота над рабочей плоскостью"
+      },
+      "keyTag": {
+        "title": "Брелок",
+        "description": "Соберите свой первый брелок из простых фигур.",
+        "altLight": "Готовая модель красного брелока на рабочей плоскости SketchForge",
+        "altDark": "Готовая модель красного брелока на тёмной рабочей плоскости SketchForge"
+      },
+      "nameplate": {
+        "title": "Именная табличка",
+        "description": "Создайте именную табличку для печати: со скруглёнными краями и выпуклым текстом.",
+        "altLight": "Готовая синяя табличка с именем ALEX на рабочей плоскости SketchForge",
+        "altDark": "Готовая синяя табличка с именем ALEX на тёмной рабочей плоскости SketchForge"
+      }
+    },
+    "loading": {
+      "editor": "Загрузка редактора"
+    }
+  },
+  "editor": {
+    "notice": {
+      "ready": "Готово",
+      "selectShapeFirst": "Сначала выберите фигуру",
+      "shapeAdded": "Добавлено: {name}",
+      "deleted": "{count, plural, one {Удалена {count} выделенная фигура} few {Удалены {count} выделенные фигуры} many {Удалено {count} выделенных фигур} other {Удалено {count} выделенной фигуры}}",
+      "duplicated": "{count, plural, one {Дублирована {count} фигура} few {Дублированы {count} фигуры} many {Дублировано {count} фигур} other {Дублировано {count} фигуры}}",
+      "copied": "{count, plural, one {Скопирована {count} фигура} few {Скопированы {count} фигуры} many {Скопировано {count} фигур} other {Скопировано {count} фигуры}}",
+      "cut": "{count, plural, one {Вырезана {count} фигура} few {Вырезаны {count} фигуры} many {Вырезано {count} фигур} other {Вырезано {count} фигуры}}",
+      "pasted": "{count, plural, one {Вставлена {count} фигура} few {Вставлены {count} фигуры} many {Вставлено {count} фигур} other {Вставлено {count} фигуры}}",
+      "clipboardEmpty": "Буфер обмена SketchForge пуст",
+      "pasteCancelled": "Вставка отменена: проект изменился",
+      "finishBeforeUndo": "Нельзя отменить действие: сначала закончите перетаскивание или изменение фигуры",
+      "finishBeforeRedo": "Нельзя повторить действие: сначала закончите перетаскивание или изменение фигуры",
+      "finishBeforeRotate": "Поворот недоступен: сначала закончите перетаскивание или изменение фигуры",
+      "finishBeforeSave": "Сохранение недоступно: сначала закончите перетаскивание или изменение фигуры",
+      "nothingToUndo": "Нечего отменять",
+      "nothingToRedo": "Нечего повторять",
+      "undone": "Действие отменено",
+      "redone": "Действие повторено",
+      "selectionHidden": "Выделенные объекты скрыты",
+      "selectionVisible": "Выделенные объекты показаны",
+      "noHiddenShapes": "Скрытых фигур нет",
+      "showedHidden": "{count, plural, one {Показана {count} скрытая фигура} few {Показаны {count} скрытые фигуры} many {Показано {count} скрытых фигур} other {Показано {count} скрытой фигуры}}",
+      "selectionLocked": "Выделенные объекты заблокированы",
+      "selectionUnlocked": "Выделенные объекты разблокированы",
+      "withDetail": "{message}; {detail}",
+      "selectionIsLocked": "Выделенные объекты заблокированы, их нельзя повернуть",
+      "changedToHole": "Выделенные объекты стали отверстиями",
+      "changedToSolid": "Выделенные объекты стали телами",
+      "droppedToWorkplane": "Выделенные объекты опущены на рабочую плоскость",
+      "movedSelection": "Выделенные объекты перемещены",
+      "selectionCleared": "Выбор снят",
+      "selectedAllVisible": "Выбраны все видимые фигуры",
+      "rotated": "{count, plural, one {Повёрнута {count} фигура на {angle}°} few {Повёрнуты {count} фигуры на {angle}°} many {Повёрнуто {count} фигур на {angle}°} other {Повёрнуто {count} фигуры на {angle}°}}",
+      "snapped": "{count, plural, one {Привязана к сетке {count} фигура (шаг {grid} {unit})} few {Привязаны к сетке {count} фигуры (шаг {grid} {unit})} many {Привязано к сетке {count} фигур (шаг {grid} {unit})} other {Привязано к сетке {count} фигуры (шаг {grid} {unit})}}",
+      "newEmptyDesign": "Создан новый пустой проект",
+      "savedDesign": "{count, plural, one {Проект сохранён: {count} фигура} few {Проект сохранён: {count} фигуры} many {Проект сохранён: {count} фигур} other {Проект сохранён: {count} фигуры}}",
+      "nothingToCopy": "Пока нечего копировать",
+      "madeCopy": "Создана копия проекта"
+    },
+    "workplane": {
+      "toolActive": "Рабочая плоскость: щёлкните грань или пустое место на сетке. Удерживайте Shift, чтобы развернуть плоскость",
+      "toolCancelled": "Размещение рабочей плоскости отменено",
+      "setToFace": "Рабочая плоскость перенесена на выбранную грань",
+      "resetToBase": "Рабочая плоскость возвращена в исходное положение",
+      "updated": "Рабочая плоскость изменена"
+    },
+    "align": {
+      "needTwo": "Для выравнивания выберите хотя бы две фигуры",
+      "started": "Выравнивание: выберите точку или выделенную фигуру",
+      "cancelled": "Выравнивание отменено",
+      "anchor": "Выравнивание по фигуре «{name}»",
+      "anchorLocked": "Выравнивание по фигуре «{name}» (она заблокирована)",
+      "anchorSet": "Фигура для выравнивания выбрана",
+      "alreadyAligned": "Фигуры уже выровнены",
+      "aligned": "{count, plural, one {Выровнена {count} фигура {direction}} few {Выровнены {count} фигуры {direction}} many {Выровнено {count} фигур {direction}} other {Выровнено {count} фигуры {direction}}}",
+      "handleAlign": "Выровнять {direction}",
+      "handleAligned": "Уже выровнено {direction}",
+      "direction": {
+        "left": "по левому краю",
+        "center": "по центру",
+        "right": "по правому краю",
+        "front": "по переднему краю",
+        "middle": "по середине",
+        "back": "по заднему краю",
+        "bottom": "по нижнему краю",
+        "top": "по верхнему краю"
+      }
+    },
+    "mirror": {
+      "started": "Зеркальное отражение: выберите стрелку оси",
+      "cancelled": "Зеркальное отражение отменено",
+      "nothing": "Нечего отражать",
+      "mirrored": "{count, plural, one {Зеркально отражена {count} фигура ({axis})} few {Зеркально отражены {count} фигуры ({axis})} many {Зеркально отражено {count} фигур ({axis})} other {Зеркально отражено {count} фигуры ({axis})}}",
+      "axis": {
+        "x": "слева направо",
+        "y": "сверху вниз",
+        "z": "спереди назад"
+      }
+    },
+    "group": {
+      "needTwo": "Чтобы сгруппировать, выберите хотя бы две фигуры",
+      "unlockAll": "Разблокируйте все выделенные фигуры, затем сгруппируйте их",
+      "sceneChanged": "Сцена изменилась во время группировки. Выберите объекты и попробуйте снова",
+      "holeConsumedSolid": "Сгруппировано: отверстие полностью удалило тело",
+      "grouped": "{count, plural, one {Сгруппирована {count} фигура} few {Сгруппированы {count} фигуры} many {Сгруппировано {count} фигур} other {Сгруппировано {count} фигуры}}",
+      "failedImportedCut": "Не удалось аккуратно вычесть отверстие из импортированной модели",
+      "failedCut": "Не удалось выполнить вычитание для выделенных объектов",
+      "failedGroup": "Не удалось сгруппировать выделенные объекты",
+      "intersectionNeedsSolidAndHole": "Для пересечения выберите хотя бы одно тело и одно отверстие",
+      "intersectionFailed": "Не удалось аккуратно построить пересечение",
+      "intersectionSceneChanged": "Сцена изменилась во время пересечения. Выберите объекты и попробуйте снова",
+      "intersectionEmpty": "Пересечение пустое: у фигур нет общей части",
+      "intersected": "{count, plural, one {Пересечена {count} фигура} few {Пересечены {count} фигуры} many {Пересечено {count} фигур} other {Пересечено {count} фигуры}}",
+      "selectGroup": "Сначала выберите группу",
+      "ungrouped": "{count, plural, one {Разгруппирована {count} группа} few {Разгруппированы {count} группы} many {Разгруппировано {count} групп} other {Разгруппировано {count} группы}}"
+    },
+    "separate": {
+      "selectOne": "Выберите один объект, чтобы разделить его на части",
+      "unlock": "Разблокируйте объект, затем разделите его на части",
+      "singlePart": "Выделенный объект состоит из одной части",
+      "separated": "{count, plural, one {Объект разделён на {count} часть} few {Объект разделён на {count} части} many {Объект разделён на {count} частей} other {Объект разделён на {count} части}}"
+    },
+    "edgeModifier": {
+      "cancelled": "Обработка рёбер отменена",
+      "cancelledObjectChanged": "Обработка рёбер отменена: объект изменился",
+      "selectSolid": {
+        "fillet": "Выберите одно незаблокированное тело, чтобы скруглить рёбра",
+        "chamfer": "Выберите одно незаблокированное тело, чтобы снять фаску"
+      },
+      "noSurface": "У выделенного объекта нет поверхности для печати",
+      "tooDense": "В модели больше 180 000 треугольников — это слишком много для обработки рёбер. Сначала упростите модель.",
+      "preparing": {
+        "fillet": "Подготовка рёбер к скруглению",
+        "chamfer": "Подготовка рёбер к снятию фаски"
+      },
+      "selectHighlighted": "Выберите подсвеченные рёбра и настройте параметры",
+      "previewReady": "Предпросмотр обработки рёбер готов",
+      "needsAdjustment": "Измените параметры обработки рёбер",
+      "waitForPreview": "Дождитесь предпросмотра, затем примените",
+      "applied": {
+        "fillet": "{count, plural, one {Скруглено {count} ребро} few {Скруглено {count} ребра} many {Скруглено {count} рёбер} other {Скруглено {count} ребра}}",
+        "chamfer": "{count, plural, one {Фаска снята с {count} ребра} few {Фаска снята с {count} рёбер} many {Фаска снята с {count} рёбер} other {Фаска снята с {count} ребра}}"
+      },
+      "defaultTarget": "Объект"
+    },
+    "edgeFeature": {
+      "label": {
+        "fillet": "{count, plural, one {скругление ({amount} {unit}, {count} ребро)} few {скругление ({amount} {unit}, {count} ребра)} many {скругление ({amount} {unit}, {count} рёбер)} other {скругление ({amount} {unit}, {count} ребра)}}",
+        "chamfer": "{count, plural, one {фаска ({amount} {unit}, {count} ребро)} few {фаска ({amount} {unit}, {count} ребра)} many {фаска ({amount} {unit}, {count} рёбер)} other {фаска ({amount} {unit}, {count} ребра)}}"
+      },
+      "selectShape": "Сначала выберите фигуру со скруглением или фаской",
+      "unlockShape": "Разблокируйте фигуру, затем удалите скругление или фаску",
+      "chooseFeature": "Выберите скругление или фаску, которые нужно удалить",
+      "noUndoHistory": "Это скругление или фаску нельзя удалить: для них нет сохранённой истории изменений",
+      "none": "Нет скруглений и фасок для удаления",
+      "objectChanged": "Объект изменился во время удаления. Попробуйте снова",
+      "removed": "Удалено: {feature}"
+    },
+    "sketch": {
+      "started": "Эскиз начат: поставьте первую точку",
+      "revolveStarted": "Эскиз для вращения начат: рисуйте слева от оси",
+      "editingExtrude": "Изменение профиля эскиза для выдавливания",
+      "editingRevolve": "Изменение профиля эскиза для вращения",
+      "selectToEdit": "Выберите одну фигуру, созданную из эскиза, чтобы изменить её",
+      "cancelled": "Эскиз отменён",
+      "nothingToUndo": "В эскизе нечего отменять",
+      "undone": "Действие в эскизе отменено",
+      "nothingToRedo": "В эскизе нечего повторять",
+      "redone": "Действие в эскизе повторено",
+      "toolHint": {
+        "line": "Линия: щёлкайте, чтобы ставить точки прямых отрезков",
+        "bezier": "Кривая Безье: щёлкните и потяните точку, чтобы изогнуть кривую",
+        "smooth": "Плавная кривая: щёлкайте, чтобы ставить точки плавной линии",
+        "rectangle": "Прямоугольник: протяните по эскизу, чтобы нарисовать замкнутый прямоугольник",
+        "circle": "Окружность: протяните рамку, чтобы нарисовать окружность",
+        "triangle": "Треугольник: протяните рамку, чтобы нарисовать треугольник",
+        "hexagon": "Шестиугольник: протяните рамку, чтобы нарисовать шестиугольник",
+        "select": "Выбор: изменяйте линии эскиза, перемещайте и масштабируйте изображения",
+        "refine": "Добавить или удалить точки: щёлкните отрезок, чтобы добавить точку. Щёлкните точку, чтобы удалить её",
+        "erase": "Ластик: щёлкните точку или отрезок, чтобы удалить их",
+        "measure": "Измерение: выберите две точки"
+      },
+      "measureSecond": "Выберите вторую точку",
+      "measured": "Расстояние: {value} {unit}",
+      "measurementRemoved": "Измерение удалено",
+      "profileClosed": "Профиль замкнут. Измените его или завершите эскиз",
+      "segmentAdded": "Отрезок добавлен",
+      "pointAndSegmentAdded": "Точка и отрезок добавлены",
+      "pointAdded": "Точка добавлена",
+      "pointRemoved": "Точка удалена",
+      "lineRemoved": "Линия удалена",
+      "pointMoved": "Точка перемещена",
+      "pointInserted": "Точка добавлена на линию",
+      "handleAdjusted": "Маркер кривой перемещён",
+      "madeCorner": "Точка стала угловой",
+      "madeSmooth": "Точка стала гладкой",
+      "handlesSplit": "Маркеры кривой разделены",
+      "geometryTransformed": "Эскиз изменён",
+      "selectToRemove": "Выберите точку или отрезок эскиза, которые нужно удалить",
+      "selectionRemoved": "Выделенные элементы эскиза удалены",
+      "selectClosedToRotate": "Выберите замкнутую фигуру эскиза, чтобы повернуть её",
+      "rotateClosedOnly": "Повернуть можно только замкнутые фигуры эскиза",
+      "rotated45": "Выделенный профиль повёрнут на 45°",
+      "chainCleared": "Рисование текущей линии завершено",
+      "selectedItems": "{count, plural, one {Выбран {count} элемент эскиза} few {Выбрано {count} элемента эскиза} many {Выбрано {count} элементов эскиза} other {Выбрано {count} элемента эскиза}}",
+      "selectionCleared": "Выбор в эскизе снят",
+      "primitive": {
+        "rectangle": "Прямоугольник",
+        "circle": "Окружность",
+        "triangle": "Треугольник",
+        "hexagon": "Шестиугольник"
+      },
+      "primitiveHint": {
+        "rectangle": "Добавить прямоугольник в начало координат эскиза или перетащить его на эскиз",
+        "circle": "Добавить окружность в начало координат эскиза или перетащить её на эскиз",
+        "triangle": "Добавить треугольник в начало координат эскиза или перетащить его на эскиз",
+        "hexagon": "Добавить шестиугольник в начало координат эскиза или перетащить его на эскиз"
+      },
+      "primitiveAdded": "Добавлено в эскиз: {shape}",
+      "imageSelected": "Изображение выбрано",
+      "imageUpdated": "Изображение изменено",
+      "imageRemoved": "Изображение удалено",
+      "imageLockedEdit": "Изображение заблокировано. Нажмите L, чтобы разблокировать его",
+      "imageLockedDelete": "Изображение заблокировано. Нажмите L, чтобы разблокировать его, затем удалите",
+      "chooseSelectForImage": "Чтобы добавить изображение, выберите инструмент «Выбор»",
+      "chooseImageFile": "Выберите файл изображения: PNG, JPG, WebP, GIF или другой",
+      "imageAdded": "Изображение «{name}» добавлено в эскиз",
+      "imageAddFailed": "Не удалось добавить изображение в эскиз",
+      "selectImageToLock": "Выберите изображение, чтобы заблокировать или разблокировать его",
+      "imageLocked": "Изображение заблокировано",
+      "imageUnlocked": "Изображение разблокировано",
+      "building": "Построение тела из эскиза…",
+      "cannotExtrude": "Не удалось выдавить профиль эскиза в 3D",
+      "cannotRevolve": "Не удалось построить тело вращения из профиля эскиза",
+      "closeProfile": "Замкните хотя бы один профиль, затем завершите эскиз",
+      "updated": "Эскиз обновлён",
+      "revolveUpdated": "Эскиз для вращения обновлён",
+      "extrusionCreated": "Создано тело из эскиза высотой {height} {unit}",
+      "revolveCreated": "Создано тело вращения из эскиза",
+      "revolvePreviewUpdating": "Обновление тела вращения…",
+      "revolveShapeUpdated": "Тело вращения обновлено",
+      "revolveSettingsFailed": "Не удалось применить параметры вращения"
+    },
+    "export": {
+      "needSolidSelected": "Перед экспортом выберите хотя бы одно тело",
+      "needSolid": "Перед экспортом добавьте хотя бы одно тело",
+      "needSolidStep": "Перед экспортом в STEP выберите хотя бы одно тело",
+      "invalidSvg": "{reason}. Исправьте контуры в исходном SVG и импортируйте его заново",
+      "buildingSvg": "Построение SVG с видом сверху…",
+      "buildingBrep": "Подготовка STEP… При первом экспорте загружается модуль OpenCascade (~22 МБ), один раз за сеанс",
+      "savedTo": "Файл {format} сохранён в {path}",
+      "exported": "Экспорт в {format} выполнен",
+      "exportedSelected": "{count, plural, one {Экспортирована {count} выделенная фигура в {format}} few {Экспортированы {count} выделенные фигуры в {format}} many {Экспортировано {count} выделенных фигур в {format}} other {Экспортировано {count} выделенной фигуры в {format}}}",
+      "failed": "Не удалось экспортировать в {format}",
+      "stepSaved": "{count, plural, one {Файл STEP ({count} тело) сохранён в {path}} few {Файл STEP ({count} тела) сохранён в {path}} many {Файл STEP ({count} тел) сохранён в {path}} other {Файл STEP ({count} тела) сохранён в {path}}}",
+      "stepExported": "{count, plural, one {Экспорт в STEP выполнен: {count} тело} few {Экспорт в STEP выполнен: {count} тела} many {Экспорт в STEP выполнен: {count} тел} other {Экспорт в STEP выполнен: {count} тела}}",
+      "stepSkipped": "{count, plural, one {пропущена {count} фигура, которую нельзя сохранить в STEP} few {пропущены {count} фигуры, которые нельзя сохранить в STEP} many {пропущено {count} фигур, которые нельзя сохранить в STEP} other {пропущено {count} фигуры, которые нельзя сохранить в STEP}}",
+      "sharedUnavailable": "Общие проекты недоступны в этой установке SketchForge",
+      "packagingShared": "Подготовка проекта для общего хранилища…",
+      "packaging": "Подготовка файла проекта с историей изменений и ресурсами…",
+      "projectSavedTo": "Проект SketchForge сохранён в {path}",
+      "projectSaved": "Проект SketchForge сохранён (.skf)",
+      "projectSaveFailed": "Не удалось сохранить проект SketchForge"
+    },
+    "import": {
+      "oneSkf": "Открывайте проекты .skf по одному, а файлы STL, OBJ, STEP и SVG импортируйте отдельно",
+      "skfUnavailable": "Здесь нельзя открыть файл проекта SketchForge",
+      "validatingSkf": "Проверка файла {name} перед открытием",
+      "cancelledProjectChanged": "{count, plural, one {Импорт {count} файла отменён: проект изменился} few {Импорт {count} файлов отменён: проект изменился} many {Импорт {count} файлов отменён: проект изменился} other {Импорт {count} файла отменён: проект изменился}}",
+      "unsupportedType": "Этот тип файла не поддерживается",
+      "importing": "Импорт {index} из {count}: {name}",
+      "importingStep": "Импорт {index} из {count}: {name}… При первом импорте STEP загружается модуль OpenCascade (~22 МБ)",
+      "readFailed": "Не удалось прочитать файл",
+      "failedList": "Ошибки: {details}",
+      "failedMore": "и ещё {count}",
+      "noneImported": "Не удалось импортировать ни один из выбранных файлов ({count}).",
+      "importedFile": "Файл {name} импортирован.",
+      "importedCount": "{count, plural, one {Импортировано {imported} из {count} файла.} few {Импортировано {imported} из {count} файлов.} many {Импортировано {imported} из {count} файлов.} other {Импортировано {imported} из {count} файла.}}"
+    },
+    "toolbar": {
+      "home": "Главная",
+      "homeDashboard": "Перейти на главную",
+      "clipboard": "Буфер обмена",
+      "copy": "Копировать",
+      "paste": "Вставить",
+      "duplicate": "Дублировать",
+      "delete": "Удалить",
+      "history": "История",
+      "undo": "Отменить",
+      "redo": "Повторить",
+      "shapes": "Фигуры",
+      "addShape": "Добавить фигуру",
+      "basicShapes": "Основные фигуры",
+      "renameProject": "Переименовать проект",
+      "projectName": "Название проекта",
+      "visibility": "Видимость",
+      "showSelected": "Показать выделенные объекты",
+      "hideSelected": "Скрыть выделенные объекты",
+      "visibilityOptions": "Параметры видимости",
+      "nothingHidden": "Скрытых объектов нет",
+      "showAllHidden": "Показать все скрытые ({count})",
+      "visibilityHelpSelected": "Кнопка с глазом: выделенные объекты",
+      "visibilityHelpAll": "все",
+      "visibilityHelpShortcut": "<keys></keys>: {action}",
+      "combine": "Группировка",
+      "group": "Сгруппировать",
+      "ungroup": "Разгруппировать",
+      "intersection": "Пересечение",
+      "modify": "Изменение",
+      "align": "Выровнять",
+      "mirror": "Отразить зеркально",
+      "snapToGrid": "Привязать к сетке",
+      "chamfer": "Фаска",
+      "fillet": "Скругление",
+      "arrange": "Размещение",
+      "dropToWorkplane": "Опустить на рабочую плоскость",
+      "manage": "Управление",
+      "import": "Импортировать",
+      "export": "Экспортировать",
+      "workspaceSettings": "Настройки рабочей области",
+      "sketchToolbar": "Панель инструментов эскиза",
+      "draw": "Рисование",
+      "line": "Линия",
+      "bezier": "Кривая Безье",
+      "smooth": "Плавная кривая",
+      "addSketchShape": "Добавить фигуру в эскиз",
+      "sketchShapesMenu": "Фигуры эскиза",
+      "sketchShapesTitle": "Фигуры эскиза",
+      "select": "Выбор",
+      "addImageLabel": "Добавить изображение",
+      "addImage": "Добавить изображение",
+      "addImageNeedsSelect": "Чтобы добавить изображение, выберите инструмент «Выбор»",
+      "refine": "Добавить или удалить точки",
+      "erase": "Ластик",
+      "sketchUndo": "Отменить в эскизе",
+      "sketchRedo": "Повторить в эскизе",
+      "inspect": "Проверка",
+      "measure": "Измерение",
+      "finish": "Завершение",
+      "finishSketch": "Завершить эскиз",
+      "finishRevolve": "Завершить вращение",
+      "cancelSketch": "Отмена",
+      "create": "Создание",
+      "sketchTo3d": "Эскиз в 3D",
+      "sketchTo3dOptions": "Способы создания 3D-фигуры из эскиза",
+      "sketchTo3dMethod": "Способ создания 3D-фигуры из эскиза",
+      "extrudeSketch": "Выдавливание",
+      "extrudeSketchHint": "Поднять профиль и получить объёмную фигуру",
+      "revolveSketch": "Вращение",
+      "revolveSketchHint": "Повернуть профиль вокруг оси",
+      "editSketchTo3d": "Изменить эскиз фигуры",
+      "edit": "Изменить",
+      "editorMode": "Режим редактора",
+      "geometry": "3D-модель",
+      "sketch": "Эскиз"
+    },
+    "panel": {
+      "import": "Импорт",
+      "export": "Экспорт",
+      "settings": "Настройки",
+      "profile": "Пользователь",
+      "close": "Закрыть панель «{title}»",
+      "openProject": "Открыть проект SketchForge",
+      "openProjectHint": "Открыть файл .skf как новый проект в этом браузере",
+      "orAddGeometry": "или добавьте модели из файлов",
+      "dropFiles": "Перетащите сюда файлы STL, OBJ, STEP или SVG",
+      "orClickToChoose": "или щёлкните, чтобы выбрать их на компьютере",
+      "fileName": "Имя файла",
+      "format": "Формат",
+      "fullProject": "Весь проект",
+      "scopeSelected": "Выбрано: {count}",
+      "scopeTotal": "Всего: {count}",
+      "exportFormat": "Формат экспорта",
+      "formatInfo": {
+        "stl": {
+          "description": "Модель для 3D-печати",
+          "note": "Подходит для 3D-печати и программ подготовки к печати (слайсеров). Модель сохраняется как набор треугольников."
+        },
+        "obj": {
+          "description": "Универсальная 3D-модель",
+          "note": "Распространённый формат 3D-моделей для моделирования, визуализации и обмена между программами."
+        },
+        "step": {
+          "description": "CAD / B-Rep",
+          "note": "Сохраняет поддерживаемые параллелепипеды, цилиндры, сферы и конусы как точную геометрию для CAD-программ."
+        },
+        "svg": {
+          "description": "Векторный вид сверху",
+          "note": "Сохраняет чёткий силуэт вида сверху в миллиметрах, включая отверстия и кривые контуры."
+        },
+        "skf": {
+          "description": "Редактируемый проект",
+          "note": "Сохраняет редактируемый проект, историю изменений, эскизы, группы, данные CAD и исходные импортированные файлы."
+        }
+      },
+      "historyTitle": "Сохраняемая история изменений",
+      "historyHint": "Сколько последних действий сохранить в проекте, чтобы их можно было отменить",
+      "historyRange": "История изменений в файле SKF",
+      "historyUnlimited": "Без ограничений",
+      "historyActions": "{count, plural, one {{count} действие} few {{count} действия} many {{count} действий} other {{count} действия}}",
+      "saveToShared": "Сохранить в общие проекты",
+      "savingProject": "Сохранение проекта…",
+      "saveProject": "Сохранить проект SketchForge",
+      "buildingStep": "Подготовка STEP…",
+      "exportAs": "Экспортировать в {format}",
+      "workspacePreferences": "Параметры рабочей области",
+      "gridAndSnapping": "Сетка и привязка",
+      "gridNotice": "Сетка настраивается в окне «Настройки рабочей области» в правом нижнем углу",
+      "unitsMillimeters": "Единицы измерения: миллиметры",
+      "unitsNotice": "Единицы измерения: миллиметры",
+      "lighting": "Освещение и тени",
+      "lightingNotice": "Тени и трассировка лучей включены",
+      "account": "Учётная запись",
+      "accountNotice": "Меню учётной записи открыто",
+      "dashboard": "Главная",
+      "dashboardNotice": "Главная открыта",
+      "signOut": "Выйти",
+      "signOutNotice": "Выбран выход из учётной записи"
+    },
+    "mcp": {
+      "selected": "{count, plural, one {MCP: выделен {count} объект} few {MCP: выделены {count} объекта} many {MCP: выделено {count} объектов} other {MCP: выделено {count} объекта}}",
+      "selectionCleared": "MCP: выбор снят",
+      "deleted": "{count, plural, one {MCP: удалён {count} объект} few {MCP: удалены {count} объекта} many {MCP: удалено {count} объектов} other {MCP: удалено {count} объекта}}",
+      "added": "MCP: добавлен объект «{name}»",
+      "imported": "MCP: импортирован объект «{name}»",
+      "updated": "MCP: изменён объект «{name}»",
+      "alreadyAligned": "MCP: объекты уже выровнены {direction}",
+      "aligned": "{count, plural, one {MCP: выровнен {count} объект {direction}} few {MCP: выровнены {count} объекта {direction}} many {MCP: выровнено {count} объектов {direction}} other {MCP: выровнено {count} объекта {direction}}}",
+      "grouped": "{count, plural, one {MCP: сгруппирован {count} объект} few {MCP: сгруппированы {count} объекта} many {MCP: сгруппировано {count} объектов} other {MCP: сгруппировано {count} объекта}}",
+      "groupConsumedSolid": "MCP: при группировке отверстие полностью удалило тело",
+      "ungrouped": "{count, plural, one {MCP: разгруппирована {count} группа} few {MCP: разгруппированы {count} группы} many {MCP: разгруппировано {count} групп} other {MCP: разгруппировано {count} группы}}",
+      "cutComplete": "MCP: вычитание выполнено",
+      "cutConsumedSolid": "MCP: при вычитании отверстие полностью удалило тело",
+      "separated": "{count, plural, one {MCP: объект разделён на {count} часть} few {MCP: объект разделён на {count} части} many {MCP: объект разделён на {count} частей} other {MCP: объект разделён на {count} части}}",
+      "filleted": "{count, plural, one {MCP: скруглено {count} ребро} few {MCP: скруглено {count} ребра} many {MCP: скруглено {count} рёбер} other {MCP: скруглено {count} ребра}}",
+      "chamfered": "{count, plural, one {MCP: фаска снята с {count} ребра} few {MCP: фаска снята с {count} рёбер} many {MCP: фаска снята с {count} рёбер} other {MCP: фаска снята с {count} ребра}}"
+    }
+  },
+  "workspace": {
+    "shortcutHint": "{label} ({key})",
+    "viewCube": {
+      "label": "Видовой куб",
+      "face": {
+        "top": "СВЕРХУ",
+        "bottom": "СНИЗУ",
+        "front": "СПЕРЕДИ",
+        "back": "СЗАДИ",
+        "right": "СПРАВА",
+        "left": "СЛЕВА"
+      },
+      "view": {
+        "top": "Вид сверху",
+        "bottom": "Вид снизу",
+        "front": "Вид спереди",
+        "back": "Вид сзади",
+        "right": "Вид справа",
+        "left": "Вид слева"
+      }
+    },
+    "camera": {
+      "controls": "Управление камерой",
+      "showControls": "Показать панель камеры",
+      "showControlsLabel": "Показать управление камерой",
+      "hideControls": "Скрыть панель камеры",
+      "hideControlsLabel": "Скрыть управление камерой",
+      "home": "Исходный вид",
+      "zoomIn": "Приблизить",
+      "zoomOut": "Отдалить"
+    },
+    "workplane": {
+      "label": "Рабочая плоскость",
+      "place": "Разместить рабочую плоскость"
+    },
+    "ruler": {
+      "tools": "Инструменты линейки",
+      "actions": "Действия линейки",
+      "add": "Добавить измерение",
+      "movePoints": "Переместить точки измерения",
+      "deletePart": "Удалить часть измерения",
+      "measurements": "Измерения линейкой"
+    },
+    "dimension": {
+      "width": "Ширина",
+      "height": "Высота"
+    },
+    "transform": {
+      "resize": "Изменить размер",
+      "lift": "Поднять над рабочей плоскостью",
+      "rotate": "Повернуть"
+    },
+    "moveDimensions": {
+      "label": "Размеры перемещения",
+      "axis": "Перемещение по {axis}"
+    },
+    "align": {
+      "handles": "Маркеры выравнивания"
+    },
+    "mirror": {
+      "handles": "Маркеры зеркального отражения",
+      "x": "Отразить зеркально слева направо",
+      "y": "Отразить зеркально сверху вниз",
+      "z": "Отразить зеркально спереди назад"
+    },
+    "sketch": {
+      "badge": {
+        "extrude": "Режим эскиза",
+        "revolve": "Эскиз для вращения"
+      },
+      "viewControls": "Управление видом эскиза",
+      "resetView": "Сбросить вид эскиза",
+      "plate": "Плоскость эскиза",
+      "revolveAxis": "ОСЬ ВРАЩЕНИЯ",
+      "removeMeasurement": "Удалить измерение",
+      "point": {
+        "actions": "Действия с точкой",
+        "corner": "Заострить",
+        "cornerTitle": "Сделать точку угловой",
+        "smooth": "Сгладить",
+        "smoothTitle": "Сделать точку гладкой",
+        "split": "Разделить",
+        "splitTitle": "Разделить маркеры"
+      },
+      "notice": {
+        "shapeMoved": "Фигура эскиза перемещена",
+        "shapeResized": "Размер фигуры эскиза изменён",
+        "imageMoved": "Изображение эскиза перемещено",
+        "imageResized": "Размер изображения эскиза изменён",
+        "imageWidthUpdated": "Ширина изображения эскиза изменена",
+        "imageHeightUpdated": "Высота изображения эскиза изменена",
+        "imageOpacityUpdated": "Непрозрачность изображения эскиза изменена",
+        "imageLocked": "Изображение заблокировано",
+        "imageUnlocked": "Изображение разблокировано",
+        "imageAspectUpdated": "Настройка пропорций изображения изменена"
+      },
+      "image": {
+        "settings": "Настройки изображения «{name}»",
+        "closeSettings": "Закрыть настройки изображения",
+        "lockLabel": "Заблокировать изображение эскиза",
+        "unlockLabel": "Разблокировать изображение эскиза",
+        "lock": "Заблокировать изображение",
+        "unlock": "Разблокировать изображение",
+        "deleteLabel": "Удалить изображение эскиза",
+        "delete": "Удалить изображение",
+        "deleteLocked": "Разблокируйте изображение, чтобы удалить его",
+        "pixelSize": "{width} × {height} пикс.",
+        "properties": "Свойства",
+        "opacity": "Непрозрачность",
+        "positionX": "Положение по X",
+        "positionY": "Положение по Y",
+        "aspectLocked": "Пропорции зафиксированы",
+        "aspectUnlocked": "Пропорции не зафиксированы"
+      },
+      "revolvePreview": {
+        "label": "3D-предпросмотр вращения",
+        "title": "3D-предпросмотр",
+        "empty": "Нарисуйте замкнутый профиль слева от оси"
+      }
+    }
+  },
+  "panels": {
+    "unit": {
+      "deg": "°",
+      "degrees": "{value}°",
+      "millimeters": "{value} мм"
+    },
+    "snapGrid": {
+      "label": "Привязка к сетке",
+      "off": "Нет",
+      "brick": "Кирпичик"
+    },
+    "measurement": {
+      "units": {
+        "metric": "Метрические (по умолчанию)",
+        "imperial": "Имперские",
+        "bricks": "Кирпичики"
+      },
+      "scale": {
+        "mm": "1:1 (миллиметры)",
+        "cm": "1:10 (сантиметры)",
+        "m": "1:1000 (метры)",
+        "in": "1:1 (дюймы)",
+        "ft": "1:1 (футы)",
+        "stud": "1:1 (шипы)"
+      }
+    },
+    "font": {
+      "multilanguage": "Многоязычный",
+      "sans": "Без засечек",
+      "serif": "С засечками",
+      "script": "Рукописный",
+      "monospace": "Моноширинный",
+      "rounded": "Скруглённый",
+      "stencil": "Трафаретный"
+    },
+    "gearType": {
+      "label": "Тип зубчатого колеса",
+      "spur": "Прямозубое",
+      "helical": "Косозубое",
+      "bevel": "Коническое"
+    },
+    "property": {
+      "length": "Длина",
+      "width": "Ширина",
+      "height": "Высота",
+      "sides": "Число сторон",
+      "steps": "Число сегментов",
+      "startAngle": "Начальный угол",
+      "sweep": "Угол вращения",
+      "topRadius": "Верхний радиус",
+      "baseRadius": "Радиус основания",
+      "thickness": "Толщина стенки",
+      "teeth": "Число зубьев",
+      "toothSize": "Размер зуба",
+      "toothWidth": "Ширина зуба",
+      "helixAngle": "Угол наклона зуба",
+      "quality": "Качество",
+      "centerHole": "Отверстие в центре",
+      "text": "Текст",
+      "font": "Шрифт",
+      "bevel": "Фаска",
+      "segments": "Число сегментов",
+      "topLength": "Длина сверху",
+      "topWidth": "Ширина сверху",
+      "bottomLength": "Длина снизу",
+      "bottomWidth": "Ширина снизу"
+    },
+    "inspector": {
+      "label": "Панель фигуры «{name}»",
+      "expand": "Развернуть панель фигуры",
+      "minimize": "Свернуть панель фигуры",
+      "lock": "Заблокировать фигуру",
+      "unlock": "Разблокировать фигуру",
+      "show": "Показать фигуру",
+      "hide": "Скрыть фигуру",
+      "mode": "Тело или отверстие",
+      "solid": "Тело",
+      "hole": "Отверстие",
+      "color": {
+        "label": "Цвет фигуры",
+        "title": "Цвет",
+        "set": "Выбрать цвет {color}",
+        "customTitle": "Свой цвет",
+        "custom": "Свой"
+      },
+      "editSketch": "Изменить эскиз",
+      "separateParts": "Разделить на части",
+      "section": {
+        "properties": "Свойства",
+        "taper": "Сужение",
+        "teeth": "Зубья",
+        "helix": "Наклон зубьев"
+      },
+      "gearType": "Тип зубчатого колеса"
+    },
+    "edgeModifier": {
+      "title": {
+        "fillet": "Скругление рёбер",
+        "chamfer": "Фаска на рёбрах"
+      },
+      "cancelFillet": "Отказаться от скругления",
+      "cancelChamfer": "Отказаться от фаски",
+      "status": {
+        "preparing": "Подготовка рёбер…",
+        "selected": "{count, plural, one {Выбрано: {selected} из {count} острого ребра} few {Выбрано: {selected} из {count} острых рёбер} many {Выбрано: {selected} из {count} острых рёбер} other {Выбрано: {selected} из {count} острых рёбер}}"
+      },
+      "target": {
+        "single": "Один объект",
+        "grouped": "{count, plural, one {{count} объект в группе} few {{count} объекта в группе} many {{count} объектов в группе} other {{count} объекта в группе}}",
+        "features": "{count, plural, one {готовых скруглений и фасок: {count}} few {готовых скруглений и фасок: {count}} many {готовых скруглений и фасок: {count}} other {готовых скруглений и фасок: {count}}}"
+      },
+      "help": {
+        "ready": "Щёлкайте по подсвеченным рёбрам модели, чтобы выбрать их или отменить выбор. Удерживайте Shift, чтобы добавить или убрать только одно ребро.",
+        "loading": "Загрузка данных о рёбрах. Расчёт идёт прямо в браузере."
+      },
+      "selectAll": "Все острые рёбра",
+      "clear": "Сбросить выбор",
+      "history": {
+        "toggle": "История скруглений и фасок",
+        "unavailable": "Старые скругления и фаски нельзя отменить: для них не сохранена история изменений.",
+        "alsoRemovesNewer": "{count, plural, one {также удалит более поздние: {count}} few {также удалит более поздние: {count}} many {также удалит более поздние: {count}} other {также удалит более поздние: {count}}}"
+      },
+      "radius": "Радиус",
+      "distance": "Расстояние",
+      "angle": "Угол",
+      "sharpAngle": "Порог угла острых рёбер",
+      "tangentChain": "Выбирать плавно соединённые рёбра вместе",
+      "preserveEdgeSize": "Сохранять размер скругления и фаски при изменении размеров",
+      "quality": {
+        "label": "Качество предпросмотра",
+        "draft": "Черновое",
+        "standard": "Обычное",
+        "fine": "Высокое"
+      },
+      "cancel": "Отмена",
+      "apply": "Применить"
+    },
+    "settings": {
+      "title": "Настройки рабочей области",
+      "close": "Закрыть настройки",
+      "sections": "Разделы настроек рабочей области",
+      "custom": "Свой",
+      "appDefault": "По умолчанию: {value}",
+      "appearance": {
+        "title": "Внешний вид",
+        "description": "Настройте отображение рабочей области и управление видом.",
+        "theme": "Тема",
+        "themeNote": "Тема применяется ко всему SketchForge и всем проектам.",
+        "showProjectName": "Показывать название проекта на панели инструментов",
+        "moveDimensions": "Показывать размеры при перемещении",
+        "selectBeforeMove": "Перемещать только выделенные фигуры",
+        "showShadows": "Показывать тени",
+        "cruiseShapes": "Размещать новые фигуры на поверхностях",
+        "zoomSpeed": "Скорость приближения и отдаления",
+        "zoomSlow": "Медленно",
+        "zoomFast": "Быстро"
+      },
+      "measurement": {
+        "title": "Измерения",
+        "description": "Выберите единицы измерения, точность, масштаб и привязку к сетке.",
+        "units": "Единицы измерения",
+        "scale": "Масштаб",
+        "accuracy": "Точность"
+      },
+      "workplane": {
+        "title": "Рабочая плоскость",
+        "description": "Задайте размеры рабочей плоскости и шаг видимой сетки.",
+        "size": "Размер рабочей плоскости",
+        "sizePreset": "{width} × {depth} мм",
+        "gridBlockSize": "Шаг сетки",
+        "blockSize": "Свой шаг"
+      },
+      "gridColor": {
+        "label": "Цвет сетки",
+        "current": "Цвет сетки {color}",
+        "picker": "Выбор цвета сетки",
+        "presets": "Готовые цвета сетки",
+        "usePreset": "Выбрать цвет сетки {color}",
+        "hex": "Цвет сетки в формате HEX",
+        "reset": "Сбросить цвет сетки"
+      },
+      "shapes": {
+        "title": "Параметры новых фигур",
+        "description": "Задайте начальные параметры для каждой фигуры с панели инструментов. Ограничения размера не меняются, пока вы не зададите свой предел.",
+        "shape": "Фигура",
+        "customizedOption": "{name} — свои настройки",
+        "customActive": "Действуют свои настройки",
+        "usingDefaults": "Стандартные настройки SketchForge",
+        "reset": "Вернуть стандартные",
+        "details": "Параметры фигуры",
+        "detailsDescription": "Дополнительные значения для новых фигур этого типа.",
+        "topRadius": "Верхний радиус",
+        "baseRadius": "Радиус основания",
+        "toothSize": "Размер зуба",
+        "toothWidth": "Ширина зуба",
+        "centerHole": "Отверстие в центре",
+        "helixAngle": "Угол наклона зуба",
+        "helixQuality": "Качество наклонных зубьев",
+        "limit": "Свой предел размера",
+        "limitDescription": "Оставьте поле пустым, чтобы для этой фигуры остались обычные ограничения размера на панели фигуры и при перетаскивании.",
+        "limitPlaceholder": "Стандартные",
+        "note": "Свои значения применяются к новым фигурам. Свой предел размера также заменяет обычные ограничения размера этой фигуры — до 2000 мм."
+      },
+      "history": {
+        "nav": "История изменений",
+        "title": "Сохраняемая история изменений",
+        "description": "Выберите, сколько последних действий можно будет отменить после сохранения или повторного открытия проекта.",
+        "slider": "Число сохраняемых действий",
+        "actions": "{count, plural, one {{count} действие} few {{count} действия} many {{count} действий} other {{count} действия}}",
+        "unlimited": "Без ограничений",
+        "retain": "Сколько действий хранить",
+        "note": "По умолчанию хранится 100 действий. Если задать меньше, более старые действия навсегда удалятся из проекта и их больше нельзя будет отменить."
+      },
+      "footer": {
+        "description": "Сохраните текущие настройки для этого проекта.",
+        "makeDefault": "Сделать по умолчанию",
+        "defaultSaved": "Сохранено"
+      }
+    },
+    "tutorial": {
+      "beforeStart": "Перед началом",
+      "step": "Шаг {number}",
+      "challenge": "Задание {number}",
+      "expand": "Развернуть инструкцию к заданию",
+      "minimize": "Свернуть инструкцию к заданию",
+      "requiredDimensions": "Нужные размеры",
+      "snapGridValue": "Привязка к сетке: {value}",
+      "elevation": "Высота над рабочей плоскостью",
+      "previous": "Назад",
+      "next": "Далее",
+      "finish": "Готово"
+    },
+    "keyTag": {
+      "title": "Брелок",
+      "ariaLabel": "Инструкция к заданию «Брелок»",
+      "intro": {
+        "title": "Соберите брелок",
+        "body": "В правом нижнем углу выберите привязку к сетке 0.5 мм. Затем соберите брелок из простых фигур.",
+        "alt": "Готовый брелок на рабочей плоскости SketchForge"
+      },
+      "middle": {
+        "title": "Сделайте середину",
+        "body": "Добавьте «Параллелепипед». Задайте его размеры на панели фигуры.",
+        "alt": "Параллелепипед в середине брелока в SketchForge"
+      },
+      "leftEnd": {
+        "title": "Добавьте левый круглый конец",
+        "body": "Добавьте «Цилиндр» в режиме «Тело». Поставьте его так, чтобы половина цилиндра заходила на левый край параллелепипеда.",
+        "alt": "Цилиндр на левом конце брелока"
+      },
+      "rightEnd": {
+        "title": "Сделайте второй конец",
+        "body": "Выберите цилиндр. Нажмите «Дублировать» в разделе «Буфер обмена» на верхней панели. Поставьте копию на правый край.",
+        "alt": "Два цилиндра образуют оба круглых конца брелока"
+      },
+      "lockCircle": {
+        "title": "Заблокируйте левый цилиндр",
+        "body": "Выберите левый цилиндр. Нажмите на значок замка вверху панели фигуры. Цилиндр станет опорой при выравнивании.",
+        "alt": "Левый цилиндр выбран на рабочей плоскости SketchForge"
+      },
+      "hole": {
+        "title": "Сделайте отверстие",
+        "body": "Добавьте ещё один «Цилиндр». Задайте его размеры. Переключите его из режима «Тело» в режим «Отверстие».",
+        "alt": "Маленький цилиндр в режиме «Отверстие» у левого конца брелока"
+      },
+      "alignHole": {
+        "title": "Выровняйте отверстие",
+        "body": "Выберите отверстие. Удерживайте Shift и щёлкните по заблокированному левому цилиндру. Нажмите «Выровнять» в разделе «Изменение» на верхней панели. Вокруг фигур появятся точки. Щёлкните среднюю точку на каждой из двух линий, лежащих на сетке.",
+        "alt": "Отверстие выровнено по центру левого цилиндра"
+      },
+      "unlockCircle": {
+        "title": "Разблокируйте цилиндр",
+        "body": "Снова выберите левый цилиндр. Нажмите на значок замка вверху панели фигуры, чтобы снять блокировку.",
+        "alt": "Левый цилиндр снова выбран после выравнивания отверстия"
+      },
+      "group": {
+        "title": "Сгруппируйте брелок",
+        "body": "Выберите параллелепипед, оба цилиндра и отверстие. Для этого удерживайте Shift и щёлкайте по каждому или обведите их рамкой. Нажмите «Сгруппировать» в разделе «Группировка» на верхней панели. Если кнопка серая, одна из фигур ещё заблокирована: снимите замок с левого цилиндра.",
+        "alt": "Готовый сгруппированный брелок выбран в SketchForge"
+      }
+    },
+    "nameplate": {
+      "shortTitle": "Табличка",
+      "title": "Именная табличка",
+      "ariaLabel": "Инструкция к заданию «Именная табличка»",
+      "clickFillet": "Нажмите «Скругление»",
+      "intro": {
+        "title": "Создайте именную табличку",
+        "body": "В правом нижнем углу выберите привязку к сетке 0.5 мм. Затем сделайте основание со скруглёнными краями. Напишите на нём своё имя с помощью объекта «Текст». Соедините обе части в одну модель для печати.",
+        "alt": "Готовая синяя табличка с именем ALEX на рабочей плоскости SketchForge"
+      },
+      "base": {
+        "title": "Сделайте основание",
+        "body": "Добавьте «Параллелепипед». Введите эти размеры на панели фигуры.",
+        "alt": "Простое прямоугольное синее основание таблички"
+      },
+      "round": {
+        "title": "Скруглите края",
+        "body": "Выберите основание. Нажмите «Скругление» в разделе «Изменение» на верхней панели. Щёлкните по внешним рёбрам основания. Нажмите «Применить».",
+        "alt": "Синее основание таблички с плавно скруглёнными внешними краями",
+        "callout": "Задайте радиус скругления 1.00 мм."
+      },
+      "text": {
+        "title": "Добавьте текст",
+        "body": "Откройте «Фигуры». Добавьте «Текст». Новый объект появится с буквой T.",
+        "alt": "Красная заглавная буква T (объект «Текст») на синем основании таблички"
+      },
+      "personalize": {
+        "title": "Напишите своё имя",
+        "body": "Замените текст в поле «Текст» на своё имя. В примере это ALEX. Шрифт можно выбрать любой.",
+        "alt": "Объёмная красная надпись ALEX не по центру синего основания"
+      },
+      "place": {
+        "title": "Поставьте текст на основание",
+        "body": "Выберите текст. Щёлкните маленькую чёрную стрелку над ним. В появившемся поле введите 3 и нажмите Enter. Текст встанет точно на основание толщиной 3 мм.",
+        "alt": "Объёмная красная надпись ALEX лежит на синем основании таблички"
+      },
+      "center": {
+        "title": "Поставьте имя по центру",
+        "body": "Выберите основание. Нажмите на значок замка вверху панели фигуры. Выберите текст, затем удерживайте Shift и щёлкните по основанию. Нажмите «Выровнять» в разделе «Изменение» на верхней панели. Щёлкните среднюю точку на каждой из двух линий, лежащих на сетке. Снимите блокировку основания тем же значком замка.",
+        "alt": "Красная надпись ALEX по центру синего основания таблички",
+        "callout": "Заблокированное основание не сдвигается: по нему выравнивается текст."
+      },
+      "group": {
+        "title": "Сгруппируйте табличку",
+        "body": "Выберите основание и текст: удерживайте Shift и щёлкните по обоим или обведите их рамкой. Нажмите «Сгруппировать» в разделе «Группировка» на верхней панели. Получится одна готовая модель для печати. Если кнопка серая, основание ещё заблокировано: сначала снимите замок значком на панели фигуры.",
+        "alt": "Готовая сгруппированная синяя табличка ALEX"
+      }
+    }
+  },
+  "errors": {
+    "asset": {
+      "unsupportedType": "Этот тип файла нельзя добавить в проект"
+    },
+    "cadModifier": {
+      "workerFailed": "Не удалось запустить модуль скруглений и фасок. Обновите браузер до Firefox 121+, Chrome/Brave 114+ или Safari 17.2+ и попробуйте снова.",
+      "prepareTimeout": "Подготовка рёбер заняла слишком много времени: модель слишком сложная. Попробуйте исправленный или менее детализированный STL.",
+      "previewTimeout": "Предпросмотр рёбер занял слишком много времени. Нажмите «Отмена» и попробуйте снова.",
+      "noMeshData": "У выделенного объекта нет данных модели",
+      "invalidPrimitiveDimensions": "У выделенной фигуры недопустимые размеры",
+      "primitiveNotSolid": "Не удалось подготовить выделенную фигуру к скруглению или фаске",
+      "storedFeatureInvalid": "Не удалось восстановить сохранённую точную форму объекта",
+      "noClosedFaces": "У выделенного объекта не найдено граней",
+      "meshNotManifold": "В выделенной модели есть дыры или лишние грани. Исправьте её, прежде чем добавлять скругления и фаски.",
+      "noSolidBody": "В группе нет тела, которое можно изменить",
+      "groupRepairFailed": "Не удалось объединить сгруппированные объекты в одно правильное тело",
+      "noClosedSolidComponents": "В выделенной группе нет замкнутых тел",
+      "edgeOwnerUnmapped": "Не удалось определить, к какому телу относится ребро. Закройте инструмент и откройте его снова",
+      "notPrepared": "Перед предпросмотром нужно подготовить объект",
+      "noEdgesSelected": "Выберите хотя бы одно подсвеченное ребро",
+      "invalidResult": "При выбранном размере рёбра получаются неправильными или налезают друг на друга",
+      "filletTooLarge": "Не получается скруглить выбранные рёбра вместе при таком размере. Уменьшите размер или выберите меньше соседних рёбер.",
+      "chamferTooLarge": "Не получается сделать фаску на выбранных рёбрах вместе при таком размере. Уменьшите размер или выберите меньше соседних рёбер.",
+      "edgeTreatmentFailed": "Не удалось построить скругление или фаску",
+      "meshImportReset": "Не удалось превратить выделенную модель в замкнутое тело. Модуль скруглений и фасок перезапущен. Прежде чем добавлять скругления и фаски, попробуйте команду «Разделить на части», разгруппировать или упростить объект.",
+      "validatorReset": "Модуль скруглений и фасок дал сбой при проверке и перезапущен. Откройте инструмент снова, перезагружать страницу не нужно.",
+      "memoryFaultReset": "В модуле скруглений и фасок произошла ошибка памяти, он перезапущен. Откройте инструмент снова, перезагружать страницу не нужно."
+    },
+    "mesh": {
+      "incompleteTriangles": "Полигональная сетка содержит неполные треугольники",
+      "nonFiniteCoordinates": "В полигональной сетке есть неверные координаты"
+    },
+    "obj": {
+      "invalidVertexIndex": "В файле OBJ неверный номер вершины",
+      "invalidNormalIndex": "В файле OBJ неверный номер нормали",
+      "vertexIndexOutOfRange": "В файле OBJ есть ссылка на несуществующую вершину",
+      "normalIndexOutOfRange": "В файле OBJ есть ссылка на несуществующую нормаль",
+      "invalidVertex": "В файле OBJ есть неправильно записанная вершина",
+      "nonFiniteVertex": "В файле OBJ есть вершина с неверными координатами",
+      "invalidNormal": "В файле OBJ есть неправильно записанная нормаль",
+      "nonFiniteNormal": "В файле OBJ есть нормаль с неверными координатами",
+      "faceTooFewVertices": "В файле OBJ есть грань меньше чем с тремя вершинами",
+      "degenerateFace": "В файле OBJ есть грань нулевой площади",
+      "degeneratePolygonFace": "В файле OBJ есть многоугольная грань нулевой площади",
+      "untriangulatableFace": "В файле OBJ есть многоугольная грань, которую не удалось разбить на треугольники",
+      "noGeometry": "В файле OBJ нет модели, которую можно прочитать",
+      "emptyGeometry": "Модель в файле OBJ пустая"
+    },
+    "revolve": {
+      "noProfile": "Нарисуйте хотя бы один замкнутый профиль слева от оси вращения",
+      "noFilledArea": "У профиля для вращения нет площади",
+      "invalidSolid": "Не удалось получить тело вращением профиля"
+    },
+    "sketch": {
+      "allPathsOpen": "Все линии эскиза разомкнуты. Чтобы завершить эскиз, замкните хотя бы одну из них.",
+      "noClosedProfile": "Замкнутый профиль не найден. Нарисуйте хотя бы одну замкнутую линию и проверьте, что в ней нет участков нулевой площади.",
+      "invalidTopology": "Не удалось построить правильное тело из эскиза (ошибка OpenCascade)",
+      "buildFailed": "Не удалось построить тело из эскиза"
+    },
+    "skf": {
+      "fileEmpty": "Файл .skf пустой",
+      "archiveTooLarge": "Файл .skf слишком большой: допускается не больше 512 МБ",
+      "notPackage": "Файл проекта повреждён: это не пакет .skf",
+      "zipDirectoryMissing": "Файл проекта повреждён: в пакете .skf нет оглавления ZIP",
+      "zip64Unsupported": "Пакеты .skf в формате ZIP64 не поддерживаются",
+      "invalidFileCount": "Файл проекта повреждён: неверное число файлов в пакете .skf",
+      "directoryTruncated": "Файл проекта повреждён: оглавление пакета .skf обрезано",
+      "directoryMalformed": "Файл проекта повреждён: оглавление пакета .skf испорчено",
+      "directoryEntryTruncated": "Файл проекта повреждён: запись в оглавлении пакета .skf обрезана",
+      "encryptedUnsupported": "Зашифрованные пакеты .skf не поддерживаются",
+      "compressionUnsupported": "Пакет .skf сжат неподдерживаемым способом",
+      "unsafePath": "Файл проекта повреждён: в пакете .skf есть недопустимый или повторяющийся путь к файлу",
+      "assetExpansionLimit": "Файл «{path}» в пакете .skf слишком большой после распаковки",
+      "projectJsonTooLarge": "Файл project.json слишком большой",
+      "expansionLimit": "Пакет .skf слишком большой: после распаковки он больше 1 ГБ",
+      "projectJsonMissing": "Файл проекта повреждён: в пакете .skf нет project.json",
+      "expandFailed": "Не удалось распаковать файл .skf: {detail}",
+      "expandFailedCorrupt": "Не удалось распаковать файл .skf: данные ZIP повреждены",
+      "projectJsonMalformed": "Файл проекта повреждён: project.json не читается",
+      "sharedRequiresPackage": "Общее хранилище принимает только файлы .skf в виде пакета, а не старые проекты в формате JSON",
+      "notSketchForgeProject": "Этот файл не является проектом SketchForge",
+      "formatVersionMissing": "Файл проекта повреждён: не указана версия формата (formatVersion)",
+      "formatTooNew": "Проект сохранён в формате .skf версии {version}. Чтобы открыть его, обновите SketchForge",
+      "formatMigrationUnavailable": "Пакет .skf версии {version} нельзя открыть: преобразование из этой версии не поддерживается",
+      "readerTooOld": "Для этого проекта нужна более новая версия SketchForge, поэтому он не открыт",
+      "projectJsonIncomplete": "Файл проекта повреждён: в project.json нет ресурсов, состояний или истории изменений",
+      "invalidStateCount": "Файл проекта повреждён: неверное число состояний",
+      "duplicateAssetId": "Файл проекта повреждён: повторяется ID ресурса «{id}»",
+      "assetUnknownKind": "Файл проекта повреждён: у ресурса «{id}» неизвестный тип",
+      "assetUnsafePath": "Файл проекта повреждён: у ресурса «{id}» недопустимый или повторяющийся путь",
+      "assetMissing": "Файл проекта повреждён: нет ресурса «{path}»",
+      "assetInvalidSize": "Файл проекта повреждён: у ресурса «{path}» неверный размер",
+      "assetIntegrity": "Файл проекта повреждён: ресурс «{path}» не прошёл проверку целостности",
+      "sourceAssetUnknownFormat": "Файл проекта повреждён: у исходного файла «{id}» неизвестный формат",
+      "duplicateStateId": "Файл проекта повреждён: повторяется ID состояния «{id}»",
+      "stateTooManyObjects": "В состоянии проекта «{state}» слишком много объектов",
+      "stateDuplicateNodeId": "Файл проекта повреждён: в состоянии «{state}» повторяется ID узла «{id}»",
+      "stateMissingNode": "Файл проекта повреждён: состояние «{state}» ссылается на несуществующий узел «{id}»",
+      "stateDuplicateObjectId": "Файл проекта повреждён: в состоянии «{state}» повторяется ID объекта «{id}»",
+      "nodeObjectIdMismatch": "Файл проекта повреждён: objectId узла «{id}» не совпадает с описанием фигуры",
+      "nodeCycle": "Файл проекта повреждён: циклическая ссылка группы или истории изменений в «{id}»",
+      "importedObjectMissingAsset": "Файл проекта повреждён: у импортированного объекта «{id}» нет ни исходного файла, ни модели",
+      "importedObjectInvalidAsset": "Файл проекта повреждён: импортированный объект «{id}» ссылается на неподходящий ресурс",
+      "importedObjectMissingBrep": "Файл проекта повреждён: у импортированного объекта «{id}» нет данных B-Rep из STEP",
+      "objectMissingBrep": "Файл проекта повреждён: у объекта «{id}» нет точных данных B-Rep",
+      "objectMissingDisplayEdges": "Файл проекта повреждён: у объекта «{id}» нет данных отображаемых рёбер",
+      "sceneStateMissing": "Файл проекта повреждён: нет активного состояния сцены",
+      "historyIndexInvalid": "Файл проекта повреждён: неверная позиция в истории изменений",
+      "historyMissingState": "Файл проекта повреждён: запись истории изменений {index} ссылается на несуществующее состояние «{state}»",
+      "historySceneMismatch": "Файл проекта повреждён: активная сцена не совпадает с позицией в истории изменений",
+      "duplicateFeatureId": "Файл проекта повреждён: повторяется ID операции «{id}»",
+      "unknownFeatureType": "Файл проекта повреждён: неизвестный тип операции «{type}»",
+      "featureMissingOutput": "Файл проекта повреждён: операция «{id}» ссылается на несуществующий объект-результат «{objectId}»",
+      "featureMissingInput": "Файл проекта повреждён: операция «{id}» ссылается на несуществующий исходный объект «{objectId}»",
+      "featureMissingDependency": "Файл проекта повреждён: операция «{id}» ссылается на несуществующую операцию «{dependency}»",
+      "featureCycle": "Файл проекта повреждён: циклическая зависимость операций в «{id}»",
+      "sourceFormatUnsupported": "SketchForge не может восстановить модель из исходного файла такого формата",
+      "displayEdgesInvalid": "Файл проекта повреждён: неверные данные отображаемых рёбер",
+      "displayEdgePointsInvalid": "Файл проекта повреждён: неверные точки отображаемых рёбер",
+      "displayEdgeCoordinatesInvalid": "Файл проекта повреждён: неверные координаты отображаемых рёбер",
+      "shapeCycle": "Файл проекта повреждён: циклическая зависимость фигур в «{id}»",
+      "shapeNodeMissing": "Файл проекта повреждён: нет узла фигуры «{id}»",
+      "objectMissingImage": "Файл проекта повреждён: у объекта «{id}» нет изображения",
+      "sketchMissingImage": "Файл проекта повреждён: у эскиза «{id}» нет изображения",
+      "objectMissingSource": "Файл проекта повреждён: у объекта «{id}» нет импортированного исходного файла",
+      "objectMissingMesh": "Файл проекта повреждён: у объекта «{id}» нет сохранённой модели",
+      "historyRestoreLoss": "Не удалось восстановить историю изменений без потери данных",
+      "meshTooLarge": "Импортированная модель слишком большая для файла проекта SketchForge",
+      "meshInvalidCoordinate": "В импортированной модели есть неверная координата",
+      "meshInvalidNormal": "В импортированной модели есть неверная нормаль",
+      "derivedMeshHeader": "Файл проекта повреждён: у сохранённой модели неверный заголовок",
+      "derivedMeshTooLarge": "Файл проекта повреждён: сохранённая модель больше допустимого размера",
+      "derivedMeshTruncated": "Файл проекта повреждён: сохранённая модель обрезана или испорчена",
+      "imageDataUrlInvalid": "Встроенное изображение записано неправильно",
+      "resourceTooLarge": "Один из ресурсов проекта больше допустимого размера",
+      "tooManyStates": "В проекте слишком много действий в истории изменений для формата .skf",
+      "activeStateUnknown": "Не удалось определить текущее состояние проекта",
+      "projectTooLarge": "Проект больше 64 МБ — это предел для файла .skf. Сохраните его с меньшим числом действий в истории изменений или упростите проект.",
+      "duplicateRootObjectId": "В состоянии проекта повторяется ID объекта верхнего уровня «{id}»",
+      "emptyRootObjectId": "В состоянии проекта есть объект верхнего уровня без ID",
+      "exportDuplicateObjectId": "В состоянии «{state}» повторяется ID объекта «{id}»",
+      "exportEmptyObjectId": "В состоянии «{state}» есть объект без ID",
+      "legacyTooLarge": "Проект старого формата .skf (JSON) слишком большой",
+      "legacyMalformed": "Файл проекта повреждён: JSON старого формата .skf не читается",
+      "legacyNotObject": "Файл проекта повреждён: проект старого формата .skf записан неправильно",
+      "legacyVersionUnsupported": "Эта версия старого формата .skf не поддерживается",
+      "legacyDuplicateObjectId": "Файл проекта повреждён: в проекте старого формата повторяется ID объекта «{id}»",
+      "legacyEmptyObjectId": "Файл проекта повреждён: в проекте старого формата есть объект без ID",
+      "notObject": "Файл проекта повреждён: {label} — ожидается объект",
+      "notNonEmptyString": "Файл проекта повреждён: {label} — ожидается непустая строка",
+      "notStringArray": "Файл проекта повреждён: {label} — ожидается список строк",
+      "notFiniteNumber": "Файл проекта повреждён: {label} — ожидается число",
+      "fieldMissing": "Файл проекта повреждён: {label} — значение отсутствует",
+      "fieldInvalid": "Файл проекта повреждён: {label} — неверное значение",
+      "invalidOrTooLarge": "Файл проекта повреждён: {label} — неверное значение или слишком много элементов",
+      "outOfRange": "Файл проекта повреждён: {label} — значение вне допустимого диапазона",
+      "notPositive": "Файл проекта повреждён: {label} — значение должно быть больше нуля",
+      "negative": "Файл проекта повреждён: {label} — значение не может быть отрицательным",
+      "unknownShapeKind": "Файл проекта повреждён: {label} — неизвестный тип фигуры «{kind}»",
+      "nonPositiveDimensions": "Файл проекта повреждён: {label} — размеры должны быть больше нуля",
+      "dimensionsOutOfRange": "Файл проекта повреждён: {label} — размеры вне допустимого диапазона",
+      "inlinePackageFields": "Файл проекта повреждён: {label} — геометрия должна храниться в пакете отдельным файлом",
+      "invalidPositions": "Файл проекта повреждён: {label} — неверные координаты вершин",
+      "sketchMissingPointsOrSegments": "Файл проекта повреждён: {label} — нет точек или линий эскиза",
+      "sketchDuplicatePointId": "Файл проекта повреждён: {label} — повторяется ID точки «{id}»",
+      "sketchDuplicateSegmentId": "Файл проекта повреждён: {label} — повторяется ID линии «{id}»",
+      "sketchMissingPointReference": "Файл проекта повреждён: {label} — линия ссылается на несуществующую точку"
+    },
+    "step": {
+      "readFailed": "Не удалось прочитать STEP: {detail}",
+      "noSolidGeometry": "В файле STEP нет тел, которые можно импортировать",
+      "nothingToExport": "Нет параллелепипедов, цилиндров, сфер или импортированных из STEP тел для экспорта в STEP (B-Rep)",
+      "exportFailed": "Не удалось экспортировать STEP: {detail}"
+    },
+    "stl": {
+      "noGeometry": "В файле STL нет модели, которую можно прочитать",
+      "emptyGeometry": "Модель в файле STL пустая",
+      "exportTriangleLimit": "Слишком много треугольников для экспорта в двоичный STL"
+    },
+    "svg": {
+      "empty": "Файл SVG пустой",
+      "tooLarge": "Файл SVG слишком большой. Максимальный размер — {max} МБ",
+      "entitiesUnsupported": "В SVG есть объявления ENTITY — такие файлы не поддерживаются",
+      "doctypeUnsupported": "Поддерживается только стандартный тип документа SVG 1.1",
+      "nanGeometry": "В SVG есть неверная геометрия (NaN). В Tinkercad перед экспортом сечения проверьте, что рабочая плоскость пересекает модель",
+      "tooManyElements": "{count, plural, one {Файл SVG слишком сложный ({count} элемент; максимум {max})} few {Файл SVG слишком сложный ({count} элемента; максимум {max})} many {Файл SVG слишком сложный ({count} элементов; максимум {max})} other {Файл SVG слишком сложный ({count} элемента; максимум {max})}}",
+      "tooManyGeometryElements": "В SVG слишком много графических элементов ({count}; максимум {max})",
+      "tooManyPathCommands": "Контуры в SVG слишком сложные (максимум {max} команд)",
+      "externalReferences": "SVG ссылается на внешние файлы — это не поддерживается. Встройте эти изображения в сам файл",
+      "invalidXml": "Файл SVG повреждён: это неправильный XML",
+      "noFilledPaths": "В SVG не найдено залитых контуров",
+      "onlyOpenStrokes": "В SVG только незамкнутые линии обводки. Перед импортом замкните контуры или превратите обводку в залитые контуры",
+      "noVisiblePaths": "В SVG нет видимых залитых контуров или замкнутых обводок",
+      "noSolidContours": "В SVG нет залитых контуров, из которых можно сделать тело",
+      "tooManyTrianglesTotal": "Файл SVG слишком сложный (максимум {max} треугольников)",
+      "tooManyTriangles": "{count, plural, one {Файл SVG слишком сложный ({count} треугольник; максимум {max})} few {Файл SVG слишком сложный ({count} треугольника; максимум {max})} many {Файл SVG слишком сложный ({count} треугольников; максимум {max})} other {Файл SVG слишком сложный ({count} треугольника; максимум {max})}}",
+      "degenerateTriangles": "{count, plural, one {В SVG {count} треугольник нулевой площади} few {В SVG {count} треугольника нулевой площади} many {В SVG {count} треугольников нулевой площади} other {В SVG {count} треугольника нулевой площади}}",
+      "notWatertight": "Модель из SVG не замкнутая: в ней есть дыры или лишние грани (рёбер у дыр: {count}, рёбер с лишними гранями: {nonManifold})",
+      "notWatertightOneNonManifold": "Модель из SVG не замкнутая: в ней есть дыры или лишние грани (рёбер у дыр: {count}, рёбер с лишними гранями: 1)",
+      "noVolume": "Модель из SVG не имеет объёма",
+      "meshTooManyTriangles": "{count, plural, one {Модель «{name}» из SVG слишком сложная ({count} треугольник; максимум {max})} few {Модель «{name}» из SVG слишком сложная ({count} треугольника; максимум {max})} many {Модель «{name}» из SVG слишком сложная ({count} треугольников; максимум {max})} other {Модель «{name}» из SVG слишком сложная ({count} треугольника; максимум {max})}}",
+      "meshDegenerateTriangles": "{count, plural, one {В модели «{name}» из SVG {count} треугольник нулевой площади} few {В модели «{name}» из SVG {count} треугольника нулевой площади} many {В модели «{name}» из SVG {count} треугольников нулевой площади} other {В модели «{name}» из SVG {count} треугольника нулевой площади}}",
+      "meshNotWatertight": "Модель «{name}» из SVG не замкнутая: в ней есть дыры или лишние грани (рёбер у дыр: {count}, рёбер с лишними гранями: {nonManifold})",
+      "meshNotWatertightOneNonManifold": "Модель «{name}» из SVG не замкнутая: в ней есть дыры или лишние грани (рёбер у дыр: {count}, рёбер с лишними гранями: 1)",
+      "meshNoVolume": "Модель «{name}» из SVG не имеет объёма",
+      "meshInvalid": "Модель «{name}» из SVG повреждена"
+    },
+    "svgExport": {
+      "noContours": "Нечего экспортировать в SVG: в проекции нет контуров",
+      "noVisibleArea": "Нечего экспортировать в SVG: проекция не имеет площади"
+    },
+    "edgeModifier": {
+      "emptyResult": "Не удалось обработать рёбра: получился пустой результат",
+      "noMatchingEdges": "При этом пороге нет острых рёбер",
+      "noSharpEdges": "При этом пороге острые рёбра не найдены",
+      "selectAtLeastOne": "Выберите хотя бы одно подсвеченное ребро"
+    },
+    "editor": {
+      "capturePreview": "Не удалось подготовить изображение проекта",
+      "imageDecode": "Не удалось открыть изображение",
+      "imageNoDimensions": "Не удалось определить размеры изображения",
+      "imagePrepare": "Не удалось подготовить изображение",
+      "imageRead": "Не удалось прочитать изображение",
+      "saveExport": "Не удалось сохранить файл экспорта",
+      "sketchEmptySolid": "Из эскиза получилось пустое тело",
+      "sketchInvalidSolid": "Эскиз с пересекающимися линиями не удалось превратить в тело",
+      "sketchNoArea": "После устранения пересечений линий в эскизе не осталось замкнутой области",
+      "sketchTimedOut": "Построение тела из эскиза заняло слишком много времени. Попробуйте упростить эскиз",
+      "sketchWorkerFailed": "Не удалось запустить построение эскиза",
+      "svgNoArea": "У фигуры «{name}» на виде сверху нет площади для экспорта",
+      "svgOutline": "Не удалось построить замкнутый SVG-контур для «{name}»"
+    },
+    "download": {
+      "localOnly": "Сохранять в папку можно только в SketchForge, запущенном на этом компьютере",
+      "invalidBinary": "Не удалось сохранить файл: неверный запрос",
+      "invalidRequest": "Не удалось сохранить файл: неверный запрос",
+      "tooLarge": "Файл слишком большой для сохранения в папку",
+      "noFolder": "Сначала выберите папку",
+      "invalidPath": "Недопустимый путь к файлу",
+      "saveFailed": "Не удалось сохранить файл"
+    },
+    "shared": {
+      "loadFailed": "Не удалось загрузить общие проекты",
+      "notConfigured": "Параметр {name} не задан",
+      "disabled": "Общие проекты отключены в этой установке SketchForge",
+      "invalidName": "Недопустимое имя общего проекта",
+      "nameRequired": "Не указано имя общего проекта",
+      "notFound": "Общий проект не найден",
+      "deleteSameOrigin": "Удалять общие проекты можно только со страницы SketchForge",
+      "busyChanging": "Этот общий проект сейчас изменяет кто-то другой",
+      "deleteNeedsReload": "Перед удалением обновите список общих проектов, чтобы проверить последнюю версию",
+      "changedBeforeDelete": "Общий проект изменился после загрузки. Обновите список общих проектов и попробуйте снова.",
+      "deleteFailed": "Не удалось удалить общий проект",
+      "saveNeedsLocalProject": "Откройте проект из этого браузера, чтобы сохранить его в общие проекты",
+      "thumbnailPrepareFailed": "Не удалось подготовить изображение общего проекта",
+      "saveSameOrigin": "Сохранять общие проекты можно только со страницы SketchForge",
+      "missingProject": "Не удалось сохранить общий проект: нет файла проекта",
+      "missingThumbnail": "Не удалось сохранить общий проект: нет изображения проекта",
+      "thumbnailTooLarge": "Изображение общего проекта больше 5 МБ",
+      "thumbnailNotPng": "Изображение общего проекта должно быть в формате PNG",
+      "tooLarge": "Файл проекта слишком большой для общих проектов",
+      "busySaving": "Этот общий проект сейчас сохраняет кто-то другой",
+      "changedBeforeSave": "Общий проект изменился после того, как вы его открыли. Откройте его заново или сохраните под другим именем.",
+      "gone": "Общего проекта больше нет. Сохраните проект под другим именем.",
+      "saveFailed": "Не удалось сохранить общий проект"
+    },
+    "thumbnail": {
+      "sameOrigin": "Изображение проекта можно сохранить только со страницы SketchForge",
+      "invalidRequest": "Не удалось сохранить изображение проекта: неверный запрос",
+      "invalidProject": "Неверный идентификатор проекта",
+      "invalidImage": "Изображение проекта повреждено или в неверном формате",
+      "tooLarge": "Изображение проекта слишком большое",
+      "saveFailed": "Не удалось сохранить изображение проекта"
+    },
+    "update": {
+      "checkFailed": "Не удалось проверить обновления",
+      "serverStatus": "Сервер обновлений ответил ошибкой {status}",
+      "serverInvalidVersion": "Сервер обновлений вернул неверный номер версии",
+      "sameOrigin": "Запустить обновление можно только со страницы SketchForge",
+      "alreadyRequested": "Обновление уже запрошено. Подождите немного и попробуйте снова.",
+      "upToDate": "У вас уже последняя версия SketchForge",
+      "notConfigured": "Установка в один клик на этом сервере не настроена",
+      "keyIncorrect": "Неверный ключ обновления сервера",
+      "uncommittedChanges": "В коде SketchForge на этом компьютере есть изменения, не сохранённые в Git. Перед обновлением сохраните их командой git commit или git stash, чтобы обновление их не перезаписало.",
+      "unexpectedVersion": "SketchForge на этом компьютере обновился до версии {installed}, а ожидалась версия {expected}.",
+      "localFailed": "Не удалось обновить SketchForge на этом компьютере",
+      "serviceStatus": "Служба обновления ответила ошибкой {status}",
+      "startFailed": "Не удалось запустить обновление"
+    }
+  }
+}

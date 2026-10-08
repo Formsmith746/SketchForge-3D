@@ -13,7 +13,9 @@ publish:
 
 files:
   - apps/desktop/main.cjs
+  - apps/desktop/i18n.cjs
   - apps/desktop/preload.cjs
+  - apps/web/src/i18n/locales/*/desktop.json
   - package.json
 
 extraResources:

@@ -1,4 +1,5 @@
 import { strFromU8, strToU8, unzip, zip, type AsyncZippable } from "fflate";
+import { LocalizedError } from "@/i18n/LocalizedError";
 import { editorHistoryEntry, hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { normalizePlacementWorkplane, placementWorkplaneIsBase, type PlacementWorkplane } from "@/lib/placementWorkplane";
 import { importedShapeFromObj } from "@/lib/objImport";
@@ -184,7 +185,7 @@ function exactArrayBuffer(bytes: Uint8Array) {
 }
 
 function finiteNumber(value: unknown, label: string) {
-  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${label} must be a finite number`);
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new LocalizedError("errors.skf.notFiniteNumber", { label });
   return value;
 }
 
@@ -197,9 +198,9 @@ function safeIsoTimestamp(value: number, fallback: number) {
 }
 
 function parseIsoTimestamp(value: unknown, label: string) {
-  if (typeof value !== "string") throw new Error(`${label} is missing`);
+  if (typeof value !== "string") throw new LocalizedError("errors.skf.fieldMissing", { label });
   const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) throw new Error(`${label} is invalid`);
+  if (!Number.isFinite(parsed)) throw new LocalizedError("errors.skf.fieldInvalid", { label });
   return parsed;
 }
 
@@ -231,7 +232,7 @@ function extensionForAsset(kind: SkfAssetKind, mediaType: string, sourceFormat?:
 
 function encodeMeshCache(mesh: NonNullable<WorkplaneShape["importedMesh"]>) {
   if (mesh.positions.length > SKF_LIMITS.meshNumbers || (mesh.normals?.length ?? 0) > SKF_LIMITS.meshNumbers) {
-    throw new Error("Imported mesh is too large for a SketchForge project file");
+    throw new LocalizedError("errors.skf.meshTooLarge");
   }
   const normalLength = mesh.normals?.length ?? 0;
   const bytes = new Uint8Array(16 + (mesh.positions.length + normalLength) * 8);
@@ -241,12 +242,12 @@ function encodeMeshCache(mesh: NonNullable<WorkplaneShape["importedMesh"]>) {
   view.setUint32(12, normalLength, true);
   let offset = 16;
   for (const value of mesh.positions) {
-    if (!Number.isFinite(value)) throw new Error("Imported mesh contains an invalid coordinate");
+    if (!Number.isFinite(value)) throw new LocalizedError("errors.skf.meshInvalidCoordinate");
     view.setFloat64(offset, value, true);
     offset += 8;
   }
   for (const value of mesh.normals ?? []) {
-    if (!Number.isFinite(value)) throw new Error("Imported mesh contains an invalid normal");
+    if (!Number.isFinite(value)) throw new LocalizedError("errors.skf.meshInvalidNormal");
     view.setFloat64(offset, value, true);
     offset += 8;
   }
@@ -255,16 +256,16 @@ function encodeMeshCache(mesh: NonNullable<WorkplaneShape["importedMesh"]>) {
 
 function decodeMeshCache(bytes: Uint8Array) {
   if (bytes.byteLength < 16 || strFromU8(bytes.subarray(0, 8)) !== "SKFMSH1\0") {
-    throw new Error("A derived mesh asset has an invalid header");
+    throw new LocalizedError("errors.skf.derivedMeshHeader");
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const positionLength = view.getUint32(8, true);
   const normalLength = view.getUint32(12, true);
   if (positionLength > SKF_LIMITS.meshNumbers || normalLength > SKF_LIMITS.meshNumbers) {
-    throw new Error("A derived mesh asset exceeds the supported coordinate limit");
+    throw new LocalizedError("errors.skf.derivedMeshTooLarge");
   }
   const expected = 16 + (positionLength + normalLength) * 8;
-  if (expected !== bytes.byteLength) throw new Error("A derived mesh asset is truncated or malformed");
+  if (expected !== bytes.byteLength) throw new LocalizedError("errors.skf.derivedMeshTruncated");
   const positions = new Array<number>(positionLength);
   const normals = normalLength ? new Array<number>(normalLength) : undefined;
   let offset = 16;
@@ -281,7 +282,7 @@ function decodeMeshCache(bytes: Uint8Array) {
 
 function decodeDataUrl(dataUrl: string) {
   const match = dataUrl.match(/^data:([^;,]+)?(;base64)?,([\s\S]*)$/);
-  if (!match) throw new Error("Embedded image has an invalid data URL");
+  if (!match) throw new LocalizedError("errors.skf.imageDataUrlInvalid");
   const mediaType = match[1] || "application/octet-stream";
   if (match[2]) {
     const binary = globalThis.atob(match[3].replace(/\s/g, ""));
@@ -312,7 +313,7 @@ const MAX_CACHED_TEXT_UNITS = 8 * 1024 * 1024;
 const cachedTextUnits = { brep: 0, image: 0 };
 
 async function encodedResource(bytes: Uint8Array): Promise<EncodedResource> {
-  if (bytes.byteLength > SKF_LIMITS.assetBytes) throw new Error("Resource exceeds the per-asset size limit");
+  if (bytes.byteLength > SKF_LIMITS.assetBytes) throw new LocalizedError("errors.skf.resourceTooLarge");
   return { bytes, sha256: await sha256Hex(bytes) };
 }
 
@@ -450,10 +451,18 @@ class SkfArchiveBuilder {
   }
 }
 
-function assertUniqueRuntimeObjectIds(shapes: WorkplaneShape[], stateLabel: string) {
+/** `stateId` names the exported state; null means a legacy (v0) project. */
+function assertUniqueRuntimeObjectIds(shapes: WorkplaneShape[], stateId: string | null) {
   const ids = new Set<string>();
   const visit = (shape: WorkplaneShape) => {
-    if (!shape.id || ids.has(shape.id)) throw new Error(`${stateLabel} contains duplicate object ID '${shape.id || "(empty)"}'`);
+    if (!shape.id || ids.has(shape.id)) {
+      if (stateId === null) {
+        throw shape.id ? new LocalizedError("errors.skf.legacyDuplicateObjectId", { id: shape.id }) : new LocalizedError("errors.skf.legacyEmptyObjectId");
+      }
+      throw shape.id
+        ? new LocalizedError("errors.skf.exportDuplicateObjectId", { state: stateId, id: shape.id })
+        : new LocalizedError("errors.skf.exportEmptyObjectId", { state: stateId });
+    }
     ids.add(shape.id);
     shape.groupedShapes?.forEach(visit);
   };
@@ -464,7 +473,7 @@ function repairDuplicateGroupedObjectIds(shapes: WorkplaneShape[]) {
   const rootIds = new Set<string>();
   for (const shape of shapes) {
     if (!shape.id || rootIds.has(shape.id)) {
-      throw new Error(`Project state contains duplicate root object ID '${shape.id || "(empty)"}'`);
+      throw shape.id ? new LocalizedError("errors.skf.duplicateRootObjectId", { id: shape.id }) : new LocalizedError("errors.skf.emptyRootObjectId");
     }
     rootIds.add(shape.id);
   }
@@ -785,7 +794,7 @@ function unzipAsync(bytes: Uint8Array) {
 
 export async function exportSkfProject(input: SkfProjectExportInput) {
   const hydrated = hydrateEditorHistoryState(input.shapes, input.history, input.historyIndex);
-  if (hydrated.entries.length > SKF_LIMITS.states) throw new Error("Project has too many undo states for the .skf format");
+  if (hydrated.entries.length > SKF_LIMITS.states) throw new LocalizedError("errors.skf.tooManyStates");
   const exportEntries = hydrated.entries.map((entry) => {
     const shapes = repairDuplicateGroupedObjectIds(entry.shapes);
     return shapes === entry.shapes ? entry : editorHistoryEntry(shapes, entry.selectedIds);
@@ -810,7 +819,7 @@ export async function exportSkfProject(input: SkfProjectExportInput) {
 
   const sceneStateId = historyEntries[hydrated.index]?.stateId;
   const activeState = states.find((state) => state.id === sceneStateId);
-  if (!activeState) throw new Error("Could not identify the active project state");
+  if (!activeState) throw new LocalizedError("errors.skf.activeStateUnknown");
   const indexes = activeProjectIndexes(activeState);
   const now = Date.now();
   const placementElevation = Number.isFinite(input.placementElevation) ? input.placementElevation : 0;
@@ -852,15 +861,15 @@ export async function exportSkfProject(input: SkfProjectExportInput) {
   };
   const projectJson = strToU8(JSON.stringify(document));
   if (projectJson.byteLength > SKF_LIMITS.projectJsonBytes) {
-    throw new Error("Project data exceeds the 64 MB .skf limit. Export with fewer history steps or simplify the project.");
+    throw new LocalizedError("errors.skf.projectTooLarge");
   }
   builder.files["project.json"] = projectJson;
   return zipAsync(Object.fromEntries(Object.entries(builder.files).sort(([a], [b]) => a.localeCompare(b))), input.compressionLevel);
 }
 
 function inspectZipBeforeExpansion(bytes: Uint8Array) {
-  if (bytes.byteLength > SKF_LIMITS.archiveBytes) throw new Error(".skf file exceeds the 512 MB archive limit");
-  if (bytes.byteLength < 22) throw new Error(".skf file is not a valid package");
+  if (bytes.byteLength > SKF_LIMITS.archiveBytes) throw new LocalizedError("errors.skf.archiveTooLarge");
+  if (bytes.byteLength < 22) throw new LocalizedError("errors.skf.notPackage");
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let eocd = -1;
   const minimum = Math.max(0, bytes.byteLength - 65_557);
@@ -870,21 +879,21 @@ function inspectZipBeforeExpansion(bytes: Uint8Array) {
       break;
     }
   }
-  if (eocd < 0) throw new Error(".skf package is missing its ZIP directory");
+  if (eocd < 0) throw new LocalizedError("errors.skf.zipDirectoryMissing");
   const entryCount = view.getUint16(eocd + 10, true);
   const centralSize = view.getUint32(eocd + 12, true);
   const centralOffset = view.getUint32(eocd + 16, true);
   if (entryCount === 0xffff || centralSize === 0xffffffff || centralOffset === 0xffffffff) {
-    throw new Error("ZIP64 .skf packages are not supported");
+    throw new LocalizedError("errors.skf.zip64Unsupported");
   }
-  if (entryCount === 0 || entryCount > SKF_LIMITS.entries) throw new Error(".skf package has an invalid number of files");
-  if (centralOffset + centralSize > bytes.byteLength) throw new Error(".skf package directory is truncated");
+  if (entryCount === 0 || entryCount > SKF_LIMITS.entries) throw new LocalizedError("errors.skf.invalidFileCount");
+  if (centralOffset + centralSize > bytes.byteLength) throw new LocalizedError("errors.skf.directoryTruncated");
   let offset = centralOffset;
   let expandedBytes = 0;
   let hasProject = false;
   const names = new Set<string>();
   for (let index = 0; index < entryCount; index += 1) {
-    if (offset + 46 > bytes.byteLength || view.getUint32(offset, true) !== 0x02014b50) throw new Error(".skf package directory is malformed");
+    if (offset + 46 > bytes.byteLength || view.getUint32(offset, true) !== 0x02014b50) throw new LocalizedError("errors.skf.directoryMalformed");
     const flags = view.getUint16(offset + 8, true);
     const method = view.getUint16(offset + 10, true);
     const expanded = view.getUint32(offset + 24, true);
@@ -892,47 +901,51 @@ function inspectZipBeforeExpansion(bytes: Uint8Array) {
     const extraLength = view.getUint16(offset + 30, true);
     const commentLength = view.getUint16(offset + 32, true);
     const end = offset + 46 + nameLength + extraLength + commentLength;
-    if (end > bytes.byteLength) throw new Error(".skf package directory entry is truncated");
-    if (flags & 1) throw new Error("Encrypted .skf packages are not supported");
-    if (method !== 0 && method !== 8) throw new Error(".skf package uses an unsupported compression method");
+    if (end > bytes.byteLength) throw new LocalizedError("errors.skf.directoryEntryTruncated");
+    if (flags & 1) throw new LocalizedError("errors.skf.encryptedUnsupported");
+    if (method !== 0 && method !== 8) throw new LocalizedError("errors.skf.compressionUnsupported");
     const name = strFromU8(bytes.subarray(offset + 46, offset + 46 + nameLength));
-    if (!safeArchivePath(name) || names.has(name)) throw new Error(".skf package contains an unsafe or duplicate file path");
+    if (!safeArchivePath(name) || names.has(name)) throw new LocalizedError("errors.skf.unsafePath");
     names.add(name);
-    if (expanded > SKF_LIMITS.assetBytes && name !== "project.json") throw new Error(`Asset '${name}' exceeds the expansion limit`);
+    if (expanded > SKF_LIMITS.assetBytes && name !== "project.json") throw new LocalizedError("errors.skf.assetExpansionLimit", { path: name });
     if (name === "project.json") {
       hasProject = true;
-      if (expanded > SKF_LIMITS.projectJsonBytes) throw new Error("project.json exceeds the supported size limit");
+      if (expanded > SKF_LIMITS.projectJsonBytes) throw new LocalizedError("errors.skf.projectJsonTooLarge");
     }
     expandedBytes += expanded;
-    if (expandedBytes > SKF_LIMITS.expandedBytes) throw new Error(".skf package expands beyond the 1 GB safety limit");
+    if (expandedBytes > SKF_LIMITS.expandedBytes) throw new LocalizedError("errors.skf.expansionLimit");
     offset = end;
   }
-  if (!hasProject) throw new Error(".skf package is missing project.json");
+  if (!hasProject) throw new LocalizedError("errors.skf.projectJsonMissing");
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function objectRecord(value: unknown, label: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
-  return value as Record<string, unknown>;
+  if (!isObjectRecord(value)) throw new LocalizedError("errors.skf.notObject", { label });
+  return value;
 }
 
 function stringValue(value: unknown, label: string) {
-  if (typeof value !== "string" || !value.trim()) throw new Error(`${label} must be a non-empty string`);
+  if (typeof value !== "string" || !value.trim()) throw new LocalizedError("errors.skf.notNonEmptyString", { label });
   return value;
 }
 
 function stringArray(value: unknown, label: string) {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || !entry)) throw new Error(`${label} must be a string array`);
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || !entry)) throw new LocalizedError("errors.skf.notStringArray", { label });
   return value as string[];
 }
 
 function validateSketchProfile(value: unknown, label: string) {
   const profile = objectRecord(value, label);
-  if (!Array.isArray(profile.points) || !Array.isArray(profile.segments)) throw new Error(`${label} is missing points or segments`);
+  if (!Array.isArray(profile.points) || !Array.isArray(profile.segments)) throw new LocalizedError("errors.skf.sketchMissingPointsOrSegments", { label });
   const pointIds = new Set<string>();
   profile.points.forEach((rawPoint, index) => {
     const point = objectRecord(rawPoint, `${label}.points[${index}]`);
     const id = stringValue(point.id, `${label}.points[${index}].id`);
-    if (pointIds.has(id)) throw new Error(`${label} contains duplicate point ID '${id}'`);
+    if (pointIds.has(id)) throw new LocalizedError("errors.skf.sketchDuplicatePointId", { label, id });
     pointIds.add(id);
     finiteNumber(point.x, `${label}.points[${index}].x`);
     finiteNumber(point.z, `${label}.points[${index}].z`);
@@ -941,11 +954,11 @@ function validateSketchProfile(value: unknown, label: string) {
   profile.segments.forEach((rawSegment, index) => {
     const segment = objectRecord(rawSegment, `${label}.segments[${index}]`);
     const id = stringValue(segment.id, `${label}.segments[${index}].id`);
-    if (segmentIds.has(id)) throw new Error(`${label} contains duplicate segment ID '${id}'`);
+    if (segmentIds.has(id)) throw new LocalizedError("errors.skf.sketchDuplicateSegmentId", { label, id });
     segmentIds.add(id);
     const startId = stringValue(segment.startId, `${label}.segments[${index}].startId`);
     const endId = stringValue(segment.endId, `${label}.segments[${index}].endId`);
-    if (!pointIds.has(startId) || !pointIds.has(endId)) throw new Error(`${label} contains a segment with a missing point reference`);
+    if (!pointIds.has(startId) || !pointIds.has(endId)) throw new LocalizedError("errors.skf.sketchMissingPointReference", { label });
   });
 }
 
@@ -953,21 +966,21 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
   const id = stringValue(definition.id, `${label}.id`);
   stringValue(definition.name, `${label}.name`);
   const kind = stringValue(definition.kind, `${label}.kind`);
-  if (!SHAPE_KINDS.has(kind)) throw new Error(`${label} has unknown shape type '${kind}'`);
+  if (!SHAPE_KINDS.has(kind)) throw new LocalizedError("errors.skf.unknownShapeKind", { label, kind });
   stringValue(definition.color, `${label}.color`);
   ["x", "z", "size", "width", "depth", "height", "rotation"].forEach((field) => finiteNumber(definition[field], `${label}.${field}`));
   if ((definition.width as number) <= 0 || (definition.depth as number) <= 0 || (definition.height as number) <= 0) {
-    throw new Error(`${label} has non-positive dimensions`);
+    throw new LocalizedError("errors.skf.nonPositiveDimensions", { label });
   }
   if ([definition.width, definition.depth, definition.height].some((value) => Math.abs(value as number) > 1e9)) {
-    throw new Error(`${label} dimensions exceed the supported range`);
+    throw new LocalizedError("errors.skf.dimensionsOutOfRange", { label });
   }
   if (definition.importedMesh || definition.groupedShapes || definition.edgeTreatmentHistory || definition.cadBrep) {
-    throw new Error(`${label} contains inline package-only geometry fields`);
+    throw new LocalizedError("errors.skf.inlinePackageFields", { label });
   }
   if (definition.sketchProfile) validateSketchProfile(definition.sketchProfile, `${label}.sketchProfile`);
   if (definition.sketchOperation !== undefined && definition.sketchOperation !== "extrude" && definition.sketchOperation !== "revolve") {
-    throw new Error(`${label}.sketchOperation is invalid`);
+    throw new LocalizedError("errors.skf.fieldInvalid", { label: `${label}.sketchOperation` });
   }
   if (definition.sketchRevolve !== undefined) {
     const settings = objectRecord(definition.sketchRevolve, `${label}.sketchRevolve`);
@@ -975,26 +988,26 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
   }
   if (kind === "gear") {
     const teeth = finiteNumber(definition.teeth, `${label}.teeth`);
-    if (!Number.isInteger(teeth) || teeth < 6 || teeth > 64) throw new Error(`${label}.teeth is outside the supported range`);
+    if (!Number.isInteger(teeth) || teeth < 6 || teeth > 64) throw new LocalizedError("errors.skf.outOfRange", { label: `${label}.teeth` });
     const toothSize = finiteNumber(definition.toothSize, `${label}.toothSize`);
-    if (toothSize <= 0) throw new Error(`${label}.toothSize must be positive`);
+    if (toothSize <= 0) throw new LocalizedError("errors.skf.notPositive", { label: `${label}.toothSize` });
     if (definition.toothWidth !== undefined) {
       const toothWidth = finiteNumber(definition.toothWidth, `${label}.toothWidth`);
-      if (toothWidth <= 0) throw new Error(`${label}.toothWidth must be positive`);
+      if (toothWidth <= 0) throw new LocalizedError("errors.skf.notPositive", { label: `${label}.toothWidth` });
     }
     if (definition.centerHoleSize !== undefined) {
       const centerHoleSize = finiteNumber(definition.centerHoleSize, `${label}.centerHoleSize`);
-      if (centerHoleSize < 0) throw new Error(`${label}.centerHoleSize cannot be negative`);
+      if (centerHoleSize < 0) throw new LocalizedError("errors.skf.negative", { label: `${label}.centerHoleSize` });
     }
-    if (!["spur", "helical", "bevel"].includes(definition.gearType as string)) throw new Error(`${label}.gearType is invalid`);
+    if (!["spur", "helical", "bevel"].includes(definition.gearType as string)) throw new LocalizedError("errors.skf.fieldInvalid", { label: `${label}.gearType` });
     if (definition.helixAngle !== undefined) {
       const helixAngle = finiteNumber(definition.helixAngle, `${label}.helixAngle`);
-      if (helixAngle < -45 || helixAngle > 45) throw new Error(`${label}.helixAngle is outside the supported range`);
+      if (helixAngle < -45 || helixAngle > 45) throw new LocalizedError("errors.skf.outOfRange", { label: `${label}.helixAngle` });
     }
     if (definition.helixQuality !== undefined) {
       const helixQuality = finiteNumber(definition.helixQuality, `${label}.helixQuality`);
       if (!Number.isInteger(helixQuality) || helixQuality < 4 || helixQuality > 32) {
-        throw new Error(`${label}.helixQuality is outside the supported range`);
+        throw new LocalizedError("errors.skf.outOfRange", { label: `${label}.helixQuality` });
       }
     }
   }
@@ -1002,31 +1015,31 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
 }
 
 function validateFeatureGraph(features: unknown, activeObjectIds: Set<string>) {
-  if (!Array.isArray(features) || features.length > SKF_LIMITS.features) throw new Error("features is invalid or too large");
+  if (!Array.isArray(features) || features.length > SKF_LIMITS.features) throw new LocalizedError("errors.skf.invalidOrTooLarge", { label: "features" });
   const byId = new Map<string, Record<string, unknown>>();
   features.forEach((rawFeature, index) => {
     const feature = objectRecord(rawFeature, `features[${index}]`);
     const id = stringValue(feature.id, `features[${index}].id`);
-    if (byId.has(id)) throw new Error(`Duplicate feature ID '${id}'`);
+    if (byId.has(id)) throw new LocalizedError("errors.skf.duplicateFeatureId", { id });
     const type = stringValue(feature.type, `features[${index}].type`);
-    if (!FEATURE_TYPES.has(type)) throw new Error(`Unknown operation type '${type}'`);
+    if (!FEATURE_TYPES.has(type)) throw new LocalizedError("errors.skf.unknownFeatureType", { type });
     const output = stringValue(feature.outputObjectId, `features[${index}].outputObjectId`);
-    if (!activeObjectIds.has(output)) throw new Error(`Feature '${id}' references missing output object '${output}'`);
+    if (!activeObjectIds.has(output)) throw new LocalizedError("errors.skf.featureMissingOutput", { id, objectId: output });
     stringArray(feature.inputObjectIds, `features[${index}].inputObjectIds`).forEach((input) => {
-      if (!activeObjectIds.has(input)) throw new Error(`Feature '${id}' references missing input object '${input}'`);
+      if (!activeObjectIds.has(input)) throw new LocalizedError("errors.skf.featureMissingInput", { id, objectId: input });
     });
     stringArray(feature.dependsOnFeatureIds, `features[${index}].dependsOnFeatureIds`);
     byId.set(id, feature);
   });
   byId.forEach((feature, id) => {
     (feature.dependsOnFeatureIds as string[]).forEach((dependency) => {
-      if (!byId.has(dependency)) throw new Error(`Feature '${id}' references missing dependency '${dependency}'`);
+      if (!byId.has(dependency)) throw new LocalizedError("errors.skf.featureMissingDependency", { id, dependency });
     });
   });
   const visiting = new Set<string>();
   const visited = new Set<string>();
   const visit = (id: string) => {
-    if (visiting.has(id)) throw new Error(`Cyclic feature dependency detected at '${id}'`);
+    if (visiting.has(id)) throw new LocalizedError("errors.skf.featureCycle", { id });
     if (visited.has(id)) return;
     visiting.add(id);
     ((byId.get(id)?.dependsOnFeatureIds as string[] | undefined) ?? []).forEach(visit);
@@ -1038,40 +1051,40 @@ function validateFeatureGraph(features: unknown, activeObjectIds: Set<string>) {
 
 async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
   const document = objectRecord(raw, "project.json") as unknown as SkfProjectDocumentV1;
-  if (document.schema !== SKF_SCHEMA_ID) throw new Error("This file is not a SketchForge project");
-  if (!Number.isInteger(document.formatVersion)) throw new Error("SketchForge formatVersion is missing");
+  if (document.schema !== SKF_SCHEMA_ID) throw new LocalizedError("errors.skf.notSketchForgeProject");
+  if (!Number.isInteger(document.formatVersion)) throw new LocalizedError("errors.skf.formatVersionMissing");
   if (document.formatVersion > SKF_FORMAT_VERSION) {
-    throw new Error(`This project uses .skf format ${document.formatVersion}, which requires a newer SketchForge version`);
+    throw new LocalizedError("errors.skf.formatTooNew", { version: document.formatVersion });
   }
-  if (document.formatVersion < 1) throw new Error(`Packaged .skf format ${document.formatVersion} requires migration support that is not available`);
+  if (document.formatVersion < 1) throw new LocalizedError("errors.skf.formatMigrationUnavailable", { version: document.formatVersion });
   if (!Number.isInteger(document.minimumReaderVersion) || document.minimumReaderVersion > SKF_FORMAT_VERSION) {
-    throw new Error("This project requires a newer SketchForge reader and was not opened");
+    throw new LocalizedError("errors.skf.readerTooOld");
   }
   const metadata = objectRecord(document.metadata, "metadata");
   stringValue(metadata.projectName, "metadata.projectName");
   parseIsoTimestamp(metadata.createdAt, "metadata.createdAt");
   parseIsoTimestamp(metadata.modifiedAt, "metadata.modifiedAt");
   if (!Array.isArray(document.assets) || !Array.isArray(document.states) || !Array.isArray(document.history?.entries)) {
-    throw new Error("project.json is missing assets, states, or history");
+    throw new LocalizedError("errors.skf.projectJsonIncomplete");
   }
-  if (document.states.length === 0 || document.states.length > SKF_LIMITS.states) throw new Error("Project contains an invalid number of states");
+  if (document.states.length === 0 || document.states.length > SKF_LIMITS.states) throw new LocalizedError("errors.skf.invalidStateCount");
 
   const assetById = new Map<string, SkfAssetRecordV1>();
   const assetPaths = new Set<string>();
   for (let index = 0; index < document.assets.length; index += 1) {
     const asset = document.assets[index];
     const id = stringValue(asset?.id, `assets[${index}].id`);
-    if (assetById.has(id)) throw new Error(`Duplicate asset ID '${id}'`);
-    if (!asset || !["source", "derived-mesh", "brep", "image", "display-edges"].includes(asset.kind)) throw new Error(`Asset '${id}' has an unknown type`);
-    if (!safeArchivePath(asset.path) || assetPaths.has(asset.path)) throw new Error(`Asset '${id}' has an unsafe or duplicate path`);
+    if (assetById.has(id)) throw new LocalizedError("errors.skf.duplicateAssetId", { id });
+    if (!asset || !["source", "derived-mesh", "brep", "image", "display-edges"].includes(asset.kind)) throw new LocalizedError("errors.skf.assetUnknownKind", { id });
+    if (!safeArchivePath(asset.path) || assetPaths.has(asset.path)) throw new LocalizedError("errors.skf.assetUnsafePath", { id });
     assetPaths.add(asset.path);
     const bytes = files[asset.path];
-    if (!bytes) throw new Error(`Missing asset '${asset.path}'`);
-    if (bytes.byteLength !== asset.byteLength) throw new Error(`Asset '${asset.path}' has an invalid size`);
+    if (!bytes) throw new LocalizedError("errors.skf.assetMissing", { path: asset.path });
+    if (bytes.byteLength !== asset.byteLength) throw new LocalizedError("errors.skf.assetInvalidSize", { path: asset.path });
     const hash = await sha256Hex(bytes);
-    if (hash !== asset.sha256) throw new Error(`Asset '${asset.path}' failed its integrity check`);
+    if (hash !== asset.sha256) throw new LocalizedError("errors.skf.assetIntegrity", { path: asset.path });
     if (asset.kind === "source" && !["stl", "obj", "svg", "step"].includes(asset.sourceFormat ?? "")) {
-      throw new Error(`Source asset '${id}' has an unknown source format`);
+      throw new LocalizedError("errors.skf.sourceAssetUnknownFormat", { id });
     }
     assetById.set(id, asset);
   }
@@ -1081,25 +1094,25 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
   for (let stateIndex = 0; stateIndex < document.states.length; stateIndex += 1) {
     const state = document.states[stateIndex];
     const stateId = stringValue(state?.id, `states[${stateIndex}].id`);
-    if (stateById.has(stateId)) throw new Error(`Duplicate state ID '${stateId}'`);
-    if (!Array.isArray(state.nodes) || state.nodes.length > SKF_LIMITS.objectsPerState) throw new Error(`State '${stateId}' has too many objects`);
+    if (stateById.has(stateId)) throw new LocalizedError("errors.skf.duplicateStateId", { id: stateId });
+    if (!Array.isArray(state.nodes) || state.nodes.length > SKF_LIMITS.objectsPerState) throw new LocalizedError("errors.skf.stateTooManyObjects", { state: stateId });
     const nodeById = new Map<string, SkfShapeNodeV1>();
     state.nodes.forEach((node, nodeIndex) => {
       const nodeId = stringValue(node?.nodeId, `states[${stateIndex}].nodes[${nodeIndex}].nodeId`);
-      if (nodeById.has(nodeId)) throw new Error(`State '${stateId}' contains duplicate node ID '${nodeId}'`);
+      if (nodeById.has(nodeId)) throw new LocalizedError("errors.skf.stateDuplicateNodeId", { state: stateId, id: nodeId });
       const definition = objectRecord(node.definition, `node '${nodeId}'.definition`);
       const objectId = validateShapeDefinition(definition, `node '${nodeId}'`);
-      if (node.objectId !== objectId) throw new Error(`Node '${nodeId}' objectId does not match its shape definition`);
+      if (node.objectId !== objectId) throw new LocalizedError("errors.skf.nodeObjectIdMismatch", { id: nodeId });
       if (node.importedMesh) {
         const source = node.importedMesh.sourceAssetId ? assetById.get(node.importedMesh.sourceAssetId) : undefined;
         const mesh = node.importedMesh.meshAssetId ? assetById.get(node.importedMesh.meshAssetId) : undefined;
-        if (!source && !mesh) throw new Error(`Imported object '${objectId}' is missing its source or mesh asset`);
-        if (source && source.kind !== "source" || mesh && mesh.kind !== "derived-mesh") throw new Error(`Imported object '${objectId}' has an invalid asset reference`);
-        if (node.importedMesh.brepStepAssetId && assetById.get(node.importedMesh.brepStepAssetId)?.kind !== "brep") throw new Error(`Imported object '${objectId}' has a missing STEP B-Rep asset`);
+        if (!source && !mesh) throw new LocalizedError("errors.skf.importedObjectMissingAsset", { id: objectId });
+        if (source && source.kind !== "source" || mesh && mesh.kind !== "derived-mesh") throw new LocalizedError("errors.skf.importedObjectInvalidAsset", { id: objectId });
+        if (node.importedMesh.brepStepAssetId && assetById.get(node.importedMesh.brepStepAssetId)?.kind !== "brep") throw new LocalizedError("errors.skf.importedObjectMissingBrep", { id: objectId });
         ["baseWidth", "baseDepth", "baseHeight", "triangleCount"].forEach((field) => finiteNumber(node.importedMesh?.[field as keyof SkfImportedMeshReferenceV1], `object '${objectId}'.${field}`));
       }
-      if (node.cadBrepAssetId && assetById.get(node.cadBrepAssetId)?.kind !== "brep") throw new Error(`Object '${objectId}' has a missing exact B-Rep asset`);
-      if (node.cadDisplayEdgesAssetId && assetById.get(node.cadDisplayEdgesAssetId)?.kind !== "display-edges") throw new Error(`Object '${objectId}' has a missing display-edge asset`);
+      if (node.cadBrepAssetId && assetById.get(node.cadBrepAssetId)?.kind !== "brep") throw new LocalizedError("errors.skf.objectMissingBrep", { id: objectId });
+      if (node.cadDisplayEdgesAssetId && assetById.get(node.cadDisplayEdgesAssetId)?.kind !== "display-edges") throw new LocalizedError("errors.skf.objectMissingDisplayEdges", { id: objectId });
       nodeById.set(nodeId, node);
     });
     const roots = stringArray(state.rootNodeIds, `state '${stateId}'.rootNodeIds`);
@@ -1107,13 +1120,13 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
     const visited = new Set<string>();
     const primaryObjectIds = new Set<string>();
     const walk = (nodeId: string, primary: boolean) => {
-      if (visiting.has(nodeId)) throw new Error(`Cyclic group or history reference detected at '${nodeId}'`);
+      if (visiting.has(nodeId)) throw new LocalizedError("errors.skf.nodeCycle", { id: nodeId });
       if (visited.has(`${primary ? "primary" : "history"}:${nodeId}`)) return;
       const node = nodeById.get(nodeId);
-      if (!node) throw new Error(`State '${stateId}' references missing node '${nodeId}'`);
+      if (!node) throw new LocalizedError("errors.skf.stateMissingNode", { state: stateId, id: nodeId });
       visiting.add(nodeId);
       if (primary) {
-        if (primaryObjectIds.has(node.objectId)) throw new Error(`State '${stateId}' contains duplicate object ID '${node.objectId}'`);
+        if (primaryObjectIds.has(node.objectId)) throw new LocalizedError("errors.skf.stateDuplicateObjectId", { state: stateId, id: node.objectId });
         primaryObjectIds.add(node.objectId);
       }
       (node.groupedShapeNodeIds ?? []).forEach((child) => walk(child, primary));
@@ -1125,15 +1138,15 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
     if (stateId === document.sceneStateId) primaryObjectIds.forEach((id) => activeObjectIds.add(id));
     stateById.set(stateId, state);
   }
-  if (!stateById.has(document.sceneStateId)) throw new Error("Active scene state is missing");
+  if (!stateById.has(document.sceneStateId)) throw new LocalizedError("errors.skf.sceneStateMissing");
   if (!Number.isInteger(document.history.index) || document.history.index < 0 || document.history.index >= document.history.entries.length) {
-    throw new Error("Undo history index is invalid");
+    throw new LocalizedError("errors.skf.historyIndexInvalid");
   }
   document.history.entries.forEach((entry, index) => {
-    if (!stateById.has(entry.stateId)) throw new Error(`History entry ${index} references missing state '${entry.stateId}'`);
+    if (!stateById.has(entry.stateId)) throw new LocalizedError("errors.skf.historyMissingState", { index, state: entry.stateId });
     stringArray(entry.selectedObjectIds, `history.entries[${index}].selectedObjectIds`);
   });
-  if (document.history.entries[document.history.index]?.stateId !== document.sceneStateId) throw new Error("Active scene and undo history index do not match");
+  if (document.history.entries[document.history.index]?.stateId !== document.sceneStateId) throw new LocalizedError("errors.skf.historySceneMismatch");
   validateFeatureGraph(document.features, activeObjectIds);
   const editor = objectRecord(document.editor, "editor");
   finiteNumber(editor.placementElevation, "editor.placementElevation");
@@ -1158,7 +1171,7 @@ async function defaultSourceImporter(asset: ProjectAsset) {
     const { importedShapeFromStep } = await import("@/lib/stepImport");
     return (await importedShapeFromStep(asset.name, exactArrayBuffer(asset.bytes))).importedMesh as NonNullable<WorkplaneShape["importedMesh"]>;
   }
-  throw new Error("SketchForge cannot reconstruct this source asset format");
+  throw new LocalizedError("errors.skf.sourceFormatUnsupported");
 }
 
 class RestoredResourceCache {
@@ -1183,13 +1196,13 @@ class RestoredResourceCache {
     let edges = this.edges.get(key);
     if (!edges) {
       const value: unknown = record ? JSON.parse(this.text(record, files)) : inline;
-      if (!Array.isArray(value) || value.length > SKF_LIMITS.meshNumbers) throw new Error("Invalid display-edge resource");
+      if (!Array.isArray(value) || value.length > SKF_LIMITS.meshNumbers) throw new LocalizedError("errors.skf.displayEdgesInvalid");
       let coordinates = 0;
       for (const edge of value) {
-        if (!edge || !Array.isArray(edge.points) || edge.points.length % 3 !== 0) throw new Error("Invalid display-edge points");
+        if (!edge || !Array.isArray(edge.points) || edge.points.length % 3 !== 0) throw new LocalizedError("errors.skf.displayEdgePointsInvalid");
         coordinates += edge.points.length;
         if (coordinates > SKF_LIMITS.meshNumbers || edge.points.some((point: unknown) => typeof point !== "number" || !Number.isFinite(point))) {
-          throw new Error("Invalid display-edge coordinates");
+          throw new LocalizedError("errors.skf.displayEdgeCoordinatesInvalid");
         }
       }
       edges = value;
@@ -1212,9 +1225,9 @@ async function restoreShapeFromNode(
   restoring = new Set<string>(),
 ): Promise<WorkplaneShape> {
   await resources.yieldIfNeeded();
-  if (restoring.has(nodeId)) throw new Error(`Cyclic shape dependency detected at '${nodeId}'`);
+  if (restoring.has(nodeId)) throw new LocalizedError("errors.skf.shapeCycle", { id: nodeId });
   const node = nodeById.get(nodeId);
-  if (!node) throw new Error(`Missing shape node '${nodeId}'`);
+  if (!node) throw new LocalizedError("errors.skf.shapeNodeMissing", { id: nodeId });
   restoring.add(nodeId);
   const definition = { ...node.definition } as Record<string, unknown>;
   if (node.cadDisplayEdgesAssetId || definition.cadDisplayEdges !== undefined) {
@@ -1225,7 +1238,7 @@ async function restoreShapeFromNode(
   const serializedPlate = definition.imagePlate as (Record<string, unknown> & { assetId?: string }) | undefined;
   if (serializedPlate?.assetId) {
     const record = assetById.get(serializedPlate.assetId);
-    if (!record || record.kind !== "image") throw new Error(`Object '${node.objectId}' has a missing image asset`);
+    if (!record || record.kind !== "image") throw new LocalizedError("errors.skf.objectMissingImage", { id: node.objectId });
     const { assetId: _assetId, ...plate } = serializedPlate;
     definition.imagePlate = { ...plate, dataUrl: resources.text(record, files) };
   }
@@ -1235,7 +1248,7 @@ async function restoreShapeFromNode(
       ...serializedProfile,
       images: serializedProfile.images.map((image) => {
         const record = image.assetId ? assetById.get(image.assetId) : undefined;
-        if (!record || record.kind !== "image") throw new Error(`Sketch '${node.objectId}' has a missing image asset`);
+        if (!record || record.kind !== "image") throw new LocalizedError("errors.skf.sketchMissingImage", { id: node.objectId });
         const { assetId: _assetId, ...rest } = image;
         return { ...rest, dataUrl: resources.text(record, files) };
       }),
@@ -1248,7 +1261,7 @@ async function restoreShapeFromNode(
     importedMesh = resources.meshes.get(meshKey);
   } else if (node.importedMesh?.sourceAssetId) {
     const sourceAsset = runtimeAssetByArchiveId.get(node.importedMesh.sourceAssetId);
-    if (!sourceAsset) throw new Error(`Object '${node.objectId}' is missing its imported source asset`);
+    if (!sourceAsset) throw new LocalizedError("errors.skf.objectMissingSource", { id: node.objectId });
     let promise = sourceMeshCache.get(sourceAsset.id);
     if (!promise) {
       promise = sourceImporter(sourceAsset);
@@ -1258,7 +1271,7 @@ async function restoreShapeFromNode(
     importedMesh = resources.meshes.get(meshKey!) ?? { ...regenerated, assetId: sourceAsset.id };
   } else if (node.importedMesh?.meshAssetId) {
     const meshRecord = assetById.get(node.importedMesh.meshAssetId);
-    if (!meshRecord) throw new Error(`Object '${node.objectId}' is missing its derived mesh`);
+    if (!meshRecord) throw new LocalizedError("errors.skf.objectMissingMesh", { id: node.objectId });
     let decoded = derivedMeshCache.get(meshRecord.id);
     if (!decoded) {
       decoded = decodeMeshCache(files[meshRecord.path]);
@@ -1338,7 +1351,7 @@ async function restoreV1(document: SkfProjectDocumentV1, assetById: Map<string, 
   const history = document.history.entries.map((entry) => editorHistoryEntry(restoredStates.get(entry.stateId) ?? [], entry.selectedObjectIds));
   const shapes = restoredStates.get(document.sceneStateId) ?? [];
   const hydrated = hydrateEditorHistoryState(shapes, history, document.history.index);
-  if (hydrated.entries.length !== history.length || hydrated.index !== document.history.index) throw new Error("Undo history could not be restored without data loss");
+  if (hydrated.entries.length !== history.length || hydrated.index !== document.history.index) throw new LocalizedError("errors.skf.historyRestoreLoss");
   return {
     sourceProjectId: document.metadata.projectId,
     projectName: document.metadata.projectName,
@@ -1359,7 +1372,7 @@ async function restoreV1(document: SkfProjectDocumentV1, assetById: Map<string, 
 function migrateV0(raw: Record<string, unknown>): SkfRestoredProject {
   const project = objectRecord(raw.project, "project");
   const shapes = Array.isArray(raw.shapes) ? raw.shapes as WorkplaneShape[] : [];
-  assertUniqueRuntimeObjectIds(shapes, "Legacy project");
+  assertUniqueRuntimeObjectIds(shapes, null);
   shapes.forEach((shape, index) => validateLegacyRuntimeShape(shape, `shapes[${index}]`));
   const historyRaw = Array.isArray(raw.history) ? raw.history as EditorHistoryEntry[] : undefined;
   const requestedIndex = typeof raw.historyIndex === "number" ? raw.historyIndex : undefined;
@@ -1400,17 +1413,17 @@ function validateLegacyRuntimeShape(shape: WorkplaneShape, label: string) {
   if (importedMesh) {
     const mesh = objectRecord(importedMesh, `${label}.importedMesh`);
     if (!Array.isArray(mesh.positions) || mesh.positions.length > SKF_LIMITS.meshNumbers || mesh.positions.some((value) => typeof value !== "number" || !Number.isFinite(value))) {
-      throw new Error(`${label}.importedMesh has invalid positions`);
+      throw new LocalizedError("errors.skf.invalidPositions", { label: `${label}.importedMesh` });
     }
   }
   if (Array.isArray(groupedShapes)) groupedShapes.forEach((child, index) => validateLegacyRuntimeShape(child as WorkplaneShape, `${label}.groupedShapes[${index}]`));
   if (Array.isArray(edgeHistory)) edgeHistory.forEach((entry, index) => validateLegacyRuntimeShape((entry as { before: WorkplaneShape }).before, `${label}.edgeTreatmentHistory[${index}].before`));
-  if (cadBrep !== undefined && typeof cadBrep !== "string") throw new Error(`${label}.cadBrep is invalid`);
+  if (cadBrep !== undefined && typeof cadBrep !== "string") throw new LocalizedError("errors.skf.fieldInvalid", { label: `${label}.cadBrep` });
 }
 
 function skfInputBytes(input: ArrayBuffer | Uint8Array) {
   const bytes = input instanceof Uint8Array ? new Uint8Array(input) : new Uint8Array(input.slice(0));
-  if (!bytes.byteLength) throw new Error(".skf file is empty");
+  if (!bytes.byteLength) throw new LocalizedError("errors.skf.fileEmpty");
   return bytes;
 }
 
@@ -1420,13 +1433,15 @@ async function readPackagedSkf(bytes: Uint8Array) {
   try {
     files = await unzipAsync(bytes);
   } catch (error) {
-    throw new Error(`Could not expand .skf package: ${error instanceof Error ? error.message : "corrupt ZIP data"}`);
+    throw error instanceof Error
+      ? new LocalizedError("errors.skf.expandFailed", { detail: error.message })
+      : new LocalizedError("errors.skf.expandFailedCorrupt");
   }
   let raw: unknown;
   try {
     raw = JSON.parse(strFromU8(files["project.json"]));
   } catch {
-    throw new Error("project.json is malformed");
+    throw new LocalizedError("errors.skf.projectJsonMalformed");
   }
   return { files, validated: await validateDocumentAndAssets(raw, files) };
 }
@@ -1434,7 +1449,7 @@ async function readPackagedSkf(bytes: Uint8Array) {
 export async function inspectSkfProjectPackage(input: ArrayBuffer | Uint8Array): Promise<SkfProjectPackageSummary> {
   const bytes = skfInputBytes(input);
   const prefix = strFromU8(bytes.subarray(0, Math.min(bytes.length, 64))).trimStart();
-  if (prefix.startsWith("{")) throw new Error("Shared storage accepts packaged .skf files, not legacy JSON projects");
+  if (prefix.startsWith("{")) throw new LocalizedError("errors.skf.sharedRequiresPackage");
   const { validated } = await readPackagedSkf(bytes);
   return {
     projectName: validated.document.metadata.projectName,
@@ -1448,20 +1463,21 @@ export async function importSkfProject(input: ArrayBuffer | Uint8Array, options:
   const bytes = skfInputBytes(input);
   const prefix = strFromU8(bytes.subarray(0, Math.min(bytes.length, 64))).trimStart();
   if (prefix.startsWith("{")) {
-    if (bytes.byteLength > SKF_LIMITS.projectJsonBytes) throw new Error("Legacy .skf JSON exceeds the supported size limit");
+    if (bytes.byteLength > SKF_LIMITS.projectJsonBytes) throw new LocalizedError("errors.skf.legacyTooLarge");
     let raw: unknown;
     try {
       raw = JSON.parse(strFromU8(bytes));
     } catch {
-      throw new Error("Legacy .skf JSON is malformed");
+      throw new LocalizedError("errors.skf.legacyMalformed");
     }
-    const document = objectRecord(raw, "Legacy .skf project");
-    if (document.schema !== SKF_SCHEMA_ID) throw new Error("This file is not a SketchForge project");
+    if (!isObjectRecord(raw)) throw new LocalizedError("errors.skf.legacyNotObject");
+    const document = raw;
+    if (document.schema !== SKF_SCHEMA_ID) throw new LocalizedError("errors.skf.notSketchForgeProject");
     if (document.formatVersion === 0) return migrateV0(document);
     if (typeof document.formatVersion === "number" && document.formatVersion > SKF_FORMAT_VERSION) {
-      throw new Error(`This project uses .skf format ${document.formatVersion}, which requires a newer SketchForge version`);
+      throw new LocalizedError("errors.skf.formatTooNew", { version: document.formatVersion });
     }
-    throw new Error("This legacy .skf version is not supported");
+    throw new LocalizedError("errors.skf.legacyVersionUnsupported");
   }
 
   const { files, validated } = await readPackagedSkf(bytes);

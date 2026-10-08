@@ -2,9 +2,11 @@ import type { CSSProperties } from "react";
 import * as THREE from "three";
 import {
   measureKeyForHandle,
+  type TransformHandleKind,
   type TransformOverlayProps,
   type TransformOverlayState,
 } from "@/components/workplane/transformOverlayTypes";
+import { useTranslations, type MessageKey } from "@/i18n";
 
 export {
   continuousSnappedWheelRotation,
@@ -31,6 +33,13 @@ export {
   type TransformHandleKind,
   type TransformOverlayState,
 } from "@/components/workplane/transformOverlayTypes";
+
+const HANDLE_TITLE_KEYS: Record<TransformHandleKind, MessageKey> = {
+  scale: "workspace.transform.resize",
+  height: "workspace.dimension.height",
+  lift: "workspace.transform.lift",
+  rotate: "workspace.transform.rotate",
+};
 
 export function TransformOverlay({
   box,
@@ -60,6 +69,7 @@ export function TransformOverlay({
   onCommitRotationEdit,
   onCancelRotationEdit,
 }: TransformOverlayProps) {
+  const t = useTranslations();
   const marks = measureKey ? (box.dimensions[measureKey] ?? []) : [];
   const visibleMarks = (hideDimensionMarks ? [] : marks).filter((mark) => mark.key !== editingDimension?.key);
   const handleMeasureKey = (handle: TransformOverlayState["handles"][number]) => measureKeyForHandle(handle.kind, handle.key, box);
@@ -220,7 +230,7 @@ export function TransformOverlay({
             "--overlay-y": `${handle.y}px`,
             "--transform-handle-angle": `${handle.angle ?? 0}deg`,
           } as CSSProperties}
-          title={handle.title}
+          title={t(HANDLE_TITLE_KEYS[handle.kind])}
           onPointerEnter={(event) => {
             if ((event.buttons & 4) !== 0) {
               onHoverMeasure(null);
@@ -259,7 +269,7 @@ export function TransformOverlay({
             "--rotate-plane-c": handle.plane.c,
             "--rotate-plane-d": handle.plane.d,
           } as CSSProperties}
-          title="Rotate"
+          title={t("workspace.transform.rotate")}
           onPointerDown={(event) => {
             if (event.button === 0) {
               onBeginTransform("rotate", handle.key, event);

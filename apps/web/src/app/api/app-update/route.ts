@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import { NextResponse } from "next/server";
+import { LocalizedError, errorResponseFields } from "@/i18n/LocalizedError";
+import { caughtErrorResponse, errorResponse } from "@/lib/apiErrors";
 import { appUpdateIsAvailable, OFFICIAL_UPDATE_GUIDE_URL, type AppUpdateStatus } from "@/lib/appUpdates";
 import { SKF_CREATED_WITH_VERSION } from "@/lib/skfProject";
 
@@ -107,11 +109,11 @@ async function latestOfficialVersion(force = false) {
       headers: { Accept: "application/json", "User-Agent": "SketchForge update checker" },
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`Update server returned ${response.status}`);
+    if (!response.ok) throw new LocalizedError("errors.update.serverStatus", { status: response.status });
     const payload = await response.json() as { version?: unknown };
     const version = typeof payload.version === "string" ? payload.version.trim() : "";
     if (!VERSION_PATTERN.test(version)) {
-      throw new Error("Update server returned an invalid version");
+      throw new LocalizedError("errors.update.serverInvalidVersion");
     }
     cachedLatest = { version, expiresAt: Date.now() + UPDATE_CACHE_MS };
     return version;
@@ -142,6 +144,9 @@ async function statusResponse(request: Request, force = false): Promise<AppUpdat
       updateMode: localRepo ? "local" : "server",
     };
   } catch (error) {
+    const { error: checkError, errorKey: checkErrorKey, errorParams: checkErrorParams } = errorResponseFields(
+      error instanceof Error ? error : new LocalizedError("errors.update.checkFailed"),
+    );
     return {
       currentVersion,
       latestVersion: null,
@@ -151,7 +156,9 @@ async function statusResponse(request: Request, force = false): Promise<AppUpdat
       installationReady: Boolean(localRepo || (trigger && adminKeyConfigured)),
       requiresUpdateKey: localRepo ? false : Boolean(trigger && adminKeyConfigured),
       updateMode: localRepo ? "local" : "server",
-      checkError: error instanceof Error ? error.message : "Could not check for updates",
+      checkError,
+      checkErrorKey,
+      checkErrorParams,
     };
   }
 }
@@ -160,7 +167,7 @@ async function runLocalUpdate(repoRoot: string, expectedVersion: string) {
   const gitOptions = { cwd: repoRoot, timeout: 120_000, maxBuffer: 2 * 1024 * 1024 };
   const { stdout: dirtyOutput } = await execFileAsync("git", ["status", "--porcelain", "--untracked-files=no"], gitOptions);
   if (dirtyOutput.trim()) {
-    throw new Error("Local SketchForge has uncommitted code changes. Commit or stash them before updating so the updater does not overwrite your work.");
+    throw new LocalizedError("errors.update.uncommittedChanges");
   }
 
   await execFileAsync("git", ["fetch", "--no-tags", OFFICIAL_REPO_URL, "main"], gitOptions);
@@ -168,7 +175,7 @@ async function runLocalUpdate(repoRoot: string, expectedVersion: string) {
 
   const installedVersion = packageVersion(repoRoot);
   if (installedVersion && appUpdateIsAvailable(installedVersion, expectedVersion)) {
-    throw new Error(`The local checkout updated to ${installedVersion}, but ${expectedVersion} was expected.`);
+    throw new LocalizedError("errors.update.unexpectedVersion", { installed: installedVersion, expected: expectedVersion });
   }
 
   const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -199,17 +206,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!sameOriginRequest(request)) return NextResponse.json({ error: "Updates only accept same-origin requests" }, { status: 403 });
+  if (!sameOriginRequest(request)) return errorResponse("errors.update.sameOrigin", 403);
 
   const localRepo = localRepoForRequest(request);
   if (localRepo) {
     if (Date.now() < nextTriggerAt) {
-      return NextResponse.json({ error: "An update was already requested. Wait a moment before trying again." }, { status: 429 });
+      return errorResponse("errors.update.alreadyRequested", 429);
     }
     const status = await statusResponse(request, true);
-    if (status.checkError) return NextResponse.json({ error: status.checkError }, { status: 502 });
+    if (status.checkError) return NextResponse.json({ error: status.checkError, errorKey: status.checkErrorKey, errorParams: status.checkErrorParams }, { status: 502 });
     if (!status.updateAvailable || !status.latestVersion) {
-      return NextResponse.json({ error: "SketchForge is already up to date", status }, { status: 409 });
+      return errorResponse("errors.update.upToDate", 409, { status });
     }
 
     nextTriggerAt = Date.now() + UPDATE_TRIGGER_COOLDOWN_MS;
@@ -227,31 +234,28 @@ export async function POST(request: Request) {
       );
     } catch (error) {
       nextTriggerAt = 0;
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Could not update local SketchForge" }, { status: 409 });
+      return caughtErrorResponse(error, "errors.update.localFailed", 409);
     }
   }
 
   const trigger = updateTriggerUrl();
   const adminKey = process.env.SKETCHFORGE_UPDATE_ADMIN_KEY?.trim() || "";
   if (!trigger || !adminKey) {
-    return NextResponse.json(
-      { error: "One-click installation is not configured on this server", updateUrl: updateGuideUrl() },
-      { status: 409 },
-    );
+    return errorResponse("errors.update.notConfigured", 409, { updateUrl: updateGuideUrl() });
   }
 
   const suppliedKey = request.headers.get("x-sketchforge-update-key")?.trim() || "";
   if (!suppliedKey || !safeEqual(suppliedKey, adminKey)) {
-    return NextResponse.json({ error: "The update key is incorrect" }, { status: 401 });
+    return errorResponse("errors.update.keyIncorrect", 401);
   }
   if (Date.now() < nextTriggerAt) {
-    return NextResponse.json({ error: "An update was already requested. Wait a moment before trying again." }, { status: 429 });
+    return errorResponse("errors.update.alreadyRequested", 429);
   }
 
   const status = await statusResponse(request, true);
-  if (status.checkError) return NextResponse.json({ error: status.checkError }, { status: 502 });
+  if (status.checkError) return NextResponse.json({ error: status.checkError, errorKey: status.checkErrorKey, errorParams: status.checkErrorParams }, { status: 502 });
   if (!status.updateAvailable || !status.latestVersion) {
-    return NextResponse.json({ error: "SketchForge is already up to date", status }, { status: 409 });
+    return errorResponse("errors.update.upToDate", 409, { status });
   }
 
   nextTriggerAt = Date.now() + UPDATE_TRIGGER_COOLDOWN_MS;
@@ -275,14 +279,14 @@ export async function POST(request: Request) {
       cache: "no-store",
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`Update service returned ${response.status}`);
+    if (!response.ok) throw new LocalizedError("errors.update.serviceStatus", { status: response.status });
     return NextResponse.json(
       { accepted: true, currentVersion: status.currentVersion, latestVersion: status.latestVersion, updateMode: "server" },
       { status: 202, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     nextTriggerAt = 0;
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not start the update" }, { status: 502 });
+    return caughtErrorResponse(error, "errors.update.startFailed", 502);
   } finally {
     clearTimeout(timeout);
   }

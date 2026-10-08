@@ -1,3 +1,6 @@
+import type { MessageParams } from "@/i18n/locales";
+import type { ErrorKey } from "@/i18n/LocalizedError";
+
 export const OFFICIAL_UPDATE_GUIDE_URL = "https://github.com/Formsmith746/SketchForge-3D#update-sketchforge-later";
 
 export type AppUpdateStatus = {
@@ -9,7 +12,10 @@ export type AppUpdateStatus = {
   installationReady: boolean;
   requiresUpdateKey: boolean;
   updateMode?: "local" | "server" | "desktop";
+  /** English; the UI translates `checkErrorKey` when the server sent one. */
   checkError?: string;
+  checkErrorKey?: ErrorKey;
+  checkErrorParams?: MessageParams;
 };
 
 type ParsedVersion = {

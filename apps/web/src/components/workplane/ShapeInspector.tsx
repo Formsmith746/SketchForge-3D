@@ -21,7 +21,9 @@ import {
   normalizeGearType,
   gearToothPitch,
 } from "@/lib/gearGeometry";
-import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
+import { unitLabel, useTranslations, type MessageKey, type Translator } from "@/i18n";
+import { shapeDisplayName } from "@/lib/shapeDisplayNames";
+import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseMeasurementInput, snapGridLabel } from "@/lib/measurementUnits";
 import { resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeWidth } from "@/lib/workplaneShapes";
 import { normalizeSketchRevolveSettings } from "@/lib/sketchRevolve";
 import { MAX_HIGH_RESOLUTION_SIDES } from "@/lib/workplaneSettings";
@@ -60,15 +62,53 @@ const SOLID_COLORS = [
   "#111111",
 ];
 const TEXT_FONT_OPTIONS = ["Multilanguage", "Sans", "Serif", "Script", "Monospace", "Rounded", "Stencil"];
-const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: string }> = [
-  { value: "spur", label: "Spur gear" },
-  { value: "helical", label: "Helical gear" },
-  { value: "bevel", label: "Bevel gear" },
-];
+const TEXT_FONT_LABEL_KEYS: Record<string, MessageKey> = {
+  Multilanguage: "panels.font.multilanguage",
+  Sans: "panels.font.sans",
+  Serif: "panels.font.serif",
+  Script: "panels.font.script",
+  Monospace: "panels.font.monospace",
+  Rounded: "panels.font.rounded",
+  Stencil: "panels.font.stencil",
+};
+const GEAR_TYPE_OPTIONS: GearType[] = ["spur", "helical", "bevel"];
+
+/** Display text for a stored text font value; unknown fonts pass through. */
+export function textFontLabel(t: Translator, font: string): string {
+  const key = TEXT_FONT_LABEL_KEYS[font];
+  return key ? t(key) : font;
+}
+
+/** Identifies a property row; also selects its label `panels.property.<id>`. */
+type ShapePropertyId =
+  | "length"
+  | "width"
+  | "height"
+  | "sides"
+  | "steps"
+  | "startAngle"
+  | "sweep"
+  | "topRadius"
+  | "baseRadius"
+  | "thickness"
+  | "teeth"
+  | "toothSize"
+  | "toothWidth"
+  | "helixAngle"
+  | "quality"
+  | "centerHole"
+  | "text"
+  | "font"
+  | "bevel"
+  | "segments"
+  | "topLength"
+  | "topWidth"
+  | "bottomLength"
+  | "bottomWidth";
 
 type RangePropertyConfig = {
   type?: "range";
-  label: string;
+  id: ShapePropertyId;
   value: number;
   min: number;
   max: number;
@@ -78,16 +118,17 @@ type RangePropertyConfig = {
 
 type TextPropertyConfig = {
   type: "text";
-  label: string;
+  id: ShapePropertyId;
   value: string;
   onChange: (value: string) => void;
 };
 
 type SelectPropertyConfig = {
   type: "select";
-  label: string;
+  id: ShapePropertyId;
   value: string;
   options: string[];
+  optionLabel: (t: Translator, option: string) => string;
   onChange: (value: string) => void;
 };
 
@@ -104,8 +145,12 @@ function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step
   return formatMeasurementNumber(value, accuracy, step);
 }
 
-function propertyUsesLengthUnit(label: string) {
-  return ["Radius", "Length", "Width", "Height", "Bevel", "Top Radius", "Base Radius", "Thickness", "Tooth Size", "Tooth Width", "Center Hole", "Top Length", "Top Width", "Bottom Length", "Bottom Width"].includes(label);
+const LENGTH_UNIT_PROPERTIES: readonly ShapePropertyId[] = ["length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth"];
+/** Typed values may exceed the slider maximum (the slider still clamps). */
+const ABOVE_SLIDER_MAX_PROPERTIES: readonly ShapePropertyId[] = ["length", "width", "height", "topLength", "topWidth", "bottomLength", "bottomWidth", "toothWidth"];
+
+function propertyUsesLengthUnit(id: ShapePropertyId) {
+  return LENGTH_UNIT_PROPERTIES.includes(id);
 }
 
 function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, textWidthMax = 260): ShapePropertyConfig[] {
@@ -158,85 +203,85 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     const settings = normalizeSketchRevolveSettings(shape.sketchRevolve);
     const updateRevolve = (patch: Partial<typeof settings>) => onUpdate({ sketchRevolve: normalizeSketchRevolveSettings({ ...settings, ...patch }) });
     return [
-      { label: "Start Angle", value: settings.startAngle, min: 0, max: 359, step: 1, onChange: (startAngle) => updateRevolve({ startAngle }) },
-      { label: "Sweep", value: settings.sweepAngle, min: -360, max: 360, step: 1, onChange: (sweepAngle) => updateRevolve({ sweepAngle }) },
-      { label: "Sides", value: settings.sides, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => updateRevolve({ sides }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "startAngle", value: settings.startAngle, min: 0, max: 359, step: 1, onChange: (startAngle) => updateRevolve({ startAngle }) },
+      { id: "sweep", value: settings.sweepAngle, min: -360, max: 360, step: 1, onChange: (sweepAngle) => updateRevolve({ sweepAngle }) },
+      { id: "sides", value: settings.sides, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => updateRevolve({ sides }) },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "box") {
     return [
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "cylinder") {
     return [
-      { label: "Sides", value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "sides", value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "sphere") {
     return [
-      { label: "Steps", value: shape.steps ?? 24, min: 6, max: 64, step: 1, onChange: (steps) => onUpdate({ steps: Math.round(steps) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "steps", value: shape.steps ?? 24, min: 6, max: 64, step: 1, onChange: (steps) => onUpdate({ steps: Math.round(steps) }) },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "halfSphere") {
     return [
-      { label: "Steps", value: shape.steps ?? 32, min: 6, max: 64, step: 1, onChange: (steps) => onUpdate({ steps: Math.round(steps) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "steps", value: shape.steps ?? 32, min: 6, max: 64, step: 1, onChange: (steps) => onUpdate({ steps: Math.round(steps) }) },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "cone") {
     return [
-      { label: "Top Radius", value: shape.topRadius ?? 0, min: 0, max: 40, onChange: (topRadius) => onUpdate({ topRadius }) },
-      { label: "Base Radius", value: shape.baseRadius ?? baseWidth / 2, min: MIN_SHAPE_SIZE, max: 80, onChange: setBaseRadius },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setConeWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
-      { label: "Sides", value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      { id: "topRadius", value: shape.topRadius ?? 0, min: 0, max: 40, onChange: (topRadius) => onUpdate({ topRadius }) },
+      { id: "baseRadius", value: shape.baseRadius ?? baseWidth / 2, min: MIN_SHAPE_SIZE, max: 80, onChange: setBaseRadius },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setConeWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "sides", value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
     ];
   }
 
   if (shape.kind === "pyramid") {
     return [
-      { label: "Sides", value: shape.sides ?? 4, min: 3, max: 24, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "sides", value: shape.sides ?? 4, min: 3, max: 24, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "roundRoof") {
     return [
-      { label: "Sides", value: shape.sides ?? 64, min: 4, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "sides", value: shape.sides ?? 64, min: 4, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "tube" || shape.kind === "ring") {
     return [
-      { label: "Thickness", value: shape.bevel ?? 4, min: 0.5, max: 20, onChange: (bevel) => onUpdate({ bevel }) },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "thickness", value: shape.bevel ?? 4, min: 0.5, max: 20, onChange: (bevel) => onUpdate({ bevel }) },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
@@ -259,7 +304,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     const centerHoleLimits = gearCenterHoleLimits(width, depth, toothSize);
     const properties: ShapePropertyConfig[] = [
       {
-        label: "Teeth",
+        id: "teeth",
         value: teeth,
         min: 6,
         max: 64,
@@ -273,7 +318,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         },
       },
       {
-        label: "Tooth Size",
+        id: "toothSize",
         value: toothSize,
         min: 0.2,
         max: Math.max(0.2, Math.min(width, depth) * 0.22),
@@ -284,7 +329,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         }),
       },
       {
-        label: "Tooth Width",
+        id: "toothWidth",
         value: normalizeGearToothWidth(shape.toothWidth, width, depth, teeth),
         min: toothPitch * 0.12,
         max: toothPitch * 0.82,
@@ -294,7 +339,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     ];
     if (normalizeGearType(shape.gearType) === "helical") {
       properties.push({
-        label: "Helix Angle",
+        id: "helixAngle",
         value: normalizeGearHelixAngle(shape.helixAngle ?? DEFAULT_GEAR_HELIX_ANGLE),
         min: MIN_GEAR_HELIX_ANGLE,
         max: MAX_GEAR_HELIX_ANGLE,
@@ -302,7 +347,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         onChange: (helixAngle) => onUpdate({ helixAngle }),
       });
       properties.push({
-        label: "Quality",
+        id: "quality",
         value: normalizeGearHelixQuality(shape.helixQuality ?? DEFAULT_GEAR_HELIX_QUALITY),
         min: MIN_GEAR_HELIX_QUALITY,
         max: MAX_GEAR_HELIX_QUALITY,
@@ -312,16 +357,16 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     }
     properties.push(
       {
-        label: "Center Hole",
+        id: "centerHole",
         value: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize),
         min: centerHoleLimits.min,
         max: centerHoleLimits.max,
         step: 0.1,
         onChange: (centerHoleSize) => onUpdate({ centerHoleSize }),
       },
-      { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearDepth },
-      { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearWidth },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearDepth },
+      { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearWidth },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     );
     return properties;
   }
@@ -330,7 +375,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     return [
       {
         type: "text",
-        label: "Text",
+        id: "text",
         value: shape.text ?? "TEXT",
         onChange: (text) => {
           const nextText = text.slice(0, 24) || " ";
@@ -338,17 +383,17 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
           onUpdate({ text: nextText, width: nextWidth, size: nextWidth });
         },
       },
-      { type: "select", label: "Font", value: shape.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS, onChange: (font) => onUpdate({ font }) },
-      { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 40, onChange: setHeight },
-      { label: "Bevel", value: shape.bevel ?? 0, min: 0, max: 8, onChange: (bevel) => onUpdate({ bevel }) },
-      { label: "Segments", value: shape.segments ?? 0, min: 0, max: 24, step: 1, onChange: (segments) => onUpdate({ segments: Math.round(segments) }) },
+      { type: "select", id: "font", value: shape.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS, optionLabel: textFontLabel, onChange: (font) => onUpdate({ font }) },
+      { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 40, onChange: setHeight },
+      { id: "bevel", value: shape.bevel ?? 0, min: 0, max: 8, onChange: (bevel) => onUpdate({ bevel }) },
+      { id: "segments", value: shape.segments ?? 0, min: 0, max: 24, step: 1, onChange: (segments) => onUpdate({ segments: Math.round(segments) }) },
     ];
   }
 
   return [
-    { label: "Length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
-    { label: "Width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
-    { label: "Height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+    { id: "length", value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+    { id: "width", value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+    { id: "height", value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
   ];
 }
 
@@ -358,8 +403,8 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
   if (customLimit === undefined) return properties;
   return properties.map((property) => {
     if (property.type === "text" || property.type === "select") return property;
-    if (["Length", "Width", "Height"].includes(property.label)) return { ...property, max: customLimit };
-    if (["Top Radius", "Base Radius"].includes(property.label)) return { ...property, max: customLimit / 2 };
+    if (property.id === "length" || property.id === "width" || property.id === "height") return { ...property, max: customLimit };
+    if (property.id === "topRadius" || property.id === "baseRadius") return { ...property, max: customLimit / 2 };
     return property;
   });
 }
@@ -389,45 +434,46 @@ export function ShapeInspector({
   onSeparateParts?: () => void;
   onInteractionActiveChange?: (active: boolean) => void;
 }) {
+  const t = useTranslations();
   const solidColor = shape.color;
   const locked = Boolean(shape.locked);
   const properties = getShapeProperties(shape, onUpdate, workspace);
   const gearType = shape.kind === "gear" ? normalizeGearType(shape.gearType) : null;
   const primaryProperties = shape.kind === "gear"
-    ? properties.filter((property) => ["Center Hole", "Length", "Width", "Height"].includes(property.label))
+    ? properties.filter((property) => (["centerHole", "length", "width", "height"] as ShapePropertyId[]).includes(property.id))
     : properties;
   const gearTeethProperties = shape.kind === "gear"
-    ? properties.filter((property) => ["Teeth", "Tooth Size", "Tooth Width"].includes(property.label))
+    ? properties.filter((property) => (["teeth", "toothSize", "toothWidth"] as ShapePropertyId[]).includes(property.id))
     : [];
   const gearHelixProperties = shape.kind === "gear"
-    ? properties.filter((property) => ["Helix Angle", "Quality"].includes(property.label))
+    ? properties.filter((property) => (["helixAngle", "quality"] as ShapePropertyId[]).includes(property.id))
     : [];
   const taper = shapeTaperDimensions(shape);
   const taperDimensionMax = workspace.shapeCustomizations[shape.kind]?.maxDimension ?? 480;
   const taperProperties: ShapePropertyConfig[] = shape.kind === "gear" ? [] : [
     {
-      label: "Top Length",
+      id: "topLength",
       value: taper.topDepth,
       min: MIN_SHAPE_SIZE,
       max: taperDimensionMax,
       onChange: (taperTopDepth) => onUpdate({ taperTopDepth, taperTopWidth: taper.topWidth, taperTopScale: undefined }),
     },
     {
-      label: "Top Width",
+      id: "topWidth",
       value: taper.topWidth,
       min: MIN_SHAPE_SIZE,
       max: taperDimensionMax,
       onChange: (taperTopWidth) => onUpdate({ taperTopWidth, taperTopDepth: taper.topDepth, taperTopScale: undefined }),
     },
     {
-      label: "Bottom Length",
+      id: "bottomLength",
       value: taper.bottomDepth,
       min: MIN_SHAPE_SIZE,
       max: taperDimensionMax,
       onChange: (taperBottomDepth) => onUpdate({ taperBottomDepth, taperBottomWidth: taper.bottomWidth, taperBottomScale: undefined }),
     },
     {
-      label: "Bottom Width",
+      id: "bottomWidth",
       value: taper.bottomWidth,
       min: MIN_SHAPE_SIZE,
       max: taperDimensionMax,
@@ -465,22 +511,22 @@ export function ShapeInspector({
   }, [isSketchRevolve, shape.id]);
 
   return (
-    <aside ref={inspectorRef} className={`shape-inspector ${isSketchRevolve ? "sketch-revolve-inspector" : ""} ${shape.kind === "gear" ? "gear-inspector" : ""} ${minimized ? "minimized" : ""}`} aria-label={`${shape.name} shape settings`} onPointerDown={(event) => event.stopPropagation()}>
+    <aside ref={inspectorRef} className={`shape-inspector ${isSketchRevolve ? "sketch-revolve-inspector" : ""} ${shape.kind === "gear" ? "gear-inspector" : ""} ${minimized ? "minimized" : ""}`} aria-label={t("panels.inspector.label", { name: shapeDisplayName(t, shape.name) })} onPointerDown={(event) => event.stopPropagation()}>
       <div className="shape-inspector-header">
         <button
           className="inspector-header-icon"
-          aria-label={minimized ? "Expand shape settings" : "Minimize shape settings"}
+          aria-label={minimized ? t("panels.inspector.expand") : t("panels.inspector.minimize")}
           aria-expanded={!minimized}
           onClick={() => setMinimized((current) => !current)}
         >
           {minimized ? <ChevronDown size={26} strokeWidth={2.8} /> : <ChevronUp size={26} strokeWidth={2.8} />}
         </button>
-        <strong>{shape.name}</strong>
+        <strong>{shapeDisplayName(t, shape.name)}</strong>
         <div className="inspector-header-actions">
-          <button className={locked ? "inspector-header-icon active" : "inspector-header-icon"} aria-label={locked ? "Unlock shape" : "Lock shape"} onClick={() => onUpdate({ locked: !locked })}>
+          <button className={locked ? "inspector-header-icon active" : "inspector-header-icon"} aria-label={locked ? t("panels.inspector.unlock") : t("panels.inspector.lock")} onClick={() => onUpdate({ locked: !locked })}>
             {locked ? <LockKeyhole size={31} strokeWidth={2.4} /> : <LockKeyholeOpen size={31} strokeWidth={2.4} />}
           </button>
-          <button className={shape.hidden ? "inspector-header-icon active" : "inspector-header-icon"} aria-label={shape.hidden ? "Show shape" : "Hide shape"} onClick={() => onUpdate({ hidden: !shape.hidden })}>
+          <button className={shape.hidden ? "inspector-header-icon active" : "inspector-header-icon"} aria-label={shape.hidden ? t("panels.inspector.show") : t("panels.inspector.hide")} onClick={() => onUpdate({ hidden: !shape.hidden })}>
             <ToolbarHideSelectedIcon />
           </button>
         </div>
@@ -488,7 +534,7 @@ export function ShapeInspector({
 
       {!minimized ? (
         <>
-      <div className="shape-state-card" role="group" aria-label="Shape mode">
+      <div className="shape-state-card" role="group" aria-label={t("panels.inspector.mode")}>
         <button
           className={!shape.hole ? "active solid-choice" : "solid-choice"}
           onClick={() => {
@@ -501,7 +547,7 @@ export function ShapeInspector({
           aria-expanded={colorOpen}
         >
           <span className="large-solid-swatch" style={{ "--swatch": solidColor } as CSSProperties} />
-          <span>Solid</span>
+          <span>{t("panels.inspector.solid")}</span>
         </button>
         <button
           className={shape.hole ? "active hole-choice" : "hole-choice"}
@@ -513,14 +559,14 @@ export function ShapeInspector({
           aria-pressed={shape.hole}
         >
           <span className="large-hole-swatch" />
-          <span>Hole</span>
+          <span>{t("panels.inspector.hole")}</span>
         </button>
       </div>
 
       {colorOpen ? (
-        <div className="color-card" aria-label="Shape color">
+        <div className="color-card" aria-label={t("panels.inspector.color.label")}>
           <div className="color-card-header">
-            <span>Color</span>
+            <span>{t("panels.inspector.color.title")}</span>
             <span className="color-value">{solidColor.toUpperCase()}</span>
           </div>
           <div className="color-grid">
@@ -531,7 +577,7 @@ export function ShapeInspector({
                 type="button"
                 style={{ "--shape-swatch": color } as CSSProperties}
                 title={color.toUpperCase()}
-                aria-label={`Set color ${color}`}
+                aria-label={t("panels.inspector.color.set", { color })}
                 disabled={locked}
                 onClick={() => {
                   onUpdate({ color, hole: false });
@@ -539,7 +585,7 @@ export function ShapeInspector({
                 }}
               />
             ))}
-            <label className={locked ? "custom-color disabled" : "custom-color"} title="Custom color">
+            <label className={locked ? "custom-color disabled" : "custom-color"} title={t("panels.inspector.color.customTitle")}>
               <input
                 key={`${shape.id}-${solidColor}`}
                 ref={customColorInputRef}
@@ -549,7 +595,7 @@ export function ShapeInspector({
                 onFocus={() => onInteractionActiveChange?.(true)}
                 onBlur={() => onInteractionActiveChange?.(false)}
               />
-              <span>Custom</span>
+              <span>{t("panels.inspector.color.custom")}</span>
             </label>
           </div>
         </div>
@@ -557,14 +603,14 @@ export function ShapeInspector({
 
       {shape.sketchProfile && onEditSketch ? (
         <button className="edit-sketch-button" type="button" disabled={locked} onClick={onEditSketch}>
-          Edit sketch
+          {t("panels.inspector.editSketch")}
         </button>
       ) : null}
 
       {canSeparateParts && onSeparateParts ? (
         <button className="inspector-action-button" type="button" disabled={locked} onClick={onSeparateParts}>
           <Split size={17} strokeWidth={2.5} />
-          <span>Separate Parts</span>
+          <span>{t("panels.inspector.separateParts")}</span>
         </button>
       ) : null}
 
@@ -576,7 +622,7 @@ export function ShapeInspector({
           aria-controls={`properties-${shape.id}`}
           onClick={() => setPropertiesOpen((open) => !open)}
         >
-          <span>Properties</span>
+          <span>{t("panels.inspector.section.properties")}</span>
           <ChevronUp className={propertiesOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
         </button>
         {propertiesOpen ? (
@@ -601,7 +647,7 @@ export function ShapeInspector({
             aria-controls={`taper-${shape.id}`}
             onClick={() => setTaperOpen((open) => !open)}
           >
-            <span>Taper</span>
+            <span>{t("panels.inspector.section.taper")}</span>
             <ChevronUp className={taperOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
           </button>
           {taperOpen ? (
@@ -620,7 +666,7 @@ export function ShapeInspector({
             aria-controls={`gear-teeth-${shape.id}`}
             onClick={() => setGearTeethOpen((open) => !open)}
           >
-            <span>Teeth</span>
+            <span>{t("panels.inspector.section.teeth")}</span>
             <ChevronUp className={gearTeethOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
           </button>
           {gearTeethOpen ? (
@@ -639,7 +685,7 @@ export function ShapeInspector({
             aria-controls={`gear-helix-${shape.id}`}
             onClick={() => setGearHelixOpen((open) => !open)}
           >
-            <span>Helix</span>
+            <span>{t("panels.inspector.section.helix")}</span>
             <ChevronUp className={gearHelixOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
           </button>
           {gearHelixOpen ? (
@@ -669,14 +715,16 @@ function ShapePropertyRows({
   disabled?: boolean;
   onInteractionActiveChange?: (active: boolean) => void;
 }) {
+  const t = useTranslations();
   return properties.map((property) => {
+    const label = t(`panels.property.${property.id}`);
     if (property.type === "text") {
-      return <TextProperty key={property.label} {...property} disabled={disabled} onInteractionActiveChange={onInteractionActiveChange} />;
+      return <TextProperty key={property.id} {...property} label={label} disabled={disabled} onInteractionActiveChange={onInteractionActiveChange} />;
     }
     if (property.type === "select") {
-      return <SelectProperty key={property.label} {...property} disabled={disabled} />;
+      return <SelectProperty key={property.id} {...property} label={label} disabled={disabled} />;
     }
-    return <RangeProperty key={property.label} {...property} workspace={workspace} disabled={disabled} onInteractionActiveChange={onInteractionActiveChange} />;
+    return <RangeProperty key={property.id} {...property} label={label} workspace={workspace} disabled={disabled} onInteractionActiveChange={onInteractionActiveChange} />;
   });
 }
 
@@ -691,11 +739,12 @@ export function SnapGridControl({
   onSnapChange: Dispatch<SetStateAction<GridSize>>;
   onSnapOpenChange: Dispatch<SetStateAction<boolean>>;
 }) {
+  const t = useTranslations();
   return (
     <div className="snap-row">
-      <span>Snap Grid</span>
+      <span>{t("panels.snapGrid.label")}</span>
       <button className="snap-select" onClick={() => onSnapOpenChange((value) => !value)}>
-        {snap}
+        {snapGridLabel(t, snap)}
         <ChevronDown size={12} fill="currentColor" />
       </button>
       {snapOpen ? (
@@ -709,7 +758,7 @@ export function SnapGridControl({
                 onSnapOpenChange(false);
               }}
             >
-              {size}
+              {snapGridLabel(t, size)}
             </button>
           ))}
         </div>
@@ -719,6 +768,7 @@ export function SnapGridControl({
 }
 
 function RangeProperty({
+  id,
   label,
   value,
   min,
@@ -728,9 +778,10 @@ function RangeProperty({
   disabled,
   onChange,
   onInteractionActiveChange,
-}: RangePropertyConfig & { workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
-  const allowsAboveSliderMax = label === "Length" || label === "Width" || label === "Height" || label.endsWith(" Length") || label.endsWith(" Width");
-  const isLength = propertyUsesLengthUnit(label);
+}: RangePropertyConfig & { label: string; workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
+  const t = useTranslations();
+  const allowsAboveSliderMax = ABOVE_SLIDER_MAX_PROPERTIES.includes(id);
+  const isLength = propertyUsesLengthUnit(id);
   const accuracy = workspace.accuracy;
   const actualValue = Math.max(min, Number.isFinite(value) ? value : min);
   const controlValue = isLength ? millimetersToDisplay(actualValue, workspace) : actualValue;
@@ -741,7 +792,7 @@ function RangeProperty({
   const position = ((sliderValue - controlMin) / Math.max(Number.EPSILON, controlMax - controlMin)) * 100;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(formatPropertyNumber(controlValue, accuracy, controlStep));
-  const unit = isLength ? lengthDisplayUnit(workspace).label : null;
+  const unit = isLength ? unitLabel(t, lengthDisplayUnit(workspace).label) : null;
   const toModelValue = (nextValue: number) => isLength ? displayToMillimeters(nextValue, workspace) : nextValue;
   const commitDraft = () => {
     const next = parseMeasurementInput(draft);
@@ -805,7 +856,7 @@ function RangeProperty({
   );
 }
 
-function TextProperty({ label, value, disabled, onChange, onInteractionActiveChange }: TextPropertyConfig & { disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
+function TextProperty({ label, value, disabled, onChange, onInteractionActiveChange }: TextPropertyConfig & { label: string; disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
   return (
     <label className="text-property">
       <span>{label}</span>
@@ -823,14 +874,15 @@ function TextProperty({ label, value, disabled, onChange, onInteractionActiveCha
   );
 }
 
-function SelectProperty({ label, value, options, disabled, onChange }: SelectPropertyConfig & { disabled?: boolean }) {
+function SelectProperty({ label, value, options, optionLabel, disabled, onChange }: SelectPropertyConfig & { label: string; disabled?: boolean }) {
+  const t = useTranslations();
   return (
     <label className="select-property">
       <span>{label}</span>
       <select value={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)}>
         {options.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {optionLabel(t, option)}
           </option>
         ))}
       </select>
@@ -843,21 +895,22 @@ function GearTypePreview({ type }: { type: GearType }) {
 }
 
 function GearTypeSelector({ value, disabled, onChange }: { value: GearType; disabled?: boolean; onChange: (value: GearType) => void }) {
+  const t = useTranslations();
   return (
-    <div className="gear-type-property" role="group" aria-label="Gear type">
-      <span>Gear Type</span>
+    <div className="gear-type-property" role="group" aria-label={t("panels.gearType.label")}>
+      <span>{t("panels.inspector.gearType")}</span>
       <div className="gear-type-options">
         {GEAR_TYPE_OPTIONS.map((option) => (
           <button
-            key={option.value}
-            className={value === option.value ? "selected" : ""}
+            key={option}
+            className={value === option ? "selected" : ""}
             type="button"
             disabled={disabled}
-            aria-pressed={value === option.value}
-            onClick={() => onChange(option.value)}
+            aria-pressed={value === option}
+            onClick={() => onChange(option)}
           >
-            <GearTypePreview type={option.value} />
-            <span>{option.label}</span>
+            <GearTypePreview type={option} />
+            <span>{t(`panels.gearType.${option}`)}</span>
           </button>
         ))}
       </div>

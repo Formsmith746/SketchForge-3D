@@ -1,0 +1,1400 @@
+{
+  "common": {
+    "language": {
+      "label": "Jazyk",
+      "system": "Podle systému",
+      "note": "Jazyk platí pro celý SketchForge a všechny projekty."
+    },
+    "appTitle": "SketchForge – 3D editor",
+    "theme": {
+      "system": "Podle systému",
+      "light": "Světlý",
+      "dark": "Tmavý"
+    },
+    "shape": {
+      "box": "Kvádr",
+      "cylinder": "Válec",
+      "sphere": "Koule",
+      "sketch": "Náčrt",
+      "scribble": "Kresba od ruky",
+      "cone": "Kužel",
+      "pyramid": "Jehlan",
+      "roof": "Střecha",
+      "text": "Text",
+      "roundRoof": "Oblá střecha",
+      "halfSphere": "Polokoule",
+      "torus": "Anuloid",
+      "tube": "Trubka",
+      "gear": "Ozubené kolo",
+      "ring": "Prstenec",
+      "wedge": "Klín",
+      "polygon": "Mnohoúhelník",
+      "icosahedron": "Dvacetistěn",
+      "mesh": "Model"
+    },
+    "shapeName": {
+      "cube": "Krychle",
+      "group": "Skupina",
+      "intersection": "Průnik",
+      "sketchExtrusion": "Vysunutí náčrtu",
+      "sketchRevolve": "Rotace náčrtu",
+      "sketchImage": "Obrázek náčrtu",
+      "part": "{name}, část {index}"
+    },
+    "unit": {
+      "mm": "mm",
+      "cm": "cm",
+      "m": "m",
+      "in": "in",
+      "ft": "ft",
+      "stud": "výst."
+    }
+  },
+  "dashboard": {
+    "topbar": {
+      "homeLink": "Úvodní stránka SketchForge",
+      "search": "Hledat projekty",
+      "create": "Vytvořit"
+    },
+    "nav": {
+      "home": "Domů",
+      "shared": "Sdílené",
+      "challenges": "Úlohy",
+      "customization": "Přizpůsobení",
+      "dashboard": "Úvodní stránka"
+    },
+    "customization": {
+      "comingSoon": "Již brzy"
+    },
+    "button": {
+      "cancel": "Zrušit",
+      "delete": "Odstranit",
+      "save": "Uložit"
+    },
+    "time": {
+      "justNow": "Právě teď",
+      "minutesAgo": "Před {count} min",
+      "today": "Dnes"
+    },
+    "fileSize": {
+      "bytes": "{size} B",
+      "kilobytes": "{size} kB",
+      "megabytes": "{size} MB"
+    },
+    "actions": {
+      "create": "Vytvořit nový 3D projekt",
+      "import": "Otevřít SKF nebo importovat model",
+      "continue": "Pokračovat v práci"
+    },
+    "projects": {
+      "title": "Projekty",
+      "visible": "{count, plural, one {Zobrazen {count} projekt} few {Zobrazeny {count} projekty} many {Zobrazeno {count} projektu} other {Zobrazeno {count} projektů}}",
+      "sort": "Řazení projektů",
+      "sortRecent": "Podle data úpravy",
+      "sortName": "Podle názvu",
+      "view": "Rozložení seznamu projektů",
+      "gridView": "Dlaždice",
+      "listView": "Seznam",
+      "shapeCount": "{count, plural, one {{count} tvar} few {{count} tvary} many {{count} tvaru} other {{count} tvarů}}",
+      "noSnapshot": "Zatím bez obrázku",
+      "options": "Možnosti projektu",
+      "optionsFor": "Možnosti projektu „{name}“",
+      "menuFor": "Nabídka projektu „{name}“",
+      "rename": "Přejmenovat",
+      "empty": "Zatím žádné projekty",
+      "emptyHint": "Vytvořte 3D projekt a objeví se tady.",
+      "deleteTitle": "Odstranit projekt?",
+      "deleteCancel": "Zrušit odstranění projektu",
+      "deleteConfirm": "Opravdu chcete odstranit projekt „<b>{name}</b>“?",
+      "renameTitle": "Přejmenovat projekt",
+      "renameCancel": "Zrušit přejmenování projektu",
+      "nameLabel": "Název projektu"
+    },
+    "shared": {
+      "title": "Sdílené projekty",
+      "available": "{count, plural, one {{count} projekt v úložišti Docker} few {{count} projekty v úložišti Docker} many {{count} projektu v úložišti Docker} other {{count} projektů v úložišti Docker}}",
+      "refresh": "Obnovit",
+      "badge": "Sdílený",
+      "options": "Možnosti sdíleného projektu",
+      "optionsFor": "Možnosti sdíleného projektu „{name}“",
+      "menuFor": "Nabídka sdíleného projektu „{name}“",
+      "loading": "Načítání sdílených projektů",
+      "empty": "Zatím žádné sdílené projekty",
+      "emptyHint": "Projekt SKF uložíte do sdílených projektů v okně „Export“.",
+      "deleteTitle": "Odstranit sdílený projekt?",
+      "deleteCancel": "Zrušit odstranění sdíleného projektu",
+      "deleteConfirm": "Odstranit projekt „<b>{name}</b>“ ze sdílených projektů? Zmizí všem, kdo s těmito sdílenými projekty pracují.",
+      "opening": "Otevírání sdíleného projektu „{name}“",
+      "opened": "Otevřen sdílený projekt „{name}“",
+      "openedAutosave": "Otevřen sdílený projekt „{name}“. Změny se ukládají v tomto prohlížeči, dokud projekt neuložíte zpět do sdílených projektů",
+      "downloadFailed": "Nepodařilo se stáhnout sdílený projekt",
+      "openFailed": "Nepodařilo se otevřít sdílený projekt",
+      "deleting": "Odstraňování sdíleného projektu „{name}“",
+      "deleted": "Sdílený projekt „{name}“ odstraněn",
+      "saved": "Projekt „{name}“ uložen do sdílených projektů (úložiště Docker)"
+    },
+    "open": {
+      "validating": "Kontrola souboru {fileName} před otevřením jako nového projektu",
+      "opened": "Soubor {fileName} otevřen jako nový projekt v tomto prohlížeči",
+      "failed": "Nepodařilo se otevřít projekt SketchForge"
+    },
+    "import": {
+      "oneSkfAtATime": "Projekty .skf otevírejte po jednom a soubory STL, OBJ, STEP a SVG importujte zvlášť",
+      "unsupportedType": "Nepodporovaný typ souboru",
+      "progress": "Import {index} z {count}: {fileName}",
+      "readFailed": "Nepodařilo se přečíst soubor",
+      "importedOne": "Soubor {fileName} importován.",
+      "importedSome": "Importováno souborů: {imported} z {count}.",
+      "noneImported": "Nepodařilo se importovat žádný z vybraných souborů ({count}).",
+      "failures": "Chyby: {details}",
+      "failuresMore": "{count, plural, one {{details}; a ještě {count} další} few {{details}; a ještě {count} další} many {{details}; a ještě {count} dalšího} other {{details}; a ještě {count} dalších}}",
+      "createProjectFailed": "Nepodařilo se vytvořit projekt pro importované soubory"
+    },
+    "storage": {
+      "unavailable": "Úložiště projektů v prohlížeči není k dispozici",
+      "openFailed": "Nepodařilo se otevřít úložiště projektů v prohlížeči",
+      "loadFailed": "Nepodařilo se načíst tvary projektu",
+      "resourcesLoadFailed": "Nepodařilo se načíst datové soubory projektu",
+      "resourcesIncomplete": "Některé datové soubory projektu chybí",
+      "saveFailed": "Nepodařilo se uložit tvary projektu",
+      "prepareFailed": "Nepodařilo se připravit místo pro uložení projektu",
+      "migrateFailed": "Nepodařilo se přesunout tvary projektu do většího úložiště",
+      "deleteFailed": "Nepodařilo se odstranit tvary projektu z prohlížeče",
+      "saveListFailed": "Nepodařilo se uložit seznam projektů"
+    },
+    "updates": {
+      "promptTitle": "Je k dispozici SketchForge {version}",
+      "dismiss": "Zavřít nabídku aktualizace",
+      "promptQuestion": "Chcete aktualizovat z verze {version}?",
+      "safetyLocal": "Projekty v prohlížeči zůstanou zachovány. Aktualizace nahradí jen soubory aplikace SketchForge v tomto počítači.",
+      "safetyServer": "Projekty zůstanou zachovány. Soukromé projekty zůstávají v tomto prohlížeči a sdílené projekty Docker v trvalé složce <code>/data/projects</code> na serveru.",
+      "notConfigured": "Instalace jedním kliknutím není na tomto serveru nastavená. Pokračujte návodem k bezpečné aktualizaci.",
+      "keyLabel": "Klíč pro aktualizaci serveru",
+      "notNow": "Teď ne",
+      "starting": "Spouštění…",
+      "update": "Aktualizovat",
+      "openGuide": "Otevřít návod k aktualizaci",
+      "sectionTitle": "Aktualizace",
+      "sectionNote": "Aktualizace se kontrolují automaticky, ale bez vašeho souhlasu se nikdy neinstalují.",
+      "managed": "Spravuje provozovatel webu",
+      "downloading": "Stahování aktualizace…",
+      "updateTo": "Aktualizovat na {version}",
+      "upToDateStatus": "Aktuální verze",
+      "checking": "Kontrola…",
+      "check": "Zkontrolovat aktualizace",
+      "readyToInstall": "SketchForge {version} je připraven k instalaci.",
+      "availableDesktop": "Je k dispozici SketchForge {version}. Kliknutím na „Aktualizovat“ ji stáhnete a nainstalujete, SketchForge se pak restartuje.",
+      "upToDate": "SketchForge je aktuální.",
+      "alreadyUpToDate": "SketchForge už je aktuální.",
+      "downloadingVersion": "Stahování SketchForge {version}…",
+      "downloadingUpdate": "Stahování aktualizace SketchForge…",
+      "restartingToInstall": "Aktualizace je stažená. SketchForge se restartuje a nainstaluje ji…",
+      "installFailed": "Nepodařilo se nainstalovat aktualizaci",
+      "keyRequired": "Chcete-li pokračovat, zadejte klíč pro aktualizaci serveru.",
+      "localRestarting": "Aktualizace je nainstalovaná. SketchForge v tomto počítači se restartuje…",
+      "localReload": "Aktualizace je nainstalovaná. Až se SketchForge v tomto počítači restartuje, načtěte tuto stránku znovu.",
+      "serverStarted": "Aktualizace byla spuštěna. Server může být krátce nedostupný. Po jeho restartu tuto stránku znovu otevřete."
+    },
+    "settings": {
+      "title": "Nastavení",
+      "close": "Zavřít nastavení",
+      "saveMethod": "Způsob ukládání",
+      "browserDownloads": "Stahovat přes prohlížeč",
+      "saveToFolder": "Ukládat do složky",
+      "folderPath": "Umístění složky",
+      "version": "Verze SketchForge",
+      "license": "Licence",
+      "source": "Zdrojový kód",
+      "viewSource": "Otevřít zdrojový kód"
+    },
+    "challenges": {
+      "skills": "Dovednosti v této úloze",
+      "start": "Začít úlohu",
+      "skill": {
+        "basicShapes": "Základní tvary",
+        "align": "Zarovnání",
+        "hole": "Díra",
+        "lock": "Zamčení",
+        "group": "Seskupení",
+        "fillet": "Zaoblení",
+        "elevation": "Výška nad rovinou"
+      },
+      "keyTag": {
+        "title": "Klíčenka",
+        "description": "Sestavte svou první klíčenku z jednoduchých tvarů.",
+        "altLight": "Hotový model červené klíčenky na pracovní rovině SketchForge",
+        "altDark": "Hotový model červené klíčenky na tmavé pracovní rovině SketchForge"
+      },
+      "nameplate": {
+        "title": "Vlastní jmenovka",
+        "description": "Vytvořte jmenovku pro 3D tisk se zaoblenými hranami a vlastním vystouplým textem.",
+        "altLight": "Hotová modrá jmenovka ALEX na pracovní rovině SketchForge",
+        "altDark": "Hotová modrá jmenovka ALEX na tmavé pracovní rovině SketchForge"
+      }
+    },
+    "loading": {
+      "editor": "Načítání editoru"
+    }
+  },
+  "editor": {
+    "notice": {
+      "ready": "Připraveno",
+      "selectShapeFirst": "Nejprve vyberte tvar",
+      "shapeAdded": "Přidán tvar „{name}“",
+      "deleted": "{count, plural, one {Odstraněn {count} vybraný tvar} few {Odstraněny {count} vybrané tvary} many {Odstraněno {count} vybraného tvaru} other {Odstraněno {count} vybraných tvarů}}",
+      "duplicated": "{count, plural, one {Duplikován {count} tvar} few {Duplikovány {count} tvary} many {Duplikováno {count} tvaru} other {Duplikováno {count} tvarů}}",
+      "copied": "{count, plural, one {Zkopírován {count} tvar} few {Zkopírovány {count} tvary} many {Zkopírováno {count} tvaru} other {Zkopírováno {count} tvarů}}",
+      "cut": "{count, plural, one {Vyjmut {count} tvar} few {Vyjmuty {count} tvary} many {Vyjmuto {count} tvaru} other {Vyjmuto {count} tvarů}}",
+      "pasted": "{count, plural, one {Vložen {count} tvar} few {Vloženy {count} tvary} many {Vloženo {count} tvaru} other {Vloženo {count} tvarů}}",
+      "clipboardEmpty": "Schránka SketchForge je prázdná",
+      "pasteCancelled": "Vložení zrušeno, protože se projekt změnil",
+      "finishBeforeUndo": "Před vrácením akce dokončete přetahování nebo úpravu tvaru",
+      "finishBeforeRedo": "Před opakováním akce dokončete přetahování nebo úpravu tvaru",
+      "finishBeforeRotate": "Před otočením dokončete přetahování nebo úpravu tvaru",
+      "finishBeforeSave": "Před uložením souboru projektu dokončete přetahování nebo úpravu tvaru",
+      "nothingToUndo": "Není co vrátit zpět",
+      "nothingToRedo": "Není co opakovat",
+      "undone": "Akce vrácena zpět",
+      "redone": "Akce provedena znovu",
+      "selectionHidden": "Vybrané objekty skryty",
+      "selectionVisible": "Vybrané objekty zobrazeny",
+      "noHiddenShapes": "Žádné skryté tvary",
+      "showedHidden": "{count, plural, one {Zobrazen {count} skrytý tvar} few {Zobrazeny {count} skryté tvary} many {Zobrazeno {count} skrytého tvaru} other {Zobrazeno {count} skrytých tvarů}}",
+      "selectionLocked": "Vybrané objekty zamčeny",
+      "selectionUnlocked": "Vybrané objekty odemčeny",
+      "withDetail": "{message}; {detail}",
+      "selectionIsLocked": "Vybrané objekty jsou zamčené, nelze je otočit",
+      "changedToHole": "Vybrané objekty změněny na díry",
+      "changedToSolid": "Vybrané objekty změněny na tělesa",
+      "droppedToWorkplane": "Vybrané objekty položeny na pracovní rovinu",
+      "movedSelection": "Vybrané objekty přesunuty",
+      "selectionCleared": "Výběr zrušen",
+      "selectedAllVisible": "Vybrány všechny viditelné tvary",
+      "rotated": "{count, plural, one {Otočen {count} tvar o {angle}°} few {Otočeny {count} tvary o {angle}°} many {Otočeno {count} tvaru o {angle}°} other {Otočeno {count} tvarů o {angle}°}}",
+      "snapped": "{count, plural, one {Přichycen {count} tvar k viditelné mřížce s roztečí {grid} {unit}} few {Přichyceny {count} tvary k viditelné mřížce s roztečí {grid} {unit}} many {Přichyceno {count} tvaru k viditelné mřížce s roztečí {grid} {unit}} other {Přichyceno {count} tvarů k viditelné mřížce s roztečí {grid} {unit}}}",
+      "newEmptyDesign": "Nový prázdný projekt",
+      "savedDesign": "{count, plural, one {Projekt uložen: {count} tvar} few {Projekt uložen: {count} tvary} many {Projekt uložen: {count} tvaru} other {Projekt uložen: {count} tvarů}}",
+      "nothingToCopy": "Zatím není co kopírovat",
+      "madeCopy": "Vytvořena kopie projektu"
+    },
+    "workplane": {
+      "toolActive": "Pracovní rovina: klikněte na plochu nebo na prázdné místo mřížky. Podržením Shift rovinu obrátíte",
+      "toolCancelled": "Umístění pracovní roviny zrušeno",
+      "setToFace": "Pracovní rovina umístěna na vybranou plochu",
+      "resetToBase": "Pracovní rovina vrácena do výchozí polohy",
+      "updated": "Pracovní rovina změněna"
+    },
+    "align": {
+      "needTwo": "Pro zarovnání vyberte alespoň dva tvary",
+      "started": "Zarovnání: zvolte bod nebo tvar pro zarovnání",
+      "cancelled": "Zarovnání zrušeno",
+      "anchor": "Zarovnání podle tvaru „{name}“",
+      "anchorLocked": "Zarovnání podle tvaru „{name}“ (zamčený)",
+      "anchorSet": "Tvar pro zarovnání nastaven",
+      "alreadyAligned": "Již zarovnáno",
+      "aligned": "{count, plural, one {Zarovnán {count} tvar {direction}} few {Zarovnány {count} tvary {direction}} many {Zarovnáno {count} tvaru {direction}} other {Zarovnáno {count} tvarů {direction}}}",
+      "handleAlign": "Zarovnat {direction}",
+      "handleAligned": "Již zarovnáno {direction}",
+      "direction": {
+        "left": "doleva",
+        "center": "na střed",
+        "right": "doprava",
+        "front": "dopředu",
+        "middle": "doprostřed",
+        "back": "dozadu",
+        "bottom": "dolů",
+        "top": "nahoru"
+      }
+    },
+    "mirror": {
+      "started": "Zrcadlení: zvolte šipku osy",
+      "cancelled": "Zrcadlení zrušeno",
+      "nothing": "Není co zrcadlit",
+      "mirrored": "{count, plural, one {Zrcadlen {count} tvar ({axis})} few {Zrcadleny {count} tvary ({axis})} many {Zrcadleno {count} tvaru ({axis})} other {Zrcadleno {count} tvarů ({axis})}}",
+      "axis": {
+        "x": "zleva doprava",
+        "y": "shora dolů",
+        "z": "zepředu dozadu"
+      }
+    },
+    "group": {
+      "needTwo": "Pro seskupení vyberte alespoň dva tvary",
+      "unlockAll": "Před seskupením odemkněte všechny vybrané tvary",
+      "sceneChanged": "Během seskupování se objekty změnily. Vyberte je a zkuste to znovu",
+      "holeConsumedSolid": "Seskupeno: díra odstranila celé těleso",
+      "grouped": "{count, plural, one {Seskupen {count} tvar} few {Seskupeny {count} tvary} many {Seskupeno {count} tvaru} other {Seskupeno {count} tvarů}}",
+      "failedImportedCut": "Z tohoto importovaného modelu se nepodařilo čistě odečíst díru",
+      "failedCut": "U vybraných objektů se nepodařilo odečíst díru",
+      "failedGroup": "Vybrané objekty se nepodařilo seskupit",
+      "intersectionNeedsSolidAndHole": "Pro průnik vyberte alespoň jedno těleso a jednu díru",
+      "intersectionFailed": "Průnik se nepodařilo čistě vypočítat",
+      "intersectionSceneChanged": "Během výpočtu průniku se objekty změnily. Vyberte je a zkuste to znovu",
+      "intersectionEmpty": "Průnik je prázdný: tvary nemají žádnou společnou část",
+      "intersected": "{count, plural, one {Vytvořen průnik {count} tvaru} few {Vytvořen průnik {count} tvarů} many {Vytvořen průnik {count} tvaru} other {Vytvořen průnik {count} tvarů}}",
+      "selectGroup": "Nejprve vyberte skupinu",
+      "ungrouped": "{count, plural, one {Zrušeno seskupení {count} skupiny} few {Zrušeno seskupení {count} skupin} many {Zrušeno seskupení {count} skupiny} other {Zrušeno seskupení {count} skupin}}"
+    },
+    "separate": {
+      "selectOne": "Vyberte jeden objekt, který chcete rozdělit na části",
+      "unlock": "Před rozdělením na části objekt odemkněte",
+      "singlePart": "Vybraný objekt má jen jednu souvislou část",
+      "separated": "{count, plural, one {Objekt rozdělen na {count} část} few {Objekt rozdělen na {count} části} many {Objekt rozdělen na {count} části} other {Objekt rozdělen na {count} částí}}"
+    },
+    "edgeModifier": {
+      "cancelled": "Úprava hran zrušena",
+      "cancelledObjectChanged": "Úprava hran zrušena, protože se objekt změnil",
+      "selectSolid": {
+        "fillet": "Pro zaoblení vyberte jedno odemčené těleso",
+        "chamfer": "Pro zkosení vyberte jedno odemčené těleso"
+      },
+      "noSurface": "Vybraný objekt nemá povrch, který lze vytisknout",
+      "tooDense": "Model má pro úpravu hran příliš mnoho trojúhelníků. Nejprve ho zjednodušte pod 180 000 trojúhelníků.",
+      "preparing": {
+        "fillet": "Příprava hran k zaoblení",
+        "chamfer": "Příprava hran ke zkosení"
+      },
+      "selectHighlighted": "Vyberte zvýrazněné hrany a pak upravte náhled",
+      "previewReady": "Náhled úpravy hran je připraven",
+      "needsAdjustment": "Změňte nastavení úpravy hran",
+      "waitForPreview": "Před použitím počkejte na platný náhled hran",
+      "applied": {
+        "fillet": "{count, plural, one {Zaoblena {count} hrana} few {Zaobleny {count} hrany} many {Zaobleno {count} hrany} other {Zaobleno {count} hran}}",
+        "chamfer": "{count, plural, one {Zkosena {count} hrana} few {Zkoseny {count} hrany} many {Zkoseno {count} hrany} other {Zkoseno {count} hran}}"
+      },
+      "defaultTarget": "Objekt"
+    },
+    "edgeFeature": {
+      "label": {
+        "fillet": "{count, plural, one {zaoblení ({amount} {unit}, {count} hrana)} few {zaoblení ({amount} {unit}, {count} hrany)} many {zaoblení ({amount} {unit}, {count} hrany)} other {zaoblení ({amount} {unit}, {count} hran)}}",
+        "chamfer": "{count, plural, one {zkosení ({amount} {unit}, {count} hrana)} few {zkosení ({amount} {unit}, {count} hrany)} many {zkosení ({amount} {unit}, {count} hrany)} other {zkosení ({amount} {unit}, {count} hran)}}"
+      },
+      "selectShape": "Nejprve vyberte tvar se zaoblením nebo zkosením",
+      "unlockShape": "Před odstraněním zaoblení nebo zkosení tvar odemkněte",
+      "chooseFeature": "Zvolte zaoblení nebo zkosení, které chcete odstranit",
+      "noUndoHistory": "Toto zaoblení nebo zkosení nemá uloženou historii změn",
+      "none": "Žádné zaoblení ani zkosení k odstranění",
+      "objectChanged": "Během odstraňování se objekt změnil. Zkuste to znovu",
+      "removed": "Odstraněno: {feature}"
+    },
+    "sketch": {
+      "started": "Náčrt zahájen: umístěte první bod",
+      "revolveStarted": "Náčrt pro rotaci zahájen: kreslete vlevo od osy",
+      "editingExtrude": "Úprava profilu náčrtu pro vysunutí",
+      "editingRevolve": "Úprava profilu náčrtu pro rotaci",
+      "selectToEdit": "Vyberte jeden tvar vytvořený z náčrtu, který chcete upravit",
+      "cancelled": "Náčrt zrušen",
+      "nothingToUndo": "V náčrtu není co vrátit zpět",
+      "undone": "Akce v náčrtu vrácena zpět",
+      "nothingToRedo": "V náčrtu není co opakovat",
+      "redone": "Akce v náčrtu provedena znovu",
+      "toolHint": {
+        "line": "Čára: klikáním umisťujte body rovných segmentů",
+        "bezier": "Bézierova křivka: klikněte na místo bodu a táhněte, tím vytáhnete úchyty křivky",
+        "smooth": "Hladká křivka: klikáním umisťujte body plynulé čáry",
+        "rectangle": "Obdélník: tažením přes náčrt vytvoříte uzavřený obdélník",
+        "circle": "Kružnice: tažením ohraničujícího rámečku vytvoříte uzavřenou kružnici",
+        "triangle": "Trojúhelník: tažením ohraničujícího rámečku vytvoříte uzavřený trojúhelník",
+        "hexagon": "Šestiúhelník: tažením ohraničujícího rámečku vytvoříte uzavřený šestiúhelník",
+        "select": "Výběr: upravujte čáry náčrtu nebo umisťujte obrázky a měňte jejich velikost",
+        "refine": "Přidat nebo odebrat body: kliknutím na segment přidáte bod, kliknutím na bod ho odeberete",
+        "erase": "Guma: kliknutím na bod nebo segment ho odstraníte",
+        "measure": "Měření: zvolte dva body"
+      },
+      "measureSecond": "Zvolte druhý bod měření",
+      "measured": "Naměřeno {value} {unit}",
+      "measurementRemoved": "Měření v náčrtu odstraněno",
+      "profileClosed": "Profil uzavřen – upravte čáru, nebo dokončete náčrt",
+      "segmentAdded": "Segment náčrtu přidán",
+      "pointAndSegmentAdded": "Bod a segment náčrtu přidány",
+      "pointAdded": "Bod náčrtu přidán",
+      "pointRemoved": "Bod náčrtu odstraněn",
+      "lineRemoved": "Čára náčrtu odstraněna",
+      "pointMoved": "Bod náčrtu přesunut",
+      "pointInserted": "Bod přidán na čáru",
+      "handleAdjusted": "Úchyt křivky upraven",
+      "madeCorner": "Bod změněn na rohový",
+      "madeSmooth": "Bod změněn na hladký",
+      "handlesSplit": "Úchyty křivky rozděleny",
+      "geometryTransformed": "Náčrt změněn",
+      "selectToRemove": "Vyberte bod nebo segment náčrtu, který chcete odstranit",
+      "selectionRemoved": "Vybrané prvky náčrtu odstraněny",
+      "selectClosedToRotate": "Vyberte uzavřený tvar náčrtu, který chcete otočit",
+      "rotateClosedOnly": "Otáčet lze jen uzavřené tvary náčrtu",
+      "rotated45": "Vybrané uzavřené tvary náčrtu otočeny o 45°",
+      "chainCleared": "Kreslení aktuální čáry ukončeno",
+      "selectedItems": "{count, plural, one {Vybrán {count} prvek náčrtu} few {Vybrány {count} prvky náčrtu} many {Vybráno {count} prvku náčrtu} other {Vybráno {count} prvků náčrtu}}",
+      "selectionCleared": "Výběr v náčrtu zrušen",
+      "primitive": {
+        "rectangle": "Obdélník",
+        "circle": "Kružnice",
+        "triangle": "Trojúhelník",
+        "hexagon": "Šestiúhelník"
+      },
+      "primitiveHint": {
+        "rectangle": "Přidat obdélník do počátku náčrtu, nebo ho přetáhnout na náčrt",
+        "circle": "Přidat kružnici do počátku náčrtu, nebo ji přetáhnout na náčrt",
+        "triangle": "Přidat trojúhelník do počátku náčrtu, nebo ho přetáhnout na náčrt",
+        "hexagon": "Přidat šestiúhelník do počátku náčrtu, nebo ho přetáhnout na náčrt"
+      },
+      "primitiveAdded": "Tvar „{shape}“ přidán do náčrtu",
+      "imageSelected": "Obrázek náčrtu vybrán",
+      "imageUpdated": "Obrázek náčrtu změněn",
+      "imageRemoved": "Obrázek náčrtu odstraněn",
+      "imageLockedEdit": "Před úpravou obrázek náčrtu odemkněte klávesou L",
+      "imageLockedDelete": "Před odstraněním obrázek náčrtu odemkněte klávesou L",
+      "chooseSelectForImage": "Před přidáním obrázku zvolte nástroj „Výběr“",
+      "chooseImageFile": "Zvolte obrázek PNG, JPG, WebP, GIF nebo jiný obrázkový soubor",
+      "imageAdded": "Obrázek „{name}“ přidán do náčrtu",
+      "imageAddFailed": "Obrázek se nepodařilo přidat do náčrtu",
+      "selectImageToLock": "Vyberte obrázek náčrtu, který chcete zamknout nebo odemknout",
+      "imageLocked": "Obrázek náčrtu zamčen",
+      "imageUnlocked": "Obrázek náčrtu odemčen",
+      "building": "Vytváření přesného tělesa z náčrtu…",
+      "cannotExtrude": "Profil náčrtu nelze vysunout do 3D",
+      "cannotRevolve": "Z profilu náčrtu nelze rotací vytvořit 3D těleso",
+      "closeProfile": "Před dokončením náčrtu uzavřete alespoň jeden profil",
+      "updated": "Náčrt aktualizován",
+      "revolveUpdated": "Náčrt pro rotaci aktualizován",
+      "extrusionCreated": "Z náčrtu vytvořeno přesné těleso o výšce {height} {unit}",
+      "revolveCreated": "Z náčrtu vytvořeno rotační těleso",
+      "revolvePreviewUpdating": "Aktualizace náhledu rotace…",
+      "revolveShapeUpdated": "Rotační těleso aktualizováno",
+      "revolveSettingsFailed": "Nastavení rotace se nepodařilo použít"
+    },
+    "export": {
+      "needSolidSelected": "Před exportem vyberte alespoň jedno těleso",
+      "needSolid": "Před exportem přidejte alespoň jedno těleso",
+      "needSolidStep": "Před exportem do STEP vyberte alespoň jedno těleso",
+      "invalidSvg": "{reason}. Opravte obrysy ve zdrojovém SVG a importujte ho znovu",
+      "buildingSvg": "Vytváření SVG s pohledem shora…",
+      "buildingBrep": "Příprava B-Rep… Při prvním exportu do STEP se načítá modul OpenCascade (~22 MB), jednou za relaci",
+      "savedTo": "Soubor {format} uložen do {path}",
+      "exported": "Exportováno do {format}",
+      "exportedSelected": "{count, plural, one {Exportován {count} vybraný tvar do formátu {format}} few {Exportovány {count} vybrané tvary do formátu {format}} many {Exportováno {count} vybraného tvaru do formátu {format}} other {Exportováno {count} vybraných tvarů do formátu {format}}}",
+      "failed": "Export do {format} se nezdařil",
+      "stepSaved": "{count, plural, one {Soubor STEP ({count} těleso) uložen do {path}} few {Soubor STEP ({count} tělesa) uložen do {path}} many {Soubor STEP ({count} tělesa) uložen do {path}} other {Soubor STEP ({count} těles) uložen do {path}}}",
+      "stepExported": "{count, plural, one {Exportován STEP (B-Rep): {count} těleso} few {Exportován STEP (B-Rep): {count} tělesa} many {Exportován STEP (B-Rep): {count} tělesa} other {Exportován STEP (B-Rep): {count} těles}}",
+      "stepSkipped": "{count, plural, one {přeskočen {count} tvar, který nelze uložit do STEP} few {přeskočeny {count} tvary, které nelze uložit do STEP} many {přeskočeno {count} tvaru, který nelze uložit do STEP} other {přeskočeno {count} tvarů, které nelze uložit do STEP}}",
+      "sharedUnavailable": "Sdílené projekty nejsou v této instalaci k dispozici",
+      "packagingShared": "Příprava projektu pro sdílené úložiště Docker…",
+      "packaging": "Příprava upravitelného projektu, historie změn a datových souborů…",
+      "projectSavedTo": "Upravitelný projekt SketchForge uložen do {path}",
+      "projectSaved": "Upravitelný projekt SketchForge uložen (.skf)",
+      "projectSaveFailed": "Nepodařilo se uložit projekt SketchForge"
+    },
+    "import": {
+      "oneSkf": "Projekty .skf otevírejte po jednom a soubory STL, OBJ, STEP a SVG importujte zvlášť",
+      "skfUnavailable": "Soubory projektů SketchForge zde nelze otevřít",
+      "validatingSkf": "Kontrola souboru {name} před otevřením jako nového projektu",
+      "cancelledProjectChanged": "{count, plural, one {Import {count} souboru zrušen, protože se projekt změnil} few {Import {count} souborů zrušen, protože se projekt změnil} many {Import {count} souboru zrušen, protože se projekt změnil} other {Import {count} souborů zrušen, protože se projekt změnil}}",
+      "unsupportedType": "Nepodporovaný typ souboru",
+      "importing": "Import {index} z {count}: {name}",
+      "importingStep": "Import {index} z {count}: {name}… Při prvním importu STEP se načítá modul OpenCascade (~22 MB)",
+      "readFailed": "Nepodařilo se přečíst soubor",
+      "failedList": "Chyby: {details}",
+      "failedMore": "{count, plural, one {a ještě {count} další} few {a ještě {count} další} many {a ještě {count} dalšího} other {a ještě {count} dalších}}",
+      "noneImported": "Nepodařilo se importovat žádný z vybraných souborů ({count}).",
+      "importedFile": "Soubor {name} importován.",
+      "importedCount": "Importováno souborů: {imported} z {count}."
+    },
+    "toolbar": {
+      "home": "Domů",
+      "homeDashboard": "Přejít na úvodní stránku",
+      "clipboard": "Schránka",
+      "copy": "Kopírovat",
+      "paste": "Vložit",
+      "duplicate": "Duplikovat",
+      "delete": "Odstranit",
+      "history": "Historie",
+      "undo": "Zpět",
+      "redo": "Znovu",
+      "shapes": "Tvary",
+      "addShape": "Přidat tvar",
+      "basicShapes": "Základní tvary",
+      "renameProject": "Přejmenovat projekt",
+      "projectName": "Název projektu",
+      "visibility": "Viditelnost",
+      "showSelected": "Zobrazit vybrané objekty",
+      "hideSelected": "Skrýt vybrané objekty",
+      "visibilityOptions": "Možnosti viditelnosti",
+      "nothingHidden": "Nic není skryto",
+      "showAllHidden": "Zobrazit všechny skryté ({count})",
+      "visibilityHelpSelected": "Tlačítko s okem: vybrané objekty",
+      "visibilityHelpAll": "všechny",
+      "visibilityHelpShortcut": "<keys></keys>: {action}",
+      "combine": "Kombinace",
+      "group": "Seskupit",
+      "ungroup": "Zrušit seskupení",
+      "intersection": "Průnik",
+      "modify": "Úpravy",
+      "align": "Zarovnat",
+      "mirror": "Zrcadlit",
+      "snapToGrid": "Přichytit k mřížce",
+      "chamfer": "Zkosení",
+      "fillet": "Zaoblení",
+      "arrange": "Uspořádání",
+      "dropToWorkplane": "Položit na pracovní rovinu",
+      "manage": "Správa",
+      "import": "Importovat",
+      "export": "Exportovat",
+      "workspaceSettings": "Nastavení pracovního prostoru",
+      "sketchToolbar": "Panel nástrojů náčrtu",
+      "draw": "Kreslení",
+      "line": "Čára",
+      "bezier": "Bézierova křivka",
+      "smooth": "Hladká křivka",
+      "addSketchShape": "Přidat tvar do náčrtu",
+      "sketchShapesMenu": "Tvary náčrtu",
+      "sketchShapesTitle": "Tvary náčrtu",
+      "select": "Výběr",
+      "addImageLabel": "Přidat obrázek",
+      "addImage": "Přidat obrázek",
+      "addImageNeedsSelect": "Pro přidání obrázku zvolte nástroj „Výběr“",
+      "refine": "Přidat nebo odebrat body",
+      "erase": "Guma",
+      "sketchUndo": "Zpět v náčrtu",
+      "sketchRedo": "Znovu v náčrtu",
+      "inspect": "Kontrola",
+      "measure": "Měření",
+      "finish": "Dokončení",
+      "finishSketch": "Dokončit náčrt",
+      "finishRevolve": "Dokončit rotaci",
+      "cancelSketch": "Zrušit",
+      "create": "Tvorba",
+      "sketchTo3d": "Náčrt na 3D",
+      "sketchTo3dOptions": "Způsoby převodu náčrtu na 3D",
+      "sketchTo3dMethod": "Způsob převodu náčrtu na 3D",
+      "extrudeSketch": "Vysunutí",
+      "extrudeSketchHint": "Vysune profil do výšky a vytvoří z něj 3D tvar",
+      "revolveSketch": "Rotace",
+      "revolveSketchHint": "Otočí profil kolem osy a vytvoří rotační těleso",
+      "editSketchTo3d": "Upravit náčrt tvaru",
+      "edit": "Upravit",
+      "editorMode": "Režim editoru",
+      "geometry": "3D model",
+      "sketch": "Náčrt"
+    },
+    "panel": {
+      "import": "Import",
+      "export": "Export",
+      "settings": "Nastavení",
+      "profile": "Profil",
+      "close": "Zavřít panel „{title}“",
+      "openProject": "Otevřít projekt SketchForge",
+      "openProjectHint": "Obnoví upravitelný soubor .skf jako nový projekt v tomto prohlížeči",
+      "orAddGeometry": "nebo přidejte modely ze souborů",
+      "dropFiles": "Přetáhněte sem soubory STL, OBJ, STEP nebo SVG",
+      "orClickToChoose": "nebo klikněte a vyberte je v počítači",
+      "fileName": "Soubor",
+      "format": "Formát",
+      "fullProject": "Celý projekt",
+      "scopeSelected": "Vybráno: {count}",
+      "scopeTotal": "Celkem: {count}",
+      "exportFormat": "Formát exportu",
+      "formatInfo": {
+        "stl": {
+          "description": "Model pro 3D tisk",
+          "note": "Nejlepší pro slicery (programy pro přípravu tisku) a 3D tisk. Model se exportuje jako síť trojúhelníků."
+        },
+        "obj": {
+          "description": "Univerzální 3D model",
+          "note": "Široce podporovaný formát 3D modelů pro modelování, vizualizaci a přenos mezi programy."
+        },
+        "step": {
+          "description": "CAD / B-Rep",
+          "note": "Zachová podporované kvádry, válce, koule a kužele jako přesnou geometrii pro CAD programy."
+        },
+        "svg": {
+          "description": "Vektorový pohled shora",
+          "note": "Exportuje čistý obrys pohledu shora v milimetrech, včetně děr a zakřivených obrysů."
+        },
+        "skf": {
+          "description": "Upravitelný projekt",
+          "note": "Zachová upravitelný projekt, historii změn, náčrty, skupiny, data CAD a importované zdrojové soubory."
+        }
+      },
+      "historyTitle": "Uložená historie akcí",
+      "historyHint": "Zvolte, kolik posledních akcí se uloží s projektem, aby šly vrátit zpět",
+      "historyRange": "Uložená historie akcí v SKF",
+      "historyUnlimited": "Bez omezení",
+      "historyActions": "{count, plural, one {{count} akce} few {{count} akce} many {{count} akce} other {{count} akcí}}",
+      "saveToShared": "Uložit do sdílených",
+      "savingProject": "Ukládání projektu…",
+      "saveProject": "Uložit projekt SketchForge",
+      "buildingStep": "Příprava STEP…",
+      "exportAs": "Exportovat {format}",
+      "workspacePreferences": "Předvolby pracovního prostoru",
+      "gridAndSnapping": "Mřížka a přichycení",
+      "gridNotice": "Mřížku nastavíte v okně „Nastavení“ v pravém dolním rohu",
+      "unitsMillimeters": "Jednotky: milimetry",
+      "unitsNotice": "Jednotky jsou nastaveny na milimetry",
+      "lighting": "Osvětlení a stíny",
+      "lightingNotice": "Stíny a sledování paprsků jsou zapnuté",
+      "account": "Účet",
+      "accountNotice": "Nabídka účtu otevřena",
+      "dashboard": "Úvodní stránka",
+      "dashboardNotice": "Úvodní stránka otevřena",
+      "signOut": "Odhlásit se",
+      "signOutNotice": "Zvoleno odhlášení"
+    },
+    "mcp": {
+      "selected": "{count, plural, one {MCP: vybrán {count} objekt} few {MCP: vybrány {count} objekty} many {MCP: vybráno {count} objektu} other {MCP: vybráno {count} objektů}}",
+      "selectionCleared": "MCP: výběr zrušen",
+      "deleted": "{count, plural, one {MCP: odstraněn {count} objekt} few {MCP: odstraněny {count} objekty} many {MCP: odstraněno {count} objektu} other {MCP: odstraněno {count} objektů}}",
+      "added": "MCP: přidán objekt „{name}“",
+      "imported": "MCP: importován objekt „{name}“",
+      "updated": "MCP: upraven objekt „{name}“",
+      "alreadyAligned": "MCP: objekty už jsou zarovnány {direction}",
+      "aligned": "{count, plural, one {MCP: zarovnán {count} objekt {direction}} few {MCP: zarovnány {count} objekty {direction}} many {MCP: zarovnáno {count} objektu {direction}} other {MCP: zarovnáno {count} objektů {direction}}}",
+      "grouped": "{count, plural, one {MCP: seskupen {count} objekt} few {MCP: seskupeny {count} objekty} many {MCP: seskupeno {count} objektu} other {MCP: seskupeno {count} objektů}}",
+      "groupConsumedSolid": "MCP: díra při seskupení odstranila celé těleso",
+      "ungrouped": "{count, plural, one {MCP: zrušeno seskupení {count} skupiny} few {MCP: zrušeno seskupení {count} skupin} many {MCP: zrušeno seskupení {count} skupiny} other {MCP: zrušeno seskupení {count} skupin}}",
+      "cutComplete": "MCP: díra odečtena",
+      "cutConsumedSolid": "MCP: díra při odečtení odstranila celé těleso",
+      "separated": "{count, plural, one {MCP: objekt rozdělen na {count} část} few {MCP: objekt rozdělen na {count} části} many {MCP: objekt rozdělen na {count} části} other {MCP: objekt rozdělen na {count} částí}}",
+      "filleted": "{count, plural, one {MCP: zaoblena {count} hrana} few {MCP: zaobleny {count} hrany} many {MCP: zaobleno {count} hrany} other {MCP: zaobleno {count} hran}}",
+      "chamfered": "{count, plural, one {MCP: zkosena {count} hrana} few {MCP: zkoseny {count} hrany} many {MCP: zkoseno {count} hrany} other {MCP: zkoseno {count} hran}}"
+    }
+  },
+  "workspace": {
+    "shortcutHint": "{label} ({key})",
+    "viewCube": {
+      "label": "Krychle pro volbu pohledu",
+      "face": {
+        "top": "SHORA",
+        "bottom": "ZDOLA",
+        "front": "ZEPŘEDU",
+        "back": "ZEZADU",
+        "right": "ZPRAVA",
+        "left": "ZLEVA"
+      },
+      "view": {
+        "top": "Pohled shora",
+        "bottom": "Pohled zdola",
+        "front": "Pohled zepředu",
+        "back": "Pohled zezadu",
+        "right": "Pohled zprava",
+        "left": "Pohled zleva"
+      }
+    },
+    "camera": {
+      "controls": "Ovládání kamery",
+      "showControls": "Zobrazit ovládání",
+      "showControlsLabel": "Zobrazit ovládání kamery",
+      "hideControls": "Skrýt ovládání",
+      "hideControlsLabel": "Skrýt ovládání kamery",
+      "home": "Výchozí pohled",
+      "zoomIn": "Přiblížit",
+      "zoomOut": "Oddálit"
+    },
+    "workplane": {
+      "label": "Pracovní rovina",
+      "place": "Umístit pracovní rovinu"
+    },
+    "ruler": {
+      "tools": "Nástroje pravítka",
+      "actions": "Příkazy pravítka",
+      "add": "Přidat měření",
+      "movePoints": "Přesunout body měření",
+      "deletePart": "Odstranit část měření",
+      "measurements": "Měření pravítkem"
+    },
+    "dimension": {
+      "width": "Šířka",
+      "height": "Výška"
+    },
+    "transform": {
+      "resize": "Změnit velikost",
+      "lift": "Zvednout nad pracovní rovinu",
+      "rotate": "Otočit"
+    },
+    "moveDimensions": {
+      "label": "Kóty přesunu",
+      "axis": "Přesun v ose {axis}"
+    },
+    "align": {
+      "handles": "Úchyty zarovnání"
+    },
+    "mirror": {
+      "handles": "Úchyty zrcadlení",
+      "x": "Zrcadlit zleva doprava",
+      "y": "Zrcadlit shora dolů",
+      "z": "Zrcadlit zepředu dozadu"
+    },
+    "sketch": {
+      "badge": {
+        "extrude": "Režim náčrtu",
+        "revolve": "Náčrt pro rotaci"
+      },
+      "viewControls": "Ovládání pohledu na náčrt",
+      "resetView": "Obnovit pohled na náčrt",
+      "plate": "Rovina 2D náčrtu",
+      "revolveAxis": "OSA ROTACE",
+      "removeMeasurement": "Odstranit měření",
+      "point": {
+        "actions": "Příkazy pro bod",
+        "corner": "Rohový",
+        "cornerTitle": "Změnit na rohový bod",
+        "smooth": "Hladký",
+        "smoothTitle": "Změnit na hladký bod",
+        "split": "Rozdělit",
+        "splitTitle": "Rozdělit úchyty"
+      },
+      "notice": {
+        "shapeMoved": "Tvar náčrtu přesunut",
+        "shapeResized": "Velikost tvaru náčrtu změněna",
+        "imageMoved": "Obrázek náčrtu přesunut",
+        "imageResized": "Velikost obrázku náčrtu změněna",
+        "imageWidthUpdated": "Šířka obrázku náčrtu změněna",
+        "imageHeightUpdated": "Výška obrázku náčrtu změněna",
+        "imageOpacityUpdated": "Neprůhlednost obrázku náčrtu změněna",
+        "imageLocked": "Obrázek náčrtu zamčen",
+        "imageUnlocked": "Obrázek náčrtu odemčen",
+        "imageAspectUpdated": "Nastavení poměru stran obrázku změněno"
+      },
+      "image": {
+        "settings": "Nastavení obrázku „{name}“",
+        "closeSettings": "Zavřít nastavení obrázku",
+        "lockLabel": "Zamknout obrázek náčrtu",
+        "unlockLabel": "Odemknout obrázek náčrtu",
+        "lock": "Zamknout obrázek",
+        "unlock": "Odemknout obrázek",
+        "deleteLabel": "Odstranit obrázek náčrtu",
+        "delete": "Odstranit obrázek",
+        "deleteLocked": "Před odstraněním obrázek odemkněte",
+        "pixelSize": "{width} × {height} px",
+        "properties": "Vlastnosti",
+        "opacity": "Neprůhlednost",
+        "positionX": "Poloha X",
+        "positionY": "Poloha Y",
+        "aspectLocked": "Poměr stran zamčen",
+        "aspectUnlocked": "Poměr stran odemčen"
+      },
+      "revolvePreview": {
+        "label": "3D náhled rotace",
+        "title": "3D náhled",
+        "empty": "Nakreslete uzavřený profil vlevo od osy"
+      }
+    }
+  },
+  "panels": {
+    "unit": {
+      "deg": "°",
+      "degrees": "{value}°",
+      "millimeters": "{value} mm"
+    },
+    "snapGrid": {
+      "label": "Přichycení k mřížce",
+      "off": "Vypnuto",
+      "brick": "Kostka"
+    },
+    "measurement": {
+      "units": {
+        "metric": "Metrické (výchozí)",
+        "imperial": "Imperiální",
+        "bricks": "Kostky"
+      },
+      "scale": {
+        "mm": "1:1 (milimetry)",
+        "cm": "1:10 (centimetry)",
+        "m": "1:1000 (metry)",
+        "in": "1:1 (palce)",
+        "ft": "1:1 (stopy)",
+        "stud": "1:1 (výstupky)"
+      }
+    },
+    "font": {
+      "multilanguage": "Vícejazyčné",
+      "sans": "Bezpatkové",
+      "serif": "Patkové",
+      "script": "Psací",
+      "monospace": "Neproporcionální",
+      "rounded": "Zaoblené",
+      "stencil": "Šablonové"
+    },
+    "gearType": {
+      "label": "Typ ozubeného kola",
+      "spur": "S přímými zuby",
+      "helical": "Se šikmými zuby",
+      "bevel": "Kuželové"
+    },
+    "property": {
+      "length": "Délka",
+      "width": "Šířka",
+      "height": "Výška",
+      "sides": "Počet stran",
+      "steps": "Počet segmentů",
+      "startAngle": "Počáteční úhel",
+      "sweep": "Úhel rotace",
+      "topRadius": "Horní poloměr",
+      "baseRadius": "Poloměr podstavy",
+      "thickness": "Tloušťka stěny",
+      "teeth": "Počet zubů",
+      "toothSize": "Velikost zubu",
+      "toothWidth": "Šířka zubu",
+      "helixAngle": "Úhel sklonu zubů",
+      "quality": "Kvalita",
+      "centerHole": "Díra uprostřed",
+      "text": "Text",
+      "font": "Písmo",
+      "bevel": "Zkosení",
+      "segments": "Počet segmentů",
+      "topLength": "Délka nahoře",
+      "topWidth": "Šířka nahoře",
+      "bottomLength": "Délka dole",
+      "bottomWidth": "Šířka dole"
+    },
+    "inspector": {
+      "label": "Nastavení tvaru „{name}“",
+      "expand": "Rozbalit nastavení tvaru",
+      "minimize": "Sbalit nastavení tvaru",
+      "lock": "Zamknout tvar",
+      "unlock": "Odemknout tvar",
+      "show": "Zobrazit tvar",
+      "hide": "Skrýt tvar",
+      "mode": "Těleso nebo díra",
+      "solid": "Těleso",
+      "hole": "Díra",
+      "color": {
+        "label": "Barva tvaru",
+        "title": "Barva",
+        "set": "Nastavit barvu {color}",
+        "customTitle": "Vlastní barva",
+        "custom": "Vlastní"
+      },
+      "editSketch": "Upravit náčrt",
+      "separateParts": "Rozdělit na části",
+      "section": {
+        "properties": "Vlastnosti",
+        "taper": "Zúžení",
+        "teeth": "Zuby",
+        "helix": "Sklon zubů"
+      },
+      "gearType": "Typ ozubeného kola"
+    },
+    "edgeModifier": {
+      "title": {
+        "fillet": "Zaoblení hran",
+        "chamfer": "Zkosení hran"
+      },
+      "cancelFillet": "Zrušit zaoblení",
+      "cancelChamfer": "Zrušit zkosení",
+      "status": {
+        "preparing": "Příprava hran…",
+        "selected": "{count, plural, one {Vybráno: {selected} z {count} ostré hrany} few {Vybráno: {selected} z {count} ostrých hran} many {Vybráno: {selected} z {count} ostré hrany} other {Vybráno: {selected} z {count} ostrých hran}}"
+      },
+      "target": {
+        "single": "Jeden objekt",
+        "grouped": "{count, plural, one {{count} seskupený objekt} few {{count} seskupené objekty} many {{count} seskupeného objektu} other {{count} seskupených objektů}}",
+        "features": "{count, plural, one {dříve přidaná zaoblení a zkosení: {count}} few {dříve přidaná zaoblení a zkosení: {count}} many {dříve přidaná zaoblení a zkosení: {count}} other {dříve přidaná zaoblení a zkosení: {count}}}"
+      },
+      "help": {
+        "ready": "Klikáním na zvýrazněné hrany modelu je vyberete nebo jejich výběr zrušíte. Podržením Shift přidáte nebo odeberete jen jednu hranu.",
+        "loading": "Načítání údajů o hranách. Výpočet probíhá přímo v prohlížeči."
+      },
+      "selectAll": "Všechny ostré hrany",
+      "clear": "Zrušit výběr",
+      "history": {
+        "toggle": "Historie zaoblení a zkosení",
+        "unavailable": "Starší zaoblení a zkosení nemají uloženou historii změn.",
+        "alsoRemovesNewer": "{count, plural, one {odstraní i {count} novější} few {odstraní i {count} novější} many {odstraní i {count} novějšího} other {odstraní i {count} novějších}}"
+      },
+      "radius": "Poloměr",
+      "distance": "Vzdálenost",
+      "angle": "Úhel",
+      "sharpAngle": "Mezní úhel ostré hrany",
+      "tangentChain": "Vybírat plynule navazující hrany",
+      "preserveEdgeSize": "Při změně velikosti zachovat velikost zaoblení a zkosení",
+      "quality": {
+        "label": "Kvalita náhledu",
+        "draft": "Hrubá",
+        "standard": "Běžná",
+        "fine": "Jemná"
+      },
+      "cancel": "Zrušit",
+      "apply": "Použít"
+    },
+    "settings": {
+      "title": "Nastavení pracovního prostoru",
+      "close": "Zavřít nastavení",
+      "sections": "Části nastavení pracovního prostoru",
+      "custom": "Vlastní",
+      "appDefault": "Výchozí: {value}",
+      "appearance": {
+        "title": "Vzhled",
+        "description": "Upravte vzhled pracovního prostoru a ovládání pohledu.",
+        "theme": "Motiv",
+        "themeNote": "Motiv platí pro celý SketchForge a všechny projekty.",
+        "showProjectName": "Zobrazovat název projektu na panelu nástrojů",
+        "moveDimensions": "Zobrazovat kóty při přesouvání",
+        "selectBeforeMove": "Přesouvat jen vybrané tvary",
+        "showShadows": "Zobrazovat stíny",
+        "cruiseShapes": "Pokládat nové tvary na povrch jiných tvarů",
+        "zoomSpeed": "Rychlost přibližování",
+        "zoomSlow": "Pomalu",
+        "zoomFast": "Rychle"
+      },
+      "measurement": {
+        "title": "Měření",
+        "description": "Zvolte jednotky, přesnost, měřítko a přichycení.",
+        "units": "Jednotky",
+        "scale": "Měřítko",
+        "accuracy": "Přesnost"
+      },
+      "workplane": {
+        "title": "Pracovní rovina",
+        "description": "Nastavte rozměry pracovní roviny a rozteč viditelné mřížky.",
+        "size": "Velikost pracovní roviny",
+        "sizePreset": "{width} × {depth} mm",
+        "gridBlockSize": "Rozteč mřížky",
+        "blockSize": "Vlastní rozteč"
+      },
+      "gridColor": {
+        "label": "Barva mřížky",
+        "current": "Barva mřížky {color}",
+        "picker": "Volba barvy mřížky",
+        "presets": "Předvolené barvy mřížky",
+        "usePreset": "Použít barvu mřížky {color}",
+        "hex": "Barva mřížky v zápisu HEX",
+        "reset": "Obnovit barvu mřížky"
+      },
+      "shapes": {
+        "title": "Parametry nových tvarů",
+        "description": "Nastavte, s jakými parametry se přidávají jednotlivé tvary z panelu nástrojů. Limity velikosti se nezmění, dokud nezadáte vlastní limit.",
+        "shape": "Tvar",
+        "customizedOption": "{name} – vlastní nastavení",
+        "customActive": "Platí vlastní nastavení",
+        "usingDefaults": "Výchozí nastavení SketchForge",
+        "reset": "Použít výchozí nastavení",
+        "details": "Podrobnosti tvaru",
+        "detailsDescription": "Další výchozí hodnoty pro nově přidané tvary tohoto typu.",
+        "topRadius": "Horní poloměr",
+        "baseRadius": "Poloměr podstavy",
+        "toothSize": "Velikost zubu",
+        "toothWidth": "Šířka zubu",
+        "centerHole": "Díra uprostřed",
+        "helixAngle": "Úhel sklonu zubů",
+        "helixQuality": "Kvalita šikmých zubů",
+        "limit": "Vlastní limit velikosti",
+        "limitDescription": "Ponecháte-li pole prázdné, zůstanou pro tento tvar běžné limity velikosti na panelu tvaru i při tažení myší.",
+        "limitPlaceholder": "Výchozí",
+        "note": "Vlastní hodnoty platí pro nové tvary. Vlastní limit velikosti také nahradí dosavadní největší velikost tohoto tvaru, nejvýše však 2000 mm."
+      },
+      "history": {
+        "nav": "Historie",
+        "title": "Uložená historie",
+        "description": "Zvolte, kolik dokončených akcí půjde vrátit zpět po uložení nebo opětovném otevření projektu.",
+        "slider": "Počet uložených akcí",
+        "actions": "{count, plural, one {{count} akce} few {{count} akce} many {{count} akce} other {{count} akcí}}",
+        "unlimited": "Bez omezení",
+        "retain": "Kolik akcí uložit",
+        "note": "Výchozí je 100 akcí. Při nižším limitu se starší akce z tohoto projektu trvale odstraní a už je nepůjde vrátit zpět."
+      },
+      "footer": {
+        "description": "Uložte aktuální nastavení pro tento projekt.",
+        "makeDefault": "Nastavit jako výchozí",
+        "defaultSaved": "Výchozí nastavení uloženo"
+      }
+    },
+    "tutorial": {
+      "beforeStart": "Než začnete",
+      "step": "Krok {number}",
+      "challenge": "Úloha {number}",
+      "expand": "Rozbalit návod k úloze",
+      "minimize": "Sbalit návod k úloze",
+      "requiredDimensions": "Potřebné rozměry",
+      "snapGridValue": "Přichycení k mřížce: {value}",
+      "elevation": "Výška nad pracovní rovinou",
+      "previous": "Předchozí",
+      "next": "Další",
+      "finish": "Dokončit"
+    },
+    "keyTag": {
+      "title": "Klíčenka",
+      "ariaLabel": "Návod k úloze „Klíčenka“",
+      "intro": {
+        "title": "Vytvořte klíčenku",
+        "body": "V pravém dolním rohu nastavte „Přichycení k mřížce“ na 0.5 mm. Pak sestavte klíčenku z jednoduchých tvarů.",
+        "alt": "Hotová klíčenka na pracovní rovině SketchForge"
+      },
+      "middle": {
+        "title": "Vytvořte střední část",
+        "body": "Přidejte „Kvádr“. Na panelu tvaru nastavte jeho rozměry.",
+        "alt": "Kvádr uprostřed klíčenky ve SketchForge"
+      },
+      "leftEnd": {
+        "title": "Přidejte levý kulatý konec",
+        "body": "Přidejte „Válec“ jako těleso. Umístěte ho tak, aby jeho polovina ležela na levém konci kvádru.",
+        "alt": "Válec (těleso) přidaný k levému konci klíčenky"
+      },
+      "rightEnd": {
+        "title": "Vytvořte druhý konec",
+        "body": "Vyberte válec. Nahoře v části „Schránka“ klikněte na „Duplikovat“. Kopii umístěte na pravý konec.",
+        "alt": "Dva válce tvoří oba kulaté konce klíčenky"
+      },
+      "lockCircle": {
+        "title": "Zamkněte levý válec",
+        "body": "Vyberte levý válec. Klikněte na ikonu zámku nahoře na panelu tvaru. Podle tohoto válce se budou zarovnávat ostatní tvary.",
+        "alt": "Levý válec vybraný na pracovní rovině SketchForge"
+      },
+      "hole": {
+        "title": "Vytvořte díru",
+        "body": "Přidejte další „Válec“. Nastavte jeho rozměry. Pak ho přepněte z „Těleso“ na „Díra“.",
+        "alt": "Malý válec jako díra u levého konce klíčenky"
+      },
+      "alignHole": {
+        "title": "Zarovnejte díru",
+        "body": "Vyberte díru. Podržte Shift a klikněte na zamčený levý válec. Nahoře v části „Úpravy“ klikněte na „Zarovnat“. Kolem tvarů se objeví body. Klikněte na prostřední bod na každé ze dvou čar, které leží na mřížce.",
+        "alt": "Díra zarovnaná na střed levého válce"
+      },
+      "unlockCircle": {
+        "title": "Odemkněte válec",
+        "body": "Znovu vyberte levý válec. Kliknutím na ikonu zámku ho odemkněte.",
+        "alt": "Levý válec znovu vybraný po zarovnání díry"
+      },
+      "group": {
+        "title": "Seskupte klíčenku",
+        "body": "Vyberte kvádr, oba válce i díru: podržte Shift a klikněte na každý z nich, nebo je ohraničte tažením rámečku. Nahoře v části „Kombinace“ klikněte na „Seskupit“. Pokud tlačítko „Seskupit“ zůstává šedé, je některý tvar ještě zamčený: nejprve odemkněte levý válec.",
+        "alt": "Hotová seskupená klíčenka vybraná ve SketchForge"
+      }
+    },
+    "nameplate": {
+      "shortTitle": "Jmenovka",
+      "title": "Vlastní jmenovka",
+      "ariaLabel": "Návod k úloze „Vlastní jmenovka“",
+      "clickFillet": "Klikněte na „Zaoblení“",
+      "intro": {
+        "title": "Vytvořte jmenovku",
+        "body": "V pravém dolním rohu nastavte „Přichycení k mřížce“ na 0.5 mm. Pak vytvořte zaoblenou základnu. Napište na ni své jméno pomocí objektu „Text“. Nakonec obě části spojte do jednoho modelu pro tisk.",
+        "alt": "Hotová modrá jmenovka ALEX na pracovní rovině SketchForge"
+      },
+      "base": {
+        "title": "Vytvořte základnu",
+        "body": "Přidejte „Kvádr“. Na panelu tvaru zadejte tyto rozměry.",
+        "alt": "Jednoduchá obdélníková modrá základna jmenovky"
+      },
+      "round": {
+        "title": "Zaoblete okraje",
+        "body": "Vyberte základnu. Nahoře v části „Úpravy“ klikněte na „Zaoblení“. Klikněte na vnější hrany základny. Pak klikněte na „Použít“.",
+        "alt": "Modrá základna jmenovky s jemně zaoblenými vnějšími hranami",
+        "callout": "Použijte poloměr zaoblení 1.00 mm."
+      },
+      "text": {
+        "title": "Přidejte objekt „Text“",
+        "body": "Otevřete „Tvary“ a přidejte „Text“. Nový objekt začíná písmenem T.",
+        "alt": "Červené velké písmeno T (objekt „Text“) na modré základně jmenovky"
+      },
+      "personalize": {
+        "title": "Napište své jméno",
+        "body": "Do pole „Text“ napište své jméno. V příkladu je to ALEX. Zvolte libovolné písmo.",
+        "alt": "Vystouplý červený text ALEX umístěný mimo střed modré základny"
+      },
+      "place": {
+        "title": "Položte text na základnu",
+        "body": "Vyberte text. Klikněte na malou černou šipku nad ním. Do pole, které se objeví, zadejte 3 a stiskněte Enter. Text teď leží přesně na základně vysoké 3 mm.",
+        "alt": "Vystouplý červený text ALEX ležící na modré základně jmenovky"
+      },
+      "center": {
+        "title": "Umístěte jméno na střed",
+        "body": "Vyberte základnu. Klikněte na ikonu zámku nahoře na panelu tvaru, tím ji zamknete. Vyberte text. Podržte Shift a klikněte na základnu. Nahoře v části „Úpravy“ klikněte na „Zarovnat“. Klikněte na prostřední bod na každé ze dvou čar, které leží na mřížce. Dalším kliknutím na zámek základnu odemkněte.",
+        "alt": "Červený text ALEX na středu modré základny jmenovky",
+        "callout": "Zamčená základna zůstane na místě a ostatní tvary se zarovnávají podle ní."
+      },
+      "group": {
+        "title": "Seskupte jmenovku",
+        "body": "Vyberte základnu a text: podržte Shift a klikněte na oba, nebo je ohraničte tažením rámečku. Nahoře v části „Kombinace“ klikněte na „Seskupit“. Vznikne jeden hotový model pro tisk. Pokud tlačítko „Seskupit“ zůstává šedé, je základna ještě zamčená: nejprve ji odemkněte zámkem na panelu tvaru.",
+        "alt": "Hotová seskupená modrá jmenovka ALEX"
+      }
+    }
+  },
+  "errors": {
+    "asset": {
+      "unsupportedType": "Nepodporovaný typ datového souboru projektu"
+    },
+    "cadModifier": {
+      "workerFailed": "Modul pro zaoblení a zkosení se nepodařilo spustit. Aktualizujte prohlížeč na Firefox 121+, Chrome/Brave 114+ nebo Safari 17.2+ a zkuste to znovu.",
+      "prepareTimeout": "Příprava hran trvala příliš dlouho: model je pro interaktivní úpravu příliš složitý. Zkuste opravený nebo méně podrobný STL.",
+      "previewTimeout": "Náhled hran trval příliš dlouho. Zrušte nástroj a zkuste to znovu.",
+      "noMeshData": "Vybraný objekt nemá data modelu",
+      "invalidPrimitiveDimensions": "Vybraný tvar má neplatné rozměry",
+      "primitiveNotSolid": "Vybraný tvar se nepodařilo připravit jako platné těleso pro zaoblení nebo zkosení",
+      "storedFeatureInvalid": "Uložené zaoblení nebo zkosení se nepodařilo obnovit jako platné těleso",
+      "noClosedFaces": "Vybraný objekt nemá žádné uzavřené plochy",
+      "meshNotManifold": "Vybraný model není uzavřený: má mezery v povrchu nebo přebytečné stěny. Než přidáte zaoblení nebo zkosení, opravte ho.",
+      "noSolidBody": "Skupina neobsahuje žádné těleso, které lze upravit",
+      "groupRepairFailed": "Seskupené objekty se nepodařilo spojit do jednoho platného tělesa",
+      "noClosedSolidComponents": "Vybraná skupina neobsahuje žádná uzavřená tělesa",
+      "edgeOwnerUnmapped": "Nepodařilo se určit, ke kterému tělesu hrana patří. Spusťte nástroj znovu",
+      "notPrepared": "Před náhledem je třeba objekt připravit",
+      "noEdgesSelected": "Vyberte alespoň jednu zvýrazněnou hranu",
+      "invalidResult": "Při zvolené velikosti vznikají neplatné nebo překrývající se hrany",
+      "filletTooLarge": "Vybrané hrany nelze při této velikosti zaoblit společně. Zmenšete velikost nebo vyberte méně navazujících hran.",
+      "chamferTooLarge": "Vybrané hrany nelze při této velikosti zkosit společně. Zmenšete velikost nebo vyberte méně navazujících hran.",
+      "edgeTreatmentFailed": "Zaoblení nebo zkosení se nepodařilo vytvořit",
+      "meshImportReset": "Vybraný model se nepodařilo převést na uzavřené těleso. Modul pro zaoblení a zkosení byl restartován. Než přidáte zaoblení nebo zkosení, zkuste příkaz „Rozdělit na části“, zrušit seskupení nebo objekt zjednodušit.",
+      "validatorReset": "V modulu pro zaoblení a zkosení selhala kontrola a modul byl restartován. Spusťte nástroj znovu, stránku není třeba načítat znovu.",
+      "memoryFaultReset": "V modulu pro zaoblení a zkosení došlo k chybě paměti a modul byl restartován. Spusťte nástroj znovu, stránku není třeba načítat znovu."
+    },
+    "mesh": {
+      "incompleteTriangles": "Trojúhelníková síť neobsahuje úplné trojúhelníky",
+      "nonFiniteCoordinates": "Trojúhelníková síť obsahuje neplatné souřadnice"
+    },
+    "obj": {
+      "invalidVertexIndex": "Soubor OBJ obsahuje neplatné číslo vrcholu",
+      "invalidNormalIndex": "Soubor OBJ obsahuje neplatné číslo normály",
+      "vertexIndexOutOfRange": "Soubor OBJ odkazuje na neexistující vrchol",
+      "normalIndexOutOfRange": "Soubor OBJ odkazuje na neexistující normálu",
+      "invalidVertex": "Soubor OBJ obsahuje chybně zapsaný vrchol",
+      "nonFiniteVertex": "Soubor OBJ obsahuje vrchol s neplatnými souřadnicemi",
+      "invalidNormal": "Soubor OBJ obsahuje chybně zapsanou normálu",
+      "nonFiniteNormal": "Soubor OBJ obsahuje normálu s neplatnými souřadnicemi",
+      "faceTooFewVertices": "Soubor OBJ obsahuje stěnu s méně než třemi vrcholy",
+      "degenerateFace": "Soubor OBJ obsahuje stěnu s nulovým obsahem",
+      "degeneratePolygonFace": "Soubor OBJ obsahuje mnohoúhelníkovou stěnu s nulovým obsahem",
+      "untriangulatableFace": "Soubor OBJ obsahuje mnohoúhelníkovou stěnu, kterou nelze rozdělit na trojúhelníky",
+      "noGeometry": "Soubor OBJ neobsahuje model, který lze přečíst",
+      "emptyGeometry": "Model v souboru OBJ je prázdný"
+    },
+    "revolve": {
+      "noProfile": "Nakreslete alespoň jeden uzavřený profil vlevo od osy rotace",
+      "noFilledArea": "Profil pro rotaci neobsahuje žádnou vyplněnou oblast",
+      "invalidSolid": "Z profilu se rotací nepodařilo vytvořit platné těleso"
+    },
+    "sketch": {
+      "allPathsOpen": "Všechny čáry náčrtu jsou otevřené. Před dokončením náčrtu alespoň jednu uzavřete.",
+      "noClosedProfile": "Nebyl nalezen žádný uzavřený profil. Nakreslete alespoň jednu uzavřenou čáru a zkontrolujte, že nemá části s nulovým obsahem.",
+      "invalidTopology": "Z náčrtu se nepodařilo vytvořit platné těleso (chyba OpenCascade)",
+      "buildFailed": "Z náčrtu se nepodařilo vytvořit těleso"
+    },
+    "skf": {
+      "fileEmpty": "Soubor .skf je prázdný",
+      "archiveTooLarge": "Soubor .skf je větší než povolených 512 MB",
+      "notPackage": "Soubor projektu je poškozený: nejde o platný balíček .skf",
+      "zipDirectoryMissing": "Soubor projektu je poškozený: v balíčku .skf chybí seznam souborů archivu ZIP",
+      "zip64Unsupported": "Balíčky .skf ve formátu ZIP64 nejsou podporovány",
+      "invalidFileCount": "Soubor projektu je poškozený: neplatný počet souborů v balíčku .skf",
+      "directoryTruncated": "Soubor projektu je poškozený: seznam souborů balíčku .skf je useknutý",
+      "directoryMalformed": "Soubor projektu je poškozený: seznam souborů balíčku .skf je chybný",
+      "directoryEntryTruncated": "Soubor projektu je poškozený: položka v seznamu souborů balíčku .skf je useknutá",
+      "encryptedUnsupported": "Šifrované balíčky .skf nejsou podporovány",
+      "compressionUnsupported": "Balíček .skf používá nepodporovanou kompresi",
+      "unsafePath": "Soubor projektu je poškozený: balíček .skf obsahuje nebezpečnou nebo duplicitní cestu k souboru",
+      "assetExpansionLimit": "Datový soubor „{path}“ je po rozbalení příliš velký",
+      "projectJsonTooLarge": "Soubor project.json je příliš velký",
+      "expansionLimit": "Balíček .skf je po rozbalení větší než bezpečnostní limit 1 GB",
+      "projectJsonMissing": "Soubor projektu je poškozený: v balíčku .skf chybí project.json",
+      "expandFailed": "Balíček .skf se nepodařilo rozbalit: {detail}",
+      "expandFailedCorrupt": "Balíček .skf se nepodařilo rozbalit: data ZIP jsou poškozená",
+      "projectJsonMalformed": "Soubor projektu je poškozený: project.json nelze přečíst",
+      "sharedRequiresPackage": "Sdílené úložiště přijímá jen soubory .skf ve formě balíčku, ne starší projekty ve formátu JSON",
+      "notSketchForgeProject": "Tento soubor není projekt SketchForge",
+      "formatVersionMissing": "Soubor projektu je poškozený: chybí verze formátu (formatVersion)",
+      "formatTooNew": "Projekt používá formát .skf verze {version}, který vyžaduje novější verzi SketchForge",
+      "formatMigrationUnavailable": "Balíček .skf verze {version} vyžaduje převod, který není k dispozici",
+      "readerTooOld": "Tento projekt vyžaduje novější verzi SketchForge, a proto nebyl otevřen",
+      "projectJsonIncomplete": "Soubor projektu je poškozený: v project.json chybí datové soubory, stavy nebo historie",
+      "invalidStateCount": "Soubor projektu je poškozený: neplatný počet stavů",
+      "duplicateAssetId": "Soubor projektu je poškozený: duplicitní ID datového souboru „{id}“",
+      "assetUnknownKind": "Soubor projektu je poškozený: datový soubor „{id}“ má neznámý typ",
+      "assetUnsafePath": "Soubor projektu je poškozený: datový soubor „{id}“ má nebezpečnou nebo duplicitní cestu",
+      "assetMissing": "Soubor projektu je poškozený: chybí datový soubor „{path}“",
+      "assetInvalidSize": "Soubor projektu je poškozený: datový soubor „{path}“ má neplatnou velikost",
+      "assetIntegrity": "Soubor projektu je poškozený: datový soubor „{path}“ neprošel kontrolou integrity",
+      "sourceAssetUnknownFormat": "Soubor projektu je poškozený: původní importovaný soubor „{id}“ má neznámý formát",
+      "duplicateStateId": "Soubor projektu je poškozený: duplicitní ID stavu „{id}“",
+      "stateTooManyObjects": "Stav projektu „{state}“ obsahuje příliš mnoho objektů",
+      "stateDuplicateNodeId": "Soubor projektu je poškozený: stav „{state}“ obsahuje duplicitní ID uzlu „{id}“",
+      "stateMissingNode": "Soubor projektu je poškozený: stav „{state}“ odkazuje na chybějící uzel „{id}“",
+      "stateDuplicateObjectId": "Soubor projektu je poškozený: stav „{state}“ obsahuje duplicitní ID objektu „{id}“",
+      "nodeObjectIdMismatch": "Soubor projektu je poškozený: objectId uzlu „{id}“ neodpovídá popisu tvaru",
+      "nodeCycle": "Soubor projektu je poškozený: cyklický odkaz skupiny nebo historie u „{id}“",
+      "importedObjectMissingAsset": "Soubor projektu je poškozený: importovanému objektu „{id}“ chybí původní soubor nebo model",
+      "importedObjectInvalidAsset": "Soubor projektu je poškozený: importovaný objekt „{id}“ odkazuje na neplatný datový soubor",
+      "importedObjectMissingBrep": "Soubor projektu je poškozený: importovanému objektu „{id}“ chybí data B-Rep ze STEP",
+      "objectMissingBrep": "Soubor projektu je poškozený: objektu „{id}“ chybí přesná data B-Rep",
+      "objectMissingDisplayEdges": "Soubor projektu je poškozený: objektu „{id}“ chybí data vykreslovaných hran",
+      "sceneStateMissing": "Soubor projektu je poškozený: chybí aktuální stav projektu",
+      "historyIndexInvalid": "Soubor projektu je poškozený: neplatná pozice v historii změn",
+      "historyMissingState": "Soubor projektu je poškozený: záznam historie {index} odkazuje na chybějící stav „{state}“",
+      "historySceneMismatch": "Soubor projektu je poškozený: aktuální stav projektu neodpovídá pozici v historii změn",
+      "duplicateFeatureId": "Soubor projektu je poškozený: duplicitní ID operace „{id}“",
+      "unknownFeatureType": "Soubor projektu je poškozený: neznámý typ operace „{type}“",
+      "featureMissingOutput": "Soubor projektu je poškozený: operace „{id}“ odkazuje na chybějící výsledný objekt „{objectId}“",
+      "featureMissingInput": "Soubor projektu je poškozený: operace „{id}“ odkazuje na chybějící vstupní objekt „{objectId}“",
+      "featureMissingDependency": "Soubor projektu je poškozený: operace „{id}“ odkazuje na chybějící operaci „{dependency}“",
+      "featureCycle": "Soubor projektu je poškozený: cyklická závislost operací u „{id}“",
+      "sourceFormatUnsupported": "SketchForge neumí obnovit model z původního souboru tohoto formátu",
+      "displayEdgesInvalid": "Soubor projektu je poškozený: neplatná data vykreslovaných hran",
+      "displayEdgePointsInvalid": "Soubor projektu je poškozený: neplatné body vykreslovaných hran",
+      "displayEdgeCoordinatesInvalid": "Soubor projektu je poškozený: neplatné souřadnice vykreslovaných hran",
+      "shapeCycle": "Soubor projektu je poškozený: cyklická závislost tvarů u „{id}“",
+      "shapeNodeMissing": "Soubor projektu je poškozený: chybí uzel tvaru „{id}“",
+      "objectMissingImage": "Soubor projektu je poškozený: objektu „{id}“ chybí obrázek",
+      "sketchMissingImage": "Soubor projektu je poškozený: náčrtu „{id}“ chybí obrázek",
+      "objectMissingSource": "Soubor projektu je poškozený: objektu „{id}“ chybí původní importovaný soubor",
+      "objectMissingMesh": "Soubor projektu je poškozený: objektu „{id}“ chybí odvozený model",
+      "historyRestoreLoss": "Historii změn nelze obnovit bez ztráty dat",
+      "meshTooLarge": "Importovaný model je pro soubor projektu SketchForge příliš velký",
+      "meshInvalidCoordinate": "Importovaný model obsahuje neplatnou souřadnici",
+      "meshInvalidNormal": "Importovaný model obsahuje neplatnou normálu",
+      "derivedMeshHeader": "Soubor projektu je poškozený: uložený model má neplatnou hlavičku",
+      "derivedMeshTooLarge": "Soubor projektu je poškozený: uložený model překračuje povolený počet souřadnic",
+      "derivedMeshTruncated": "Soubor projektu je poškozený: uložený model je useknutý nebo chybný",
+      "imageDataUrlInvalid": "Vložený obrázek je chybně zapsaný (data URL)",
+      "resourceTooLarge": "Datový soubor překračuje povolenou velikost",
+      "tooManyStates": "Projekt má pro formát .skf příliš dlouhou historii změn",
+      "activeStateUnknown": "Nepodařilo se určit aktuální stav projektu",
+      "projectTooLarge": "Data projektu překračují limit 64 MB pro soubor .skf. Exportujte s kratší historií změn nebo projekt zjednodušte.",
+      "duplicateRootObjectId": "Stav projektu obsahuje duplicitní ID objektu nejvyšší úrovně „{id}“",
+      "emptyRootObjectId": "Stav projektu obsahuje víc objektů nejvyšší úrovně s prázdným ID",
+      "exportDuplicateObjectId": "Stav „{state}“ obsahuje duplicitní ID objektu „{id}“",
+      "exportEmptyObjectId": "Stav „{state}“ obsahuje víc objektů s prázdným ID",
+      "legacyTooLarge": "Starší projekt .skf (JSON) překračuje podporovanou velikost",
+      "legacyMalformed": "Soubor projektu je poškozený: JSON staršího formátu .skf nelze přečíst",
+      "legacyNotObject": "Soubor projektu je poškozený: starší projekt .skf je chybně zapsaný",
+      "legacyVersionUnsupported": "Tato verze staršího formátu .skf není podporována",
+      "legacyDuplicateObjectId": "Soubor projektu je poškozený: starší projekt obsahuje duplicitní ID objektu „{id}“",
+      "legacyEmptyObjectId": "Soubor projektu je poškozený: starší projekt obsahuje víc objektů s prázdným ID",
+      "notObject": "Soubor projektu je poškozený: hodnota {label} musí být objekt",
+      "notNonEmptyString": "Soubor projektu je poškozený: hodnota {label} musí být neprázdný text",
+      "notStringArray": "Soubor projektu je poškozený: hodnota {label} musí být seznam textů",
+      "notFiniteNumber": "Soubor projektu je poškozený: hodnota {label} musí být číslo",
+      "fieldMissing": "Soubor projektu je poškozený: chybí hodnota {label}",
+      "fieldInvalid": "Soubor projektu je poškozený: hodnota {label} je neplatná",
+      "invalidOrTooLarge": "Soubor projektu je poškozený: hodnota {label} je neplatná nebo příliš velká",
+      "outOfRange": "Soubor projektu je poškozený: hodnota {label} je mimo podporovaný rozsah",
+      "notPositive": "Soubor projektu je poškozený: hodnota {label} musí být kladná",
+      "negative": "Soubor projektu je poškozený: hodnota {label} nesmí být záporná",
+      "unknownShapeKind": "Soubor projektu je poškozený: {label} – neznámý typ tvaru „{kind}“",
+      "nonPositiveDimensions": "Soubor projektu je poškozený: {label} – rozměry musí být kladné",
+      "dimensionsOutOfRange": "Soubor projektu je poškozený: {label} – rozměry jsou mimo podporovaný rozsah",
+      "inlinePackageFields": "Soubor projektu je poškozený: {label} – geometrie má být v balíčku uložená jako samostatný soubor",
+      "invalidPositions": "Soubor projektu je poškozený: {label} – neplatné souřadnice vrcholů",
+      "sketchMissingPointsOrSegments": "Soubor projektu je poškozený: {label} – chybí body nebo segmenty náčrtu",
+      "sketchDuplicatePointId": "Soubor projektu je poškozený: {label} – duplicitní ID bodu „{id}“",
+      "sketchDuplicateSegmentId": "Soubor projektu je poškozený: {label} – duplicitní ID segmentu „{id}“",
+      "sketchMissingPointReference": "Soubor projektu je poškozený: {label} – segment odkazuje na chybějící bod"
+    },
+    "step": {
+      "readFailed": "Soubor STEP se nepodařilo přečíst: {detail}",
+      "noSolidGeometry": "Soubor STEP neobsahuje žádná tělesa k importu",
+      "nothingToExport": "Pro export do STEP (B-Rep) nejsou žádné kvádry, válce, koule ani tělesa importovaná ze STEP",
+      "exportFailed": "Export do STEP se nezdařil: {detail}"
+    },
+    "stl": {
+      "noGeometry": "Soubor STL neobsahuje model, který lze přečíst",
+      "emptyGeometry": "Model v souboru STL je prázdný",
+      "exportTriangleLimit": "Model má pro export do binárního STL příliš mnoho trojúhelníků"
+    },
+    "svg": {
+      "empty": "Soubor SVG je prázdný",
+      "tooLarge": "Soubor SVG je příliš velký. Největší podporovaná velikost je {max} MB",
+      "entitiesUnsupported": "Entity v SVG nejsou podporovány",
+      "doctypeUnsupported": "Podporován je jen standardní typ dokumentu SVG 1.1",
+      "nanGeometry": "SVG obsahuje neplatnou geometrii (NaN). V Tinkercadu před exportem řezu zkontrolujte, že pracovní rovina protíná model",
+      "tooManyElements": "{count, plural, one {SVG je příliš složitý ({count} prvek; nejvýše {max})} few {SVG je příliš složitý ({count} prvky; nejvýše {max})} many {SVG je příliš složitý ({count} prvku; nejvýše {max})} other {SVG je příliš složitý ({count} prvků; nejvýše {max})}}",
+      "tooManyGeometryElements": "SVG má příliš mnoho geometrických prvků ({count}; nejvýše {max})",
+      "tooManyPathCommands": "SVG má příliš mnoho příkazů cest (nejvýše {max})",
+      "externalReferences": "Externí odkazy v SVG nejsou podporovány. Vložte odkazované obrázky přímo do souboru",
+      "invalidXml": "Soubor SVG není platný XML",
+      "noFilledPaths": "SVG neobsahuje žádné vyplněné cesty, které lze přečíst",
+      "onlyOpenStrokes": "SVG obsahuje jen otevřené tahy. Před importem cesty uzavřete nebo převeďte tahy na vyplněné obrysy",
+      "noVisiblePaths": "SVG neobsahuje žádné viditelné vyplněné cesty ani uzavřené tahy",
+      "noSolidContours": "SVG neobsahuje žádné vyplněné obrysy, ze kterých lze vytvořit těleso",
+      "tooManyTrianglesTotal": "SVG je příliš složitý (nejvýše {max} trojúhelníků)",
+      "tooManyTriangles": "{count, plural, one {SVG je příliš složitý ({count} trojúhelník; nejvýše {max})} few {SVG je příliš složitý ({count} trojúhelníky; nejvýše {max})} many {SVG je příliš složitý ({count} trojúhelníku; nejvýše {max})} other {SVG je příliš složitý ({count} trojúhelníků; nejvýše {max})}}",
+      "degenerateTriangles": "{count, plural, one {SVG obsahuje {count} trojúhelník s nulovým obsahem} few {SVG obsahuje {count} trojúhelníky s nulovým obsahem} many {SVG obsahuje {count} trojúhelníku s nulovým obsahem} other {SVG obsahuje {count} trojúhelníků s nulovým obsahem}}",
+      "notWatertight": "{count, plural, one {Model ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřená hrana; hrany s přebytečnými stěnami: {nonManifold})} few {Model ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřené hrany; hrany s přebytečnými stěnami: {nonManifold})} many {Model ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřené hrany; hrany s přebytečnými stěnami: {nonManifold})} other {Model ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřených hran; hrany s přebytečnými stěnami: {nonManifold})}}",
+      "notWatertightOneNonManifold": "{count, plural, one {Model ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřená hrana; 1 hrana s přebytečnými stěnami)} few {Model ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřené hrany; 1 hrana s přebytečnými stěnami)} many {Model ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřené hrany; 1 hrana s přebytečnými stěnami)} other {Model ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřených hran; 1 hrana s přebytečnými stěnami)}}",
+      "noVolume": "Model ze SVG nemá žádný objem",
+      "meshTooManyTriangles": "{count, plural, one {Model „{name}“ ze SVG je příliš složitý ({count} trojúhelník; nejvýše {max})} few {Model „{name}“ ze SVG je příliš složitý ({count} trojúhelníky; nejvýše {max})} many {Model „{name}“ ze SVG je příliš složitý ({count} trojúhelníku; nejvýše {max})} other {Model „{name}“ ze SVG je příliš složitý ({count} trojúhelníků; nejvýše {max})}}",
+      "meshDegenerateTriangles": "{count, plural, one {Model „{name}“ ze SVG obsahuje {count} trojúhelník s nulovým obsahem} few {Model „{name}“ ze SVG obsahuje {count} trojúhelníky s nulovým obsahem} many {Model „{name}“ ze SVG obsahuje {count} trojúhelníku s nulovým obsahem} other {Model „{name}“ ze SVG obsahuje {count} trojúhelníků s nulovým obsahem}}",
+      "meshNotWatertight": "{count, plural, one {Model „{name}“ ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřená hrana; hrany s přebytečnými stěnami: {nonManifold})} few {Model „{name}“ ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřené hrany; hrany s přebytečnými stěnami: {nonManifold})} many {Model „{name}“ ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřené hrany; hrany s přebytečnými stěnami: {nonManifold})} other {Model „{name}“ ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřených hran; hrany s přebytečnými stěnami: {nonManifold})}}",
+      "meshNotWatertightOneNonManifold": "{count, plural, one {Model „{name}“ ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřená hrana; 1 hrana s přebytečnými stěnami)} few {Model „{name}“ ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřené hrany; 1 hrana s přebytečnými stěnami)} many {Model „{name}“ ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřené hrany; 1 hrana s přebytečnými stěnami)} other {Model „{name}“ ze SVG není uzavřený: má mezery v povrchu nebo přebytečné stěny ({count} otevřených hran; 1 hrana s přebytečnými stěnami)}}",
+      "meshNoVolume": "Model „{name}“ ze SVG nemá žádný objem",
+      "meshInvalid": "Model „{name}“ ze SVG je neplatný"
+    },
+    "svgExport": {
+      "noContours": "Pro export do SVG nejsou v pohledu shora žádné obrysy",
+      "noVisibleArea": "Pro export do SVG pohled shora neohraničuje žádnou viditelnou oblast"
+    },
+    "edgeModifier": {
+      "emptyResult": "Úprava hran skončila prázdným výsledkem",
+      "noMatchingEdges": "Tomuto meznímu úhlu neodpovídají žádné ostré hrany",
+      "noSharpEdges": "Při tomto mezním úhlu nebyly nalezeny žádné ostré hrany",
+      "selectAtLeastOne": "Vyberte alespoň jednu zvýrazněnou hranu"
+    },
+    "editor": {
+      "capturePreview": "Nepodařilo se vytvořit obrázek aktuálního projektu",
+      "imageDecode": "Obrázek se nepodařilo otevřít",
+      "imageNoDimensions": "Nepodařilo se zjistit rozměry obrázku",
+      "imagePrepare": "Obrázek se nepodařilo připravit",
+      "imageRead": "Obrázek se nepodařilo přečíst",
+      "saveExport": "Exportovaný soubor se nepodařilo uložit",
+      "sketchEmptySolid": "Z náčrtu vzniklo prázdné těleso",
+      "sketchInvalidSolid": "Náčrt s křížícími se čarami se nepodařilo převést na platné těleso",
+      "sketchNoArea": "Po vyřešení křížení čar nezůstala v náčrtu žádná vyplněná oblast",
+      "sketchTimedOut": "Vytváření tělesa z náčrtu trvalo příliš dlouho. Zkuste náčrt zjednodušit",
+      "sketchWorkerFailed": "Nepodařilo se spustit modul pro vytváření těles z náčrtu",
+      "svgNoArea": "Tvar „{name}“ nemá v pohledu shora žádnou oblast k exportu",
+      "svgOutline": "Tvar „{name}“ se nepodařilo převést na uzavřený obrys SVG"
+    },
+    "download": {
+      "localOnly": "Ukládat do složky lze jen v SketchForge spuštěném v tomto počítači",
+      "invalidBinary": "Soubor se nepodařilo uložit: neplatný požadavek",
+      "invalidRequest": "Soubor se nepodařilo uložit: neplatný požadavek",
+      "tooLarge": "Soubor je příliš velký pro uložení do složky",
+      "noFolder": "Nejprve vyberte složku",
+      "invalidPath": "Neplatná cesta k souboru",
+      "saveFailed": "Soubor se nepodařilo uložit"
+    },
+    "shared": {
+      "loadFailed": "Nepodařilo se načíst sdílené projekty",
+      "notConfigured": "Parametr {name} není nastavený",
+      "disabled": "Sdílené projekty jsou v této instalaci vypnuté",
+      "invalidName": "Neplatný název sdíleného projektu",
+      "nameRequired": "Chybí název sdíleného projektu",
+      "notFound": "Sdílený projekt nebyl nalezen",
+      "deleteSameOrigin": "Sdílené projekty lze odstraňovat jen ze stránky SketchForge",
+      "busyChanging": "Tento sdílený projekt právě mění někdo jiný",
+      "deleteNeedsReload": "Před odstraněním obnovte seznam sdílených projektů, aby bylo možné ověřit aktuální verzi",
+      "changedBeforeDelete": "Sdílený projekt se po načtení změnil. Obnovte seznam sdílených projektů a zkuste to znovu.",
+      "deleteFailed": "Nepodařilo se odstranit sdílený projekt",
+      "saveNeedsLocalProject": "Chcete-li projekt uložit do sdílených projektů, nejprve otevřete projekt z tohoto prohlížeče",
+      "thumbnailPrepareFailed": "Nepodařilo se připravit obrázek sdíleného projektu",
+      "saveSameOrigin": "Sdílené projekty lze ukládat jen ze stránky SketchForge",
+      "missingProject": "Sdílený projekt se nepodařilo uložit: chybí soubor projektu",
+      "missingThumbnail": "Sdílený projekt se nepodařilo uložit: chybí obrázek projektu",
+      "thumbnailTooLarge": "Obrázek sdíleného projektu je větší než 5 MB",
+      "thumbnailNotPng": "Obrázek sdíleného projektu musí být ve formátu PNG",
+      "tooLarge": "Soubor projektu je pro sdílené projekty příliš velký",
+      "busySaving": "Tento sdílený projekt právě ukládá někdo jiný",
+      "changedBeforeSave": "Sdílený projekt se po otevření změnil. Otevřete ho znovu nebo ho uložte pod jiným názvem.",
+      "gone": "Sdílený projekt už neexistuje. Uložte ho pod jiným názvem.",
+      "saveFailed": "Nepodařilo se uložit sdílený projekt"
+    },
+    "thumbnail": {
+      "sameOrigin": "Obrázek projektu lze uložit jen ze stránky SketchForge",
+      "invalidRequest": "Obrázek projektu se nepodařilo uložit: neplatný požadavek",
+      "invalidProject": "Neplatný identifikátor projektu",
+      "invalidImage": "Obrázek projektu je poškozený nebo má neplatný formát",
+      "tooLarge": "Obrázek projektu je příliš velký",
+      "saveFailed": "Obrázek projektu se nepodařilo uložit"
+    },
+    "update": {
+      "checkFailed": "Nepodařilo se zkontrolovat aktualizace",
+      "serverStatus": "Server aktualizací vrátil chybu {status}",
+      "serverInvalidVersion": "Server aktualizací vrátil neplatné číslo verze",
+      "sameOrigin": "Aktualizaci lze spustit jen ze stránky SketchForge",
+      "alreadyRequested": "Aktualizace už byla vyžádána. Chvíli počkejte a zkuste to znovu.",
+      "upToDate": "SketchForge už je aktuální",
+      "notConfigured": "Instalace jedním kliknutím není na tomto serveru nastavená",
+      "keyIncorrect": "Klíč pro aktualizaci serveru je nesprávný",
+      "uncommittedChanges": "Kód SketchForge v tomto počítači obsahuje změny, které nejsou uložené v Gitu. Před aktualizací je uložte příkazem git commit nebo git stash, aby je aktualizace nepřepsala.",
+      "unexpectedVersion": "SketchForge v tomto počítači se aktualizoval na verzi {installed}, očekávala se verze {expected}.",
+      "localFailed": "SketchForge v tomto počítači se nepodařilo aktualizovat",
+      "serviceStatus": "Služba aktualizací vrátila chybu {status}",
+      "startFailed": "Nepodařilo se spustit aktualizaci"
+    }
+  }
+}

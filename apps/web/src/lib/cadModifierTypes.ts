@@ -1,3 +1,5 @@
+import type { LocalizedErrorPayload } from "@/i18n/LocalizedError";
+
 export type CadModifierKind = "chamfer" | "fillet";
 
 export type CadModifierEdge = {
@@ -71,4 +73,4 @@ export type CadModifierWorkerResponse =
       components?: CadModifierComponentMesh[];
     }
   | { type: "disposed"; requestId: number }
-  | { type: "error"; requestId: number; message: string; resetSession?: boolean };
+  | ({ type: "error"; requestId: number; resetSession?: boolean } & LocalizedErrorPayload);

@@ -1,4 +1,5 @@
 import type { ManifoldToplevel } from "manifold-3d";
+import { LocalizedError } from "@/i18n/LocalizedError";
 import type { SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment } from "@/types/sketchforge";
 import { MAX_HIGH_RESOLUTION_SIDES } from "@/lib/workplaneSettings";
 
@@ -196,7 +197,7 @@ function dispose(value: unknown) {
 export function buildSketchRevolveMesh(runtime: ManifoldToplevel, profile: SketchProfile, requestedSettings?: Partial<SketchRevolveSettings>): SketchRevolveMesh {
   const settings = normalizeSketchRevolveSettings(requestedSettings);
   const polygons = sketchProfileToRevolvePolygons(profile, settings);
-  if (polygons.length === 0) throw new Error("Draw at least one closed profile on the left side of the revolve axis");
+  if (polygons.length === 0) throw new LocalizedError("errors.revolve.noProfile");
   const disposable: unknown[] = [];
   try {
     const section = new runtime.CrossSection(polygons, "EvenOdd");
@@ -204,14 +205,14 @@ export function buildSketchRevolveMesh(runtime: ManifoldToplevel, profile: Sketc
     const scale = polygons.reduce((largest, polygon) => polygon.reduce((current, point) => Math.max(current, Math.abs(point[0]), Math.abs(point[1])), largest), 1);
     const simplified = section.simplify(Math.max(1e-7, scale * 1e-8));
     disposable.push(simplified);
-    if (simplified.toPolygons().length === 0) throw new Error("The revolve profile has no filled area");
+    if (simplified.toPolygons().length === 0) throw new LocalizedError("errors.revolve.noFilledArea");
     const sweep = Math.abs(settings.sweepAngle);
     const solid = simplified.revolve(settings.sides, sweep);
     disposable.push(solid);
     const rotation = settings.sweepAngle < 0 ? settings.startAngle + settings.sweepAngle : settings.startAngle;
     const revolved = Math.abs(rotation) > 1e-8 ? solid.rotate([0, 0, rotation]) : solid;
     if (revolved !== solid) disposable.push(revolved);
-    if (revolved.status() !== "NoError" || revolved.numTri() < 1) throw new Error("The profile could not be revolved into a valid solid");
+    if (revolved.status() !== "NoError" || revolved.numTri() < 1) throw new LocalizedError("errors.revolve.invalidSolid");
 
     const manifoldPositions = manifoldMeshPositions(revolved.getMesh());
     const positions = new Array<number>(manifoldPositions.length);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { useTranslations } from "@/i18n";
 import type { MoveDimensionAxis, MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
 
 export function MoveDimensionOverlay({
@@ -12,6 +13,7 @@ export function MoveDimensionOverlay({
   active: boolean;
   onCommit: (axis: MoveDimensionAxis, value: string) => void;
 }) {
+  const t = useTranslations();
   const [editing, setEditing] = useState<{ axis: MoveDimensionAxis; value: string } | null>(null);
   const nextEditingAxisRef = useRef<MoveDimensionAxis | null>(null);
   const cancelEditRef = useRef(false);
@@ -50,14 +52,14 @@ export function MoveDimensionOverlay({
   }) as CSSProperties;
 
   return (
-    <div className={`move-dimension-overlay ${active ? "active" : "settled"}`} aria-label="Movement dimensions">
+    <div className={`move-dimension-overlay ${active ? "active" : "settled"}`} aria-label={t("workspace.moveDimensions.label")}>
       {overlay.lines.map((line) => {
         if (editing?.axis === line.axis) {
           return (
             <input
               key={`edit-${line.axis}`}
               className="dimension-input move-dimension-input"
-              aria-label={`${line.axis.toUpperCase()} movement`}
+              aria-label={t("workspace.moveDimensions.axis", { axis: line.axis.toUpperCase() })}
               value={editing.value}
               autoFocus
               inputMode="decimal"
@@ -97,7 +99,7 @@ export function MoveDimensionOverlay({
             key={line.axis}
             className="dimension-label move-dimension-value"
             type="button"
-            aria-label={`${line.axis.toUpperCase()} movement`}
+            aria-label={t("workspace.moveDimensions.axis", { axis: line.axis.toUpperCase() })}
             style={styleForLine(line)}
             onClick={() => setEditing({ axis: line.axis, value: line.label })}
             onPointerDown={stopPointerPropagation}

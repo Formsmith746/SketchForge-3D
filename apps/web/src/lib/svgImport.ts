@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
+import type { MessageParams } from "@/i18n/locales";
+import { LocalizedError, type ErrorKey } from "@/i18n/LocalizedError";
 import { createLocalId } from "@/lib/localIds";
 import type { WorkplaneShape } from "@/types/sketchforge";
 
@@ -69,45 +71,45 @@ export function normalizeSvgDocumentType(source: string) {
 }
 
 export function validateSvgSourcePreflight(source: string) {
-  if (!source.trim()) throw new Error("SVG file is empty");
+  if (!source.trim()) throw new LocalizedError("errors.svg.empty");
   if (sourceByteLength(source) > MAX_SVG_BYTES) {
-    throw new Error(`SVG is too large. The maximum supported size is ${MAX_SVG_BYTES / 1024 / 1024} MB`);
+    throw new LocalizedError("errors.svg.tooLarge", { max: MAX_SVG_BYTES / 1024 / 1024 });
   }
   if (/<!ENTITY/i.test(source)) {
-    throw new Error("SVG entities are not supported");
+    throw new LocalizedError("errors.svg.entitiesUnsupported");
   }
 
   const documentTypes = svgDocumentTypes(source);
   const documentTypeStarts = source.match(/<!DOCTYPE\b/gi)?.length ?? 0;
   if (documentTypes.length !== documentTypeStarts || documentTypes.some((declaration) => !SVG_11_DOCUMENT_TYPE_PATTERN.test(declaration))) {
-    throw new Error("Only the standard SVG 1.1 document type is supported");
+    throw new LocalizedError("errors.svg.doctypeUnsupported");
   }
 
   if (/\b(?:width|height|viewBox|d)\s*=\s*(["'])[^"']*\bNaN\b[^"']*\1/i.test(source)) {
-    throw new Error("SVG contains invalid NaN geometry. In Tinkercad, make sure the workplane intersects the model before exporting the cross-section");
+    throw new LocalizedError("errors.svg.nanGeometry");
   }
 
   const xmlElementCount = source.match(/<[a-z][^!?/\s>]*/gi)?.length ?? 0;
   if (xmlElementCount > MAX_SVG_XML_ELEMENTS) {
-    throw new Error(`SVG is too complex (${xmlElementCount} elements; maximum ${MAX_SVG_XML_ELEMENTS})`);
+    throw new LocalizedError("errors.svg.tooManyElements", { count: xmlElementCount, max: MAX_SVG_XML_ELEMENTS });
   }
 
   const geometryElementCount = source.match(/<(?:path|rect|polygon|polyline|circle|ellipse|line|use)\b/gi)?.length ?? 0;
   if (geometryElementCount > MAX_SVG_GEOMETRY_ELEMENTS) {
-    throw new Error(`SVG has too many geometry elements (${geometryElementCount}; maximum ${MAX_SVG_GEOMETRY_ELEMENTS})`);
+    throw new LocalizedError("errors.svg.tooManyGeometryElements", { count: geometryElementCount, max: MAX_SVG_GEOMETRY_ELEMENTS });
   }
 
   let pathCommandCount = 0;
   for (const pathData of attributeValues(source, "d")) {
     pathCommandCount += pathData.match(/[MmZzLlHhVvCcSsQqTtAa]/g)?.length ?? 0;
     if (pathCommandCount > MAX_SVG_PATH_COMMANDS) {
-      throw new Error(`SVG has too many path commands (maximum ${MAX_SVG_PATH_COMMANDS})`);
+      throw new LocalizedError("errors.svg.tooManyPathCommands", { max: MAX_SVG_PATH_COMMANDS });
     }
   }
 
   for (const href of [...attributeValues(source, "href"), ...attributeValues(source, "xlink:href")]) {
     if (href && !href.trim().startsWith("#")) {
-      throw new Error("SVG external references are not supported; embed referenced artwork in the file");
+      throw new LocalizedError("errors.svg.externalReferences");
     }
   }
 }
@@ -305,7 +307,7 @@ function composeNestedRings(shapes: THREE.Shape[]) {
     }
   }
 
-  if (!rings.length) throw new Error("SVG has no readable filled paths");
+  if (!rings.length) throw new LocalizedError("errors.svg.noFilledPaths");
   rings.sort((a, b) => b.area - a.area);
 
   for (let index = 0; index < rings.length; index += 1) {
@@ -350,9 +352,9 @@ function edgeKey(a: number, b: number) {
 
 export function analyzeTriangleSoup(positions: readonly number[]): TriangleSoupAnalysis {
   if (positions.length < 9 || positions.length % 9 !== 0) {
-    throw new Error("Mesh does not contain complete triangles");
+    throw new LocalizedError("errors.mesh.incompleteTriangles");
   }
-  if (positions.some((value) => !Number.isFinite(value))) throw new Error("Mesh contains non-finite coordinates");
+  if (positions.some((value) => !Number.isFinite(value))) throw new LocalizedError("errors.mesh.nonFiniteCoordinates");
 
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -472,19 +474,31 @@ export function analyzeTriangleSoup(positions: readonly number[]): TriangleSoupA
   };
 }
 
-export function validateClosedSolidTriangleSoup(positions: readonly number[], label = "SVG") {
+/** The message names the SVG file, or the imported SVG mesh `meshName` when it is given. */
+function solidCheckError(meshName: string | undefined, svgKey: ErrorKey, meshKey: ErrorKey, params: MessageParams = {}) {
+  return meshName === undefined ? new LocalizedError(svgKey, params) : new LocalizedError(meshKey, { ...params, name: meshName });
+}
+
+export function validateClosedSolidTriangleSoup(positions: readonly number[], meshName?: string) {
   const analysis = analyzeTriangleSoup(positions);
   if (analysis.triangleCount > MAX_SVG_TRIANGLES) {
-    throw new Error(`${label} is too complex (${analysis.triangleCount} triangles; maximum ${MAX_SVG_TRIANGLES})`);
+    throw solidCheckError(meshName, "errors.svg.tooManyTriangles", "errors.svg.meshTooManyTriangles", { count: analysis.triangleCount, max: MAX_SVG_TRIANGLES });
   }
   if (analysis.degenerateTriangles > 0) {
-    throw new Error(`${label} contains ${analysis.degenerateTriangles} zero-area triangle${analysis.degenerateTriangles === 1 ? "" : "s"}`);
+    throw solidCheckError(meshName, "errors.svg.degenerateTriangles", "errors.svg.meshDegenerateTriangles", { count: analysis.degenerateTriangles });
   }
   if (analysis.boundaryEdges > 0 || analysis.nonManifoldEdges > 0) {
-    throw new Error(`${label} is not a watertight manifold (${analysis.boundaryEdges} open edge${analysis.boundaryEdges === 1 ? "" : "s"}, ${analysis.nonManifoldEdges} non-manifold edge${analysis.nonManifoldEdges === 1 ? "" : "s"})`);
+    // Plurals follow `count` only, so the non-manifold edge count picks between two keys.
+    const oneNonManifold = analysis.nonManifoldEdges === 1;
+    throw solidCheckError(
+      meshName,
+      oneNonManifold ? "errors.svg.notWatertightOneNonManifold" : "errors.svg.notWatertight",
+      oneNonManifold ? "errors.svg.meshNotWatertightOneNonManifold" : "errors.svg.meshNotWatertight",
+      { count: analysis.boundaryEdges, nonManifold: analysis.nonManifoldEdges },
+    );
   }
   if (analysis.width <= 0 || analysis.height <= 0 || analysis.depth <= 0 || analysis.surfaceArea <= 0 || analysis.volume <= analysis.volumeTolerance) {
-    throw new Error(`${label} does not enclose a non-zero volume`);
+    throw solidCheckError(meshName, "errors.svg.noVolume", "errors.svg.meshNoVolume");
   }
   return analysis;
 }
@@ -493,9 +507,9 @@ export function buildSvgExtrusionFromPaths(paths: readonly THREE.ShapePath[]) {
   const profilePaths = paths.map(extrusionProfileFromPath).filter((path): path is THREE.ShapePath => Boolean(path));
   if (!profilePaths.length) {
     if (paths.some(pathHasVisibleStroke)) {
-      throw new Error("SVG contains only open strokes. Close the paths or convert the strokes to filled outlines before importing");
+      throw new LocalizedError("errors.svg.onlyOpenStrokes");
     }
-    throw new Error("SVG has no readable visible filled or closed-stroke paths");
+    throw new LocalizedError("errors.svg.noVisiblePaths");
   }
 
   const sourceShapes = profilePaths.flatMap((path) => SVGLoader.createShapes(path));
@@ -526,7 +540,7 @@ export function buildSvgExtrusionFromPaths(paths: readonly THREE.ShapePath[]) {
     if (candidateAnalysis && rawPositions.length / 9 + candidateAnalysis.triangleCount > MAX_SVG_TRIANGLES) {
       if (geometry !== rawGeometry) geometry.dispose();
       rawGeometry.dispose();
-      throw new Error(`SVG is too complex (maximum ${MAX_SVG_TRIANGLES} triangles)`);
+      throw new LocalizedError("errors.svg.tooManyTrianglesTotal", { max: MAX_SVG_TRIANGLES });
     }
     if (candidateAnalysis) {
       rawPositions.push(...candidatePositions);
@@ -536,7 +550,7 @@ export function buildSvgExtrusionFromPaths(paths: readonly THREE.ShapePath[]) {
     rawGeometry.dispose();
   }
 
-  if (!rawPositions.length) throw new Error("SVG has no filled contours that can be converted into a solid");
+  if (!rawPositions.length) throw new LocalizedError("errors.svg.noSolidContours");
   const combinedAnalysis = analyzeTriangleSoup(rawPositions);
   const analysis: TriangleSoupAnalysis = {
     ...combinedAnalysis,
@@ -562,7 +576,7 @@ export function importedShapeFromSvg(fileName: string, source: string): Workplan
   const parsedXml = parsed.xml as unknown as XMLDocument | Element;
   const root = "documentElement" in parsedXml ? parsedXml.documentElement : parsedXml;
   if (root.localName !== "svg" || root.querySelector("parsererror")) {
-    throw new Error("SVG is not valid XML");
+    throw new LocalizedError("errors.svg.invalidXml");
   }
   const { rawPositions, rawNormals, analysis } = buildSvgExtrusionFromPaths(parsed.paths);
   const centerX = analysis.width / 2;
@@ -609,12 +623,13 @@ export function importedShapeFromSvg(fileName: string, source: string): Workplan
   };
 }
 
-export function invalidSvgMeshReason(shape: WorkplaneShape) {
+/** Why an imported SVG mesh is not a closed solid, or null when it is. Show it with `errorText`. */
+export function invalidSvgMeshError(shape: WorkplaneShape): Error | null {
   if (shape.importedMesh?.sourceFormat !== "svg") return null;
   try {
-    validateClosedSolidTriangleSoup(shape.importedMesh.positions, `SVG mesh "${shape.name}"`);
+    validateClosedSolidTriangleSoup(shape.importedMesh.positions, shape.name);
     return null;
   } catch (error) {
-    return error instanceof Error ? error.message : `SVG mesh "${shape.name}" is invalid`;
+    return error instanceof Error ? error : new LocalizedError("errors.svg.meshInvalid", { name: shape.name });
   }
 }

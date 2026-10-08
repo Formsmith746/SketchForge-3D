@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added interface localization in English, Czech, German, Spanish, French, Polish, Brazilian Portuguese and Russian. The language follows the system by default and can be changed in Settings → Language; the desktop tray and update dialogs follow the same choice. Local server errors and editor notices are translated as well; MCP tool results stay in English. Languages are ICU JSON catalogs (see `docs/TRANSLATIONS.md`); the non-English translations were made with AI help and have not been reviewed by native speakers yet.
 - Arrow-key holds (including Ctrl/Cmd+arrow elevation changes) now finish as one undo step and one save on release. Separate taps remain separate undo steps.
 - Reduced autosave work after transforms by sharing CAD display edges across undo states and reusing immutable mesh, B-Rep, and image encoding.
 - Added `.skf` format 2 shared display-edge assets, with continued reading of format 1 packages and legacy JSON projects. New saves require the updated reader.

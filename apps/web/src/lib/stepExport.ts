@@ -1,4 +1,5 @@
 import type { WorkplaneShape } from "@/types/sketchforge";
+import { LocalizedError } from "@/i18n/LocalizedError";
 import { shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import { loadBrepWithOcct, type Brep, type BrepSolid } from "@/lib/brepKernel";
 
@@ -248,12 +249,12 @@ export async function exportShapesToStep(shapes: WorkplaneShape[]): Promise<Step
   }
 
   if (parts.length === 0) {
-    throw new Error("No box/cylinder/sphere or imported STEP solids to export as B-Rep STEP");
+    throw new LocalizedError("errors.step.nothingToExport");
   }
 
   const result = brep.exportAssemblySTEP(parts, { unit: "MM" });
   if (!result.ok) {
-    throw new Error(`STEP export failed: ${String(result.error.message ?? result.error)}`);
+    throw new LocalizedError("errors.step.exportFailed", { detail: String(result.error.message ?? result.error) });
   }
 
   return { blob: result.value, exportedCount: parts.length, skipped };

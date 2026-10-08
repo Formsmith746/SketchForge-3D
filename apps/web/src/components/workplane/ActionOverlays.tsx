@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useTranslations, type MessageKey } from "@/i18n";
 import type { AlignAxis, AlignHandleStatus, AlignTarget } from "@/types/sketchforge";
 
 export type AlignOverlayState = {
@@ -8,7 +9,13 @@ export type AlignOverlayState = {
 
 export type MirrorOverlayState = {
   guides: Array<{ key: string; x1: number; y1: number; x2: number; y2: number }>;
-  handles: Array<{ axis: AlignAxis; key: string; x: number; y: number; angle: number; title: string }>;
+  handles: Array<{ axis: AlignAxis; key: string; x: number; y: number; angle: number }>;
+};
+
+const MIRROR_TITLE_KEYS: Record<AlignAxis, MessageKey> = {
+  x: "workspace.mirror.x",
+  y: "workspace.mirror.y",
+  z: "workspace.mirror.z",
 };
 
 export function AlignOverlay({
@@ -22,8 +29,9 @@ export function AlignOverlay({
   onPreview: (axis: AlignAxis, target: AlignTarget) => void;
   onPreviewClear: () => void;
 }) {
+  const t = useTranslations();
   return (
-    <div className="align-overlay" aria-label="Alignment handles">
+    <div className="align-overlay" aria-label={t("workspace.align.handles")}>
       <svg className="align-guides" width="100%" height="100%" aria-hidden="true">
         {overlay.guides.map((guide) => (
           <line key={guide.key} x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} />
@@ -71,8 +79,9 @@ export function MirrorOverlay({
   onPreview: (axis: AlignAxis) => void;
   onPreviewClear: () => void;
 }) {
+  const t = useTranslations();
   return (
-    <div className="mirror-overlay" aria-label="Mirror handles">
+    <div className="mirror-overlay" aria-label={t("workspace.mirror.handles")}>
       <svg className="mirror-guides" width="100%" height="100%" aria-hidden="true">
         {overlay.guides.map((guide) => (
           <line key={guide.key} x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} />
@@ -83,8 +92,8 @@ export function MirrorOverlay({
           key={handle.key}
           className={`mirror-handle axis-${handle.axis}`}
           style={{ left: handle.x, top: handle.y, "--mirror-angle": `${handle.angle}deg` } as CSSProperties}
-          aria-label={handle.title}
-          title={handle.title}
+          aria-label={t(MIRROR_TITLE_KEYS[handle.axis])}
+          title={t(MIRROR_TITLE_KEYS[handle.axis])}
           onMouseEnter={() => onPreview(handle.axis)}
           onMouseLeave={onPreviewClear}
           onFocus={() => onPreview(handle.axis)}

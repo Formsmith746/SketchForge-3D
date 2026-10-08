@@ -53,9 +53,11 @@
     "tailwindcss": "^4.1.8",
     "three": "^0.184.0",
     "three-bvh-csg": "^0.0.18",
-    "three-mesh-bvh": "^0.9.13"
+    "three-mesh-bvh": "^0.9.13",
+    "use-intl": "^4.14.9"
   },
   "devDependencies": {
+    "@formatjs/icu-messageformat-parser": "^3.5.21",
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",

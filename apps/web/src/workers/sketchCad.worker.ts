@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
+import { LocalizedError, localizedErrorPayload } from "@/i18n/LocalizedError";
 import { cadSketchRegions, type OrderedCadSketchPath } from "@/lib/sketchCadProfile";
 import type { SketchCadBuildRequest, SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 
@@ -48,14 +49,14 @@ self.onmessage = async (event: MessageEvent<SketchCadBuildRequest>) => {
     cad = await kernel();
     cad.releaseAll();
     const regions = cadSketchRegions(request.profile);
-    if (regions.length === 0) throw new Error("No closed profile found. Draw at least one closed loop and ensure it has no degenerate (zero-area) geometry.");
+    if (regions.length === 0) throw new LocalizedError("errors.sketch.noClosedProfile");
     const solids: ShapeHandle[] = regions.map((region) => {
       let face = cad!.makeFace(pathWire(cad!, region.outer));
       if (region.holes.length > 0) face = cad!.addHolesInFace(face, region.holes.map((hole) => pathWire(cad!, hole)));
       return cad!.extrude(face, 0, request.height, 0);
     });
     const result = solids.length === 1 ? solids[0] : cad.makeCompound(solids);
-    if (!cad.isValid(result)) throw new Error("OpenCascade produced invalid sketch topology");
+    if (!cad.isValid(result)) throw new LocalizedError("errors.sketch.invalidTopology");
     const mesh = cad.tessellate(result, { linearDeflection: 0.05, angularDeflection: 0.16 });
     const positions = new Float32Array(mesh.positions);
     const normals = new Float32Array(mesh.normals);
@@ -63,9 +64,10 @@ self.onmessage = async (event: MessageEvent<SketchCadBuildRequest>) => {
     const brep = cad.toBREP(result);
     post({ type: "built", requestId: request.requestId, positions, normals, indices, triangleCount: mesh.triangleCount, brep }, [positions.buffer, normals.buffer, indices.buffer]);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error ?? "The CAD kernel could not build this sketch");
-    post({ type: "error", requestId: request.requestId, message });
-    if (/memory|WebAssembly|abort/i.test(message)) kernelPromise = null;
+    // Structured clone drops the LocalizedError class; the main thread rebuilds it with errorFromPayload.
+    const payload = localizedErrorPayload(error ?? new LocalizedError("errors.sketch.buildFailed"));
+    post({ type: "error", requestId: request.requestId, ...payload });
+    if (/memory|WebAssembly|abort/i.test(payload.message)) kernelPromise = null;
   } finally {
     try {
       cad?.releaseAll();

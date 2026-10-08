@@ -1,4 +1,5 @@
 import type { ProjectAsset, ProjectAssetSourceFormat, WorkplaneShape } from "@/types/sketchforge";
+import { LocalizedError } from "@/i18n/LocalizedError";
 
 function exactArrayBuffer(bytes: Uint8Array) {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
@@ -143,7 +144,7 @@ export async function projectAssetFromBytes(
 }
 
 export async function projectAssetFromFile(file: File, sourceFormat = sourceFormatForFileName(file.name)) {
-  if (!sourceFormat) throw new Error("Unsupported project asset type");
+  if (!sourceFormat) throw new LocalizedError("errors.asset.unsupportedType");
   const bytes = new Uint8Array(await file.arrayBuffer());
   return projectAssetFromBytes(file.name, sourceFormat, bytes, file.type);
 }

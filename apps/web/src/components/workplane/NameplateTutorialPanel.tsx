@@ -2,96 +2,91 @@
 
 import { ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
+import { useTranslations, type MessageKey } from "@/i18n";
+import { snapGridLabel } from "@/lib/measurementUnits";
+import type { GridSize } from "@/types/sketchforge";
 
 const NAMEPLATE_STEP_STORAGE_KEY = "sketchforge:nameplate-tutorial-step";
 
 type TutorialDimension = {
-  label: "Length" | "Width" | "Height" | "Elevation";
-  value: string;
+  labelKey: MessageKey;
+  millimeters: number;
   slider: number;
 };
 
 type TutorialStep = {
-  eyebrow: string;
-  title: string;
-  body: string;
+  titleKey: MessageKey;
+  bodyKey: MessageKey;
+  altKey: MessageKey;
   image: string;
-  alt: string;
   dimensions?: TutorialDimension[];
-  snapGrid?: string;
-  callout?: string;
+  snapGrid?: GridSize;
+  calloutKey?: MessageKey;
 };
 
+// Step 0 is the "Before you start" overview; step N is labelled "Step N".
 const STEPS: TutorialStep[] = [
   {
-    eyebrow: "Before you start",
-    title: "Build a Nameplate",
-    body: "Create a rounded base, personalize a Text object, then combine both parts into one printable design.",
+    titleKey: "panels.nameplate.intro.title",
+    bodyKey: "panels.nameplate.intro.body",
+    altKey: "panels.nameplate.intro.alt",
     image: "/assets/challenges/nameplate/01-finished-target.webp",
-    alt: "Finished blue ALEX nameplate on the SketchForge workplane",
     snapGrid: "0.5 mm",
   },
   {
-    eyebrow: "Step 1",
-    title: "Make the base",
-    body: "Add a Box and enter these dimensions in the shape panel.",
+    titleKey: "panels.nameplate.base.title",
+    bodyKey: "panels.nameplate.base.body",
+    altKey: "panels.nameplate.base.alt",
     image: "/assets/challenges/nameplate/02-base-box.webp",
-    alt: "Plain rectangular blue nameplate base",
     dimensions: [
-      { label: "Length", value: "24.00 mm", slider: 24 },
-      { label: "Width", value: "70.00 mm", slider: 70 },
-      { label: "Height", value: "3.00 mm", slider: 12 },
+      { labelKey: "panels.property.length", millimeters: 24, slider: 24 },
+      { labelKey: "panels.property.width", millimeters: 70, slider: 70 },
+      { labelKey: "panels.property.height", millimeters: 3, slider: 12 },
     ],
   },
   {
-    eyebrow: "Step 2",
-    title: "Round the outside",
-    body: "Select the base, press Fillet, select its outside edges, and apply the treatment.",
+    titleKey: "panels.nameplate.round.title",
+    bodyKey: "panels.nameplate.round.body",
+    altKey: "panels.nameplate.round.alt",
     image: "/assets/challenges/nameplate/03-rounded-base.webp",
-    alt: "Blue nameplate base with softly rounded outer edges",
-    callout: "Use a 1.00 mm fillet amount.",
+    calloutKey: "panels.nameplate.round.callout",
   },
   {
-    eyebrow: "Step 3",
-    title: "Add a Text object",
-    body: "Open Shapes and add Text. The new object starts with the letter T.",
+    titleKey: "panels.nameplate.text.title",
+    bodyKey: "panels.nameplate.text.body",
+    altKey: "panels.nameplate.text.alt",
     image: "/assets/challenges/nameplate/04-text-added.webp",
-    alt: "A red capital T Text object on the blue nameplate base",
   },
   {
-    eyebrow: "Step 4",
-    title: "Personalize the text",
-    body: "Change the Text field to your name. This example uses ALEX. Pick any font you like.",
+    titleKey: "panels.nameplate.personalize.title",
+    bodyKey: "panels.nameplate.personalize.body",
+    altKey: "panels.nameplate.personalize.alt",
     image: "/assets/challenges/nameplate/05-text-customized.webp",
-    alt: "Raised red ALEX text placed off-center on the blue base",
     dimensions: [
-      { label: "Height", value: "2.00 mm", slider: 9 },
+      { labelKey: "panels.property.height", millimeters: 2, slider: 9 },
     ],
   },
   {
-    eyebrow: "Step 5",
-    title: "Place it on top",
-    body: "Lift the Text object until its bottom sits exactly on the top face of the 3 mm base.",
+    titleKey: "panels.nameplate.place.title",
+    bodyKey: "panels.nameplate.place.body",
+    altKey: "panels.nameplate.place.alt",
     image: "/assets/challenges/nameplate/05-text-customized.webp",
-    alt: "Raised red ALEX text resting on the blue nameplate base",
     dimensions: [
-      { label: "Elevation", value: "3.00 mm", slider: 12 },
+      { labelKey: "panels.tutorial.elevation", millimeters: 3, slider: 12 },
     ],
   },
   {
-    eyebrow: "Step 6",
-    title: "Center the name",
-    body: "Lock the base, select the Text and base, then Align to the middle on both horizontal axes. Unlock the base afterward.",
+    titleKey: "panels.nameplate.center.title",
+    bodyKey: "panels.nameplate.center.body",
+    altKey: "panels.nameplate.center.alt",
     image: "/assets/challenges/nameplate/06-text-centered.webp",
-    alt: "Red ALEX text centered on the blue nameplate base",
-    callout: "The locked base stays fixed as your alignment reference.",
+    calloutKey: "panels.nameplate.center.callout",
   },
   {
-    eyebrow: "Step 7",
-    title: "Group the Nameplate",
-    body: "Select the base and Text object, then press Group to make one finished printable model.",
+    titleKey: "panels.nameplate.group.title",
+    bodyKey: "panels.nameplate.group.body",
+    altKey: "panels.nameplate.group.alt",
     image: "/assets/challenges/nameplate/07-grouped-nameplate.webp",
-    alt: "Finished grouped blue ALEX nameplate",
   },
 ];
 
@@ -102,6 +97,7 @@ function storedStepIndex() {
 }
 
 function FilletButtonCoachmark() {
+  const t = useTranslations();
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -136,7 +132,7 @@ function FilletButtonCoachmark() {
   return (
     <div className="nameplate-fillet-coachmark" style={position} role="status">
       <ArrowUp size={30} strokeWidth={3} aria-hidden="true" />
-      <strong>Click Fillet</strong>
+      <strong>{t("panels.nameplate.clickFillet")}</strong>
     </div>
   );
 }
@@ -150,6 +146,7 @@ export function NameplateTutorialPanel({
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
 }) {
+  const t = useTranslations();
   const [stepIndex, setStepIndex] = useState(storedStepIndex);
   const step = STEPS[stepIndex];
   const first = stepIndex === 0;
@@ -163,17 +160,17 @@ export function NameplateTutorialPanel({
 
   if (collapsed) {
     return (
-      <aside className="key-tag-tutorial-panel key-tag-tutorial-panel-collapsed" aria-label="Personalized Nameplate challenge instructions">
+      <aside className="key-tag-tutorial-panel key-tag-tutorial-panel-collapsed" aria-label={t("panels.nameplate.ariaLabel")}>
         <button
           type="button"
           className="key-tag-tutorial-expand"
-          title="Expand challenge instructions"
-          aria-label="Expand challenge instructions"
+          title={t("panels.tutorial.expand")}
+          aria-label={t("panels.tutorial.expand")}
           onClick={() => onCollapsedChange?.(false)}
         >
           <ChevronLeft size={19} />
         </button>
-        <span className="key-tag-tutorial-collapsed-label">Nameplate</span>
+        <span className="key-tag-tutorial-collapsed-label">{t("panels.nameplate.shortTitle")}</span>
         <span className="key-tag-tutorial-collapsed-count">{stepIndex + 1}/{STEPS.length}</span>
       </aside>
     );
@@ -184,22 +181,22 @@ export function NameplateTutorialPanel({
       {stepIndex === 2 ? <FilletButtonCoachmark /> : null}
       <aside
         className="key-tag-tutorial-panel"
-        aria-label="Personalized Nameplate challenge instructions"
+        aria-label={t("panels.nameplate.ariaLabel")}
         onPointerDown={(event) => event.stopPropagation()}
         onWheel={(event) => event.stopPropagation()}
       >
       <header className="key-tag-tutorial-header">
         <div>
-          <span>Challenge 2</span>
-          <strong>Personalized Nameplate</strong>
+          <span>{t("panels.tutorial.challenge", { number: 2 })}</span>
+          <strong>{t("panels.nameplate.title")}</strong>
         </div>
         <div className="key-tag-tutorial-header-actions">
           <span className="key-tag-tutorial-count">{stepIndex + 1} / {STEPS.length}</span>
           <button
             type="button"
             className="key-tag-tutorial-collapse"
-            title="Minimize challenge instructions"
-            aria-label="Minimize challenge instructions"
+            title={t("panels.tutorial.minimize")}
+            aria-label={t("panels.tutorial.minimize")}
             onClick={() => onCollapsedChange?.(true)}
           >
             <ChevronRight size={18} />
@@ -209,26 +206,26 @@ export function NameplateTutorialPanel({
 
       <div className="key-tag-tutorial-body">
         <div className="key-tag-tutorial-copy">
-          <span className="key-tag-tutorial-eyebrow">{step.eyebrow}</span>
-          <h2>{step.title}</h2>
-          <p>{step.body}</p>
+          <span className="key-tag-tutorial-eyebrow">{first ? t("panels.tutorial.beforeStart") : t("panels.tutorial.step", { number: stepIndex })}</span>
+          <h2>{t(step.titleKey)}</h2>
+          <p>{t(step.bodyKey)}</p>
 
           {step.snapGrid ? (
-            <div className="key-tag-snap-row" aria-label={`Snap Grid ${step.snapGrid}`}>
-              <span>Snap Grid</span>
-              <strong>{step.snapGrid}</strong>
+            <div className="key-tag-snap-row" aria-label={t("panels.tutorial.snapGridValue", { value: snapGridLabel(t, step.snapGrid) })}>
+              <span>{t("panels.snapGrid.label")}</span>
+              <strong>{snapGridLabel(t, step.snapGrid)}</strong>
             </div>
           ) : null}
 
-          {step.callout ? <div className="nameplate-tutorial-callout">{step.callout}</div> : null}
+          {step.calloutKey ? <div className="nameplate-tutorial-callout">{t(step.calloutKey)}</div> : null}
 
           {step.dimensions ? (
-            <div className="key-tag-tutorial-dimensions" aria-label="Required dimensions">
+            <div className="key-tag-tutorial-dimensions" aria-label={t("panels.tutorial.requiredDimensions")}>
               {step.dimensions.map((dimension) => (
-                <div className="key-tag-tutorial-dimension-control" key={dimension.label}>
+                <div className="key-tag-tutorial-dimension-control" key={dimension.labelKey}>
                   <div className="key-tag-tutorial-dimension-heading">
-                    <span>{dimension.label}</span>
-                    <strong>{dimension.value}</strong>
+                    <span>{t(dimension.labelKey)}</span>
+                    <strong>{t("panels.unit.millimeters", { value: dimension.millimeters.toFixed(2) })}</strong>
                   </div>
                   <div className="key-tag-tutorial-slider" aria-hidden="true">
                     <span style={{ width: `${dimension.slider}%` }} />
@@ -241,13 +238,13 @@ export function NameplateTutorialPanel({
         </div>
 
         <div className="key-tag-tutorial-image-box">
-          <img className="key-tag-tutorial-capture" src={step.image} alt={step.alt} draggable={false} />
+          <img className="key-tag-tutorial-capture" src={step.image} alt={t(step.altKey)} draggable={false} />
         </div>
       </div>
 
       <footer className="key-tag-tutorial-footer">
         <button type="button" className="secondary" disabled={first} onClick={() => goToStep(stepIndex - 1)}>
-          <ChevronLeft size={17} /> Previous
+          <ChevronLeft size={17} /> {t("panels.tutorial.previous")}
         </button>
         <button
           type="button"
@@ -261,7 +258,7 @@ export function NameplateTutorialPanel({
             goToStep(stepIndex + 1);
           }}
         >
-          {last ? "Finish" : "Next"} {!last ? <ChevronRight size={17} /> : null}
+          {last ? t("panels.tutorial.finish") : t("panels.tutorial.next")} {!last ? <ChevronRight size={17} /> : null}
         </button>
       </footer>
       </aside>

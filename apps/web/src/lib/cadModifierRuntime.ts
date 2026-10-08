@@ -1,3 +1,8 @@
+// Imported by the CAD modifier worker: use only "@/i18n/LocalizedError" here, never "@/i18n" (it pulls React into the worker).
+// Type-only imports from other i18n modules are erased and safe.
+import { LocalizedError } from "@/i18n/LocalizedError";
+import type { MessageParams } from "@/i18n/locales";
+import type { MessageKey } from "@/i18n/locales";
 import type { CadModifierEdge } from "@/lib/cadModifierTypes";
 
 export const CAD_MODIFIER_RUNTIME_BASE = "/occt";
@@ -59,8 +64,14 @@ export function selectableCadModifierEdge(
   return edge.selectable && edge.manifold && !edge.boundary && edge.angle + 1e-3 >= sharpAngle;
 }
 
-export function edgeModifierSelectionStatus(prepared: boolean, selectedCount: number, availableCount: number) {
-  return prepared ? `${selectedCount} of ${availableCount} sharp edges selected` : "Preparing edges\u2026";
+/** English only; the edge modifier panel shows `edgeModifierSelectionMessage` through the catalog. */
+export type EdgeModifierSelectionMessage = { key: MessageKey; params?: MessageParams };
+
+/** Panel status as a catalog message: "Preparing edges…" until edges are ready (never "0 of 0"), then the selected count. */
+export function edgeModifierSelectionMessage(prepared: boolean, selectedCount: number, availableCount: number): EdgeModifierSelectionMessage {
+  return prepared
+    ? { key: "panels.edgeModifier.status.selected", params: { selected: selectedCount, count: availableCount } }
+    : { key: "panels.edgeModifier.status.preparing" };
 }
 
 export function cadModifierPrepareTimeoutMs(meshTriangleCount: number) {
@@ -75,13 +86,12 @@ export function cadModifierPrepareTimeoutMs(meshTriangleCount: number) {
   );
 }
 
-export function cadModifierTimeoutMessage(phase: CadModifierRequestPhase) {
-  if (phase === "preview") {
-    return "The edge preview timed out. Cancel the tool and try again.";
-  }
-  return "Edge preparation timed out. This mesh needs more CAD processing than the interactive limit allows. Try a repaired or lower-detail STL.";
+/** Show with `errorText`. */
+export function cadModifierTimeoutError(phase: CadModifierRequestPhase) {
+  return new LocalizedError(phase === "preview" ? "errors.cadModifier.previewTimeout" : "errors.cadModifier.prepareTimeout");
 }
 
-export function cadModifierWorkerFailureMessage() {
-  return "The CAD worker could not start. Update to Firefox 121+, Chrome/Brave 114+, or Safari 17.2+, then try again.";
+/** Show with `errorText`. */
+export function cadModifierWorkerFailureError() {
+  return new LocalizedError("errors.cadModifier.workerFailed");
 }

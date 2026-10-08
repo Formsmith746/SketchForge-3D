@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DELETE, GET } from "@/app/api/shared-projects/route";
+import { translatorFor, errorFromResponse, errorText, type ErrorResponseFields } from "@/i18n";
 
 const SHARED_PROJECTS_ENV = "SKETCHFORGE_SHARED_PROJECTS_DIR";
 
@@ -57,6 +58,20 @@ describe("shared project deletion", () => {
 
     expect(response.status).toBe(409);
     await expect(fs.access(path.join(sharedProjectsRoot, project.fileName))).resolves.toBeUndefined();
+  });
+
+  it("reports a refusal in English with a key the page shows translated", async () => {
+    const project = await createSharedProject("Changed model.skf");
+
+    const response = await DELETE(deleteRequest(project.fileName, "stale-revision"));
+    const body = await response.json() as Partial<ErrorResponseFields> & { currentRevision?: string };
+
+    expect(body.error).toBe("The shared project changed after you loaded it. Refresh the shared projects list and try again.");
+    expect(body.currentRevision).toBe(project.revision);
+    const error = errorFromResponse(body);
+    expect(errorText(translatorFor("en"), error, "errors.shared.deleteFailed")).toBe(body.error);
+    expect(errorText(translatorFor("ru"), error, "errors.shared.deleteFailed"))
+      .toBe("Общий проект изменился после загрузки. Обновите список общих проектов и попробуйте снова.");
   });
 
   it("requires a revision precondition before deleting", async () => {

@@ -3,6 +3,7 @@ const { autoUpdater } = require("electron-updater");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { createDesktopI18n } = require("./i18n.cjs");
 
 const devUrl = process.env.SKETCHFORGE_DESKTOP_DEV_URL?.trim() || "";
 // Keep the desktop origin stable. localStorage and IndexedDB are scoped to the
@@ -23,6 +24,11 @@ let downloadedUpdateReady = false;
 let updateInstallRequested = false;
 let lastUpdateCheckResult = null;
 let lastUpdateCheckError = "";
+let trayTooltip = () => "SketchForge";
+
+// The window reports its resolved language over IPC; until then the OS language is used.
+const desktopI18n = createDesktopI18n();
+const { t } = desktopI18n;
 
 function appendServerOutput(chunk) {
   webServerOutput += String(chunk);
@@ -37,7 +43,7 @@ async function waitForServer(url, timeoutMs = 30_000) {
 
   while (Date.now() < deadline) {
     if (webServer && webServer.exitCode !== null) {
-      throw new Error(`SketchForge web process exited with code ${webServer.exitCode}.`);
+      throw new Error(t("desktop.startup.webProcessExited", { code: webServer.exitCode }));
     }
 
     try {
@@ -51,14 +57,14 @@ async function waitForServer(url, timeoutMs = 30_000) {
   }
 
   const detail = lastError instanceof Error ? ` ${lastError.message}` : "";
-  throw new Error(`SketchForge did not start its local web process in time.${detail}`);
+  throw new Error(`${t("desktop.startup.webProcessTimeout")}${detail}`);
 }
 
 async function startPackagedWebServer() {
   const webRoot = path.join(process.resourcesPath, "web");
   const serverPath = path.join(webRoot, "apps", "web", "server.js");
   if (!fs.existsSync(serverPath)) {
-    throw new Error(`Desktop web bundle is missing: ${serverPath}`);
+    throw new Error(t("desktop.startup.webBundleMissing", { path: serverPath }));
   }
 
   const port = DESKTOP_PORT;
@@ -120,7 +126,7 @@ function installDownloadedUpdate() {
 
 async function downloadAndInstallDesktopUpdate() {
   if (!app.isPackaged) {
-    return desktopUpdatePayload(null, "Updates can only be installed from the packaged SketchForge app.");
+    return desktopUpdatePayload(null, t("desktop.updates.packagedOnly"));
   }
 
   lastUpdateCheckError = "";
@@ -161,8 +167,8 @@ async function checkForDesktopUpdates(manual = false) {
     if (manual) {
       await dialog.showMessageBox({
         type: "info",
-        title: "SketchForge updates",
-        message: "Automatic updates are tested from the installed SketchForge app.",
+        title: t("desktop.updates.title"),
+        message: t("desktop.updates.devBuild"),
       });
     }
     return desktopUpdatePayload(null);
@@ -185,7 +191,7 @@ async function checkForDesktopUpdates(manual = false) {
     const message = error instanceof Error ? error.message : String(error);
     lastUpdateCheckError = message;
     if (manualUpdateCheck) {
-      dialog.showErrorBox("Could not check for updates", message);
+      dialog.showErrorBox(t("desktop.updates.checkFailed"), message);
       manualUpdateCheck = false;
     }
     return desktopUpdatePayload(null, message);
@@ -201,6 +207,9 @@ function setupDesktopIpc() {
   ipcMain.handle("sketchforge:get-version", () => app.getVersion());
   ipcMain.handle("sketchforge:check-for-updates", () => checkForDesktopUpdates(false));
   ipcMain.handle("sketchforge:install-update", () => downloadAndInstallDesktopUpdate());
+  ipcMain.on("sketchforge:set-language", (_event, locale) => {
+    if (desktopI18n.setLocale(locale)) refreshTrayText();
+  });
 }
 
 function setupDesktopUpdater() {
@@ -216,9 +225,9 @@ function setupDesktopUpdater() {
     manualUpdateCheck = false;
     void dialog.showMessageBox({
       type: "info",
-      title: "SketchForge update",
-      message: `SketchForge ${info.version} is available.`,
-      detail: "Open Settings and press Update to install it.",
+      title: t("desktop.updates.availableTitle"),
+      message: t("desktop.updates.available", { version: info.version }),
+      detail: t("desktop.updates.availableDetail"),
     });
   });
 
@@ -227,50 +236,52 @@ function setupDesktopUpdater() {
     manualUpdateCheck = false;
     void dialog.showMessageBox({
       type: "info",
-      title: "SketchForge updates",
-      message: "SketchForge is up to date.",
+      title: t("desktop.updates.title"),
+      message: t("desktop.updates.upToDate"),
     });
   });
 
   autoUpdater.on("download-progress", (progress) => {
-    if (tray) tray.setToolTip(`SketchForge - downloading update ${Math.round(progress.percent)}%`);
+    setTrayTooltip(() => t("desktop.tray.downloadingUpdate", { percent: Math.round(progress.percent) }));
   });
 
   autoUpdater.on("update-downloaded", (info) => {
     downloadedUpdateReady = true;
-    if (tray) tray.setToolTip(`SketchForge ${info.version} ready to install`);
+    setTrayTooltip(() => t("desktop.tray.updateReady", { version: info.version }));
     if (updateInstallRequested) installDownloadedUpdate();
   });
 
   autoUpdater.on("error", (error) => {
-    if (tray) tray.setToolTip("SketchForge");
+    setTrayTooltip(() => "SketchForge");
     if (!manualUpdateCheck) return;
     manualUpdateCheck = false;
-    dialog.showErrorBox("Could not update SketchForge", error instanceof Error ? error.message : String(error));
+    dialog.showErrorBox(t("desktop.updates.installFailed"), error instanceof Error ? error.message : String(error));
   });
 
   setTimeout(() => void checkForDesktopUpdates(false), 4_000).unref();
   setInterval(() => void checkForDesktopUpdates(false), 6 * 60 * 60 * 1000).unref();
 }
 
-function createTray() {
-  if (tray) return;
+function setTrayTooltip(text) {
+  trayTooltip = text;
+  if (tray) tray.setToolTip(trayTooltip());
+}
 
-  const icon = nativeImage.createFromPath(appIconPath()).resize({ width: 20, height: 20 });
-  tray = new Tray(icon);
-  tray.setToolTip("SketchForge");
+function refreshTrayText() {
+  if (!tray) return;
+  tray.setToolTip(trayTooltip());
   tray.setContextMenu(Menu.buildFromTemplate([
     {
-      label: "Open SketchForge",
+      label: t("desktop.tray.open"),
       click: showMainWindow,
     },
     {
-      label: "Check for Updates",
+      label: t("desktop.tray.checkForUpdates"),
       click: () => void checkForDesktopUpdates(true),
     },
     { type: "separator" },
     {
-      label: "Quit SketchForge",
+      label: t("desktop.tray.quit"),
       click: () => {
         if (downloadedUpdateReady) {
           installDownloadedUpdate();
@@ -281,6 +292,14 @@ function createTray() {
       },
     },
   ]));
+}
+
+function createTray() {
+  if (tray) return;
+
+  const icon = nativeImage.createFromPath(appIconPath()).resize({ width: 20, height: 20 });
+  tray = new Tray(icon);
+  refreshTrayText();
   tray.on("click", showMainWindow);
 }
 
@@ -362,7 +381,7 @@ async function startDesktop() {
     const message = error instanceof Error ? error.message : String(error);
     const detail = webServerOutput.trim();
     dialog.showErrorBox(
-      "SketchForge could not start",
+      t("desktop.startup.failed"),
       detail ? `${message}\n\n${detail}` : message,
     );
     app.quit();
@@ -378,6 +397,7 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(() => {
     if (process.platform === "win32") app.setAppUserModelId("com.sketchforge.desktop");
+    desktopI18n.setLocale(desktopI18n.resolveLocale([...app.getPreferredSystemLanguages(), app.getLocale()]));
     void startDesktop();
 
     app.on("activate", () => {

@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
+import { LocalizedError, localizedErrorPayload } from "@/i18n/LocalizedError";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import { CAD_MODIFIER_RUNTIME_BASE, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
 
@@ -105,7 +106,7 @@ function edgeAngle(cad: OcctKernel, points: number[], faceHashes: number[], face
 }
 
 function meshPartToAsciiStl(part: CadModifierMeshPart) {
-  if (!part.positions || !part.indices) throw new Error("The selected object has no mesh data");
+  if (!part.positions || !part.indices) throw new LocalizedError("errors.cadModifier.noMeshData");
   const lines = new Array<string>(part.indices.length / 3 + 2);
   lines[0] = "solid sketchforge";
   const { positions, indices } = part;
@@ -170,7 +171,7 @@ function reconstructPrimitiveSolid(cad: OcctKernel, primitive: CadModifierPrimit
   const depth = primitive.depth;
   const height = primitive.height;
   if (![width, depth, height].every((value) => Number.isFinite(value) && value > 0)) {
-    throw new Error("The selected primitive has invalid dimensions");
+    throw new LocalizedError("errors.cadModifier.invalidPrimitiveDimensions");
   }
   const solid = cad.makeBoxFromCorners(
     { x: -width / 2, y: 0, z: -depth / 2 },
@@ -178,7 +179,7 @@ function reconstructPrimitiveSolid(cad: OcctKernel, primitive: CadModifierPrimit
   );
   const transformed = applyCadTransform(cad, solid, primitive.transform);
   if (!cad.isSolid(transformed) || !cadShapeIsValid(cad, transformed)) {
-    throw new Error("The selected primitive could not be prepared as a valid CAD solid");
+    throw new LocalizedError("errors.cadModifier.primitiveNotSolid");
   }
   return transformed;
 }
@@ -201,7 +202,7 @@ function reconstructSolid(cad: OcctKernel, part: CadModifierMeshPart) {
     if (cadShapeIsValid(cad, exact) && (cad.isSolid(exact) || healedSolids.length > 0)) {
       return healedSolids.length === 1 ? healedSolids[0] : exact;
     }
-    throw new Error("The stored CAD feature could not be restored as a valid solid");
+    throw new LocalizedError("errors.cadModifier.storedFeatureInvalid");
   }
   const imported = cad.importStl(meshPartToAsciiStl(part));
   let shape = cad.fixShape(imported);
@@ -218,7 +219,7 @@ function reconstructSolid(cad: OcctKernel, part: CadModifierMeshPart) {
   }
 
   const faces = cad.getSubShapes(imported, "face");
-  if (faces.length === 0) throw new Error("The selected object has no closed faces");
+  if (faces.length === 0) throw new LocalizedError("errors.cadModifier.noClosedFaces");
   for (const tolerance of [1e-5, 1e-4, 1e-3, 1e-2]) {
     try {
       let candidate = cad.sewAndSolidify(faces, tolerance);
@@ -232,13 +233,13 @@ function reconstructSolid(cad: OcctKernel, part: CadModifierMeshPart) {
       // Try the next tolerance. Curved tessellations can need looser vertex sewing.
     }
   }
-  throw new Error("The selected mesh is open or non-manifold. Repair it before adding edge treatments.");
+  throw new LocalizedError("errors.cadModifier.meshNotManifold");
 }
 
 function reconstructParts(cad: OcctKernel, parts: CadModifierMeshPart[]) {
   const solids = parts.filter((part) => !part.hole).map((part) => reconstructSolid(cad, part));
   const holes = parts.filter((part) => part.hole).map((part) => reconstructSolid(cad, part));
-  if (solids.length === 0) throw new Error("The group has no solid body to modify");
+  if (solids.length === 0) throw new LocalizedError("errors.cadModifier.noSolidBody");
   let result = solids[0];
   for (let index = 1; index < solids.length; index += 1) {
     result = cad.fuse(result, solids[index]);
@@ -253,7 +254,7 @@ function reconstructParts(cad: OcctKernel, parts: CadModifierMeshPart[]) {
   result = cad.fixShape(result);
   result = cad.simplify(result);
   result = cad.unifySameDomain(result);
-  if (!cadShapeIsValid(cad, result)) throw new Error("The grouped solid could not be repaired into valid topology");
+  if (!cadShapeIsValid(cad, result)) throw new LocalizedError("errors.cadModifier.groupRepairFailed");
   return result;
 }
 
@@ -405,7 +406,7 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
       const collected = collectEdges(activeCad, baseShape, request.sharpAngle, Boolean(request.suppressTreatmentDetailEdges), true);
       edgeHandles = collected.handles;
       baseSolids = activeCad.isSolid(baseShape) ? [baseShape] : activeCad.getSubShapes(baseShape, "solid");
-      if (baseSolids.length === 0) throw new Error("The selected group contains no closed solid components");
+      if (baseSolids.length === 0) throw new LocalizedError("errors.cadModifier.noClosedSolidComponents");
       const ownerEdgeHandles = baseSolids.map((solid) => activeCad.getSubShapes(solid, "edge"));
       try {
         const ownerCandidates = new Map<number, Array<{ owner: number; edge: ShapeHandle }>>();
@@ -421,7 +422,7 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
           const hash = activeCad.hashCode(edge, HASH_UPPER_BOUND);
           const candidates = ownerCandidates.get(hash) ?? [];
           const exact = candidates.find((candidate) => activeCad.isSame(edge, candidate.edge));
-          if (!exact) throw new Error("A CAD edge could not be mapped to its solid component; restart the edge tool");
+          if (!exact) throw new LocalizedError("errors.cadModifier.edgeOwnerUnmapped");
           return exact.owner;
         });
       } finally {
@@ -436,9 +437,9 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
       });
       return;
     }
-    if (baseShape === null) throw new Error("Prepare an object before previewing the modifier");
+    if (baseShape === null) throw new LocalizedError("errors.cadModifier.notPrepared");
     const selected = request.edgeIds.map((id) => ({ edge: edgeHandles[id], owner: edgeOwners[id] })).filter((entry): entry is { edge: ShapeHandle; owner: number } => entry.edge !== undefined);
-    if (selected.length === 0) throw new Error("Select at least one highlighted edge");
+    if (selected.length === 0) throw new LocalizedError("errors.cadModifier.noEdgesSelected");
     const componentResults: ShapeHandle[] = [];
     let result: ShapeHandle | null = null;
     try {
@@ -455,7 +456,7 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
         componentResults.push(component);
       }
       result = componentResults.length === 1 ? componentResults[0] : activeCad.makeCompound(componentResults);
-      if (!cadShapeIsValid(activeCad, result)) throw new Error("The chosen size creates invalid or overlapping edge geometry");
+      if (!cadShapeIsValid(activeCad, result)) throw new LocalizedError("errors.cadModifier.invalidResult");
       const options = tessellationOptions(request.quality, request.amount);
       const mesh = copyCadMesh(activeCad.tessellate(result, options));
       const displayEdges = collectEdges(activeCad, result, 0).displayEdges;
@@ -491,24 +492,25 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
     if (isCadModifierWasmMemoryFault(rawMessage, errorName) || isImportStlWasmFault(rawMessage) || isMissingValidatorFault(rawMessage)) {
       if (cad) releaseSession(cad);
       kernelPromise = null;
-      const message = isImportStlWasmFault(rawMessage)
-        ? "The selected mesh could not be converted into a closed CAD solid. The CAD kernel reset; try Separate Parts, ungrouping, or simplifying the object before adding edge features."
+      const failure = new LocalizedError(isImportStlWasmFault(rawMessage)
+        ? "errors.cadModifier.meshImportReset"
         : isMissingValidatorFault(rawMessage)
-          ? "The CAD kernel exposed an incomplete validation function and reset. Start the edge tool again; no page refresh is needed."
-        : "The CAD kernel hit a memory fault and reset. Start the edge tool again; no page refresh is needed.";
+          ? "errors.cadModifier.validatorReset"
+          : "errors.cadModifier.memoryFaultReset");
+      // Structured clone drops the LocalizedError class; the main thread rebuilds it with errorFromPayload.
       post({
         type: "error",
         requestId: request.requestId,
-        message,
+        ...localizedErrorPayload(failure),
         resetSession: true,
       });
       return;
     }
-    const message = request.type === "preview" && (rawMessage.includes("WebAssembly.Exception") || rawMessage.includes("fillet:") || rawMessage.includes("chamfer:"))
-      ? `The selected edges cannot be ${request.kind === "fillet" ? "filleted" : "chamfered"} together at this size. Reduce the size or select fewer connected edges.`
-      : rawMessage || "The CAD kernel could not complete this edge treatment";
+    const failure = request.type === "preview" && (rawMessage.includes("WebAssembly.Exception") || rawMessage.includes("fillet:") || rawMessage.includes("chamfer:"))
+      ? new LocalizedError(request.kind === "fillet" ? "errors.cadModifier.filletTooLarge" : "errors.cadModifier.chamferTooLarge")
+      : rawMessage ? error : new LocalizedError("errors.cadModifier.edgeTreatmentFailed");
     if (request.type === "prepare" && cad) releaseSession(cad);
-    post({ type: "error", requestId: request.requestId, message });
+    post({ type: "error", requestId: request.requestId, ...localizedErrorPayload(failure) });
   }
 };
 

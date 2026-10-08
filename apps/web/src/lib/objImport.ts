@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { LocalizedError } from "@/i18n/LocalizedError";
 import { createLocalId } from "@/lib/localIds";
 import { zUpToSketchForge } from "@/lib/meshCoordinates";
 import type { WorkplaneShape } from "@/types/sketchforge";
@@ -8,11 +9,15 @@ type ObjFaceVertex = {
   normalIndex?: number;
 };
 
-function resolveObjIndex(token: string, count: number, label: string) {
+function resolveObjIndex(token: string, count: number, label: "vertex" | "normal") {
   const parsed = Number.parseInt(token, 10);
-  if (!Number.isInteger(parsed) || parsed === 0) throw new Error(`OBJ has an invalid ${label} index`);
+  if (!Number.isInteger(parsed) || parsed === 0) {
+    throw new LocalizedError(label === "vertex" ? "errors.obj.invalidVertexIndex" : "errors.obj.invalidNormalIndex");
+  }
   const index = parsed > 0 ? parsed - 1 : count + parsed;
-  if (index < 0 || index >= count) throw new Error(`OBJ ${label} index is out of range`);
+  if (index < 0 || index >= count) {
+    throw new LocalizedError(label === "vertex" ? "errors.obj.vertexIndexOutOfRange" : "errors.obj.normalIndexOutOfRange");
+  }
   return index;
 }
 
@@ -41,9 +46,9 @@ function triangulateFace(points: readonly THREE.Vector3[]) {
   if (points.length === 3) return [[0, 1, 2] as const];
 
   const polygonNormal = faceNormal(points);
-  if (polygonNormal.lengthSq() <= 1e-20) throw new Error("OBJ contains a degenerate polygon face");
+  if (polygonNormal.lengthSq() <= 1e-20) throw new LocalizedError("errors.obj.degeneratePolygonFace");
   const triangles = THREE.ShapeUtils.triangulateShape(projectedFace(points, polygonNormal), []);
-  if (!triangles.length) throw new Error("OBJ contains a polygon face that could not be triangulated");
+  if (!triangles.length) throw new LocalizedError("errors.obj.untriangulatableFace");
 
   return triangles.map(([a, b, c]) => {
     const triangleNormal = new THREE.Vector3()
@@ -107,7 +112,7 @@ function importedObjShapeFromTriangles(
   rawNormals: number[] | undefined,
 ): WorkplaneShape {
   if (rawPositions.length < 9 || rawPositions.length % 9 !== 0) {
-    throw new Error("OBJ has no readable mesh geometry");
+    throw new LocalizedError("errors.obj.noGeometry");
   }
 
   let minX = Number.POSITIVE_INFINITY;
@@ -133,7 +138,7 @@ function importedObjShapeFromTriangles(
   const sizeY = maxY - minY;
   const sizeZ = maxZ - minZ;
   const maxDimension = Math.max(sizeX, sizeY, sizeZ);
-  if (!Number.isFinite(maxDimension) || maxDimension <= 0) throw new Error("OBJ geometry is empty");
+  if (!Number.isFinite(maxDimension) || maxDimension <= 0) throw new LocalizedError("errors.obj.emptyGeometry");
 
   const centerX = (minX + maxX) / 2;
   const centerZ = (minZ + maxZ) / 2;
@@ -197,23 +202,23 @@ export function importedShapeFromObj(fileName: string, source: string): Workplan
     const keyword = parts[0];
 
     if (keyword === "v") {
-      if (parts.length < 4) throw new Error("OBJ contains an invalid vertex");
+      if (parts.length < 4) throw new LocalizedError("errors.obj.invalidVertex");
       const values = parts.slice(1, 4).map(Number);
-      if (values.some((value) => !Number.isFinite(value))) throw new Error("OBJ contains a non-finite vertex");
+      if (values.some((value) => !Number.isFinite(value))) throw new LocalizedError("errors.obj.nonFiniteVertex");
       vertices.push(new THREE.Vector3(values[0], values[1], values[2]));
       return;
     }
 
     if (keyword === "vn") {
-      if (parts.length < 4) throw new Error("OBJ contains an invalid normal");
+      if (parts.length < 4) throw new LocalizedError("errors.obj.invalidNormal");
       const values = parts.slice(1, 4).map(Number);
-      if (values.some((value) => !Number.isFinite(value))) throw new Error("OBJ contains a non-finite normal");
+      if (values.some((value) => !Number.isFinite(value))) throw new LocalizedError("errors.obj.nonFiniteNormal");
       normals.push(new THREE.Vector3(values[0], values[1], values[2]).normalize());
       return;
     }
 
     if (keyword !== "f") return;
-    if (parts.length < 4) throw new Error("OBJ contains a face with fewer than three vertices");
+    if (parts.length < 4) throw new LocalizedError("errors.obj.faceTooFewVertices");
 
     const refs: ObjFaceVertex[] = parts.slice(1).map((token) => {
       const fields = token.split("/");
@@ -224,7 +229,7 @@ export function importedShapeFromObj(fileName: string, source: string): Workplan
       return { vertexIndex, normalIndex };
     });
     if (refs.length > 3 && refs[0].vertexIndex === refs[refs.length - 1].vertexIndex) refs.pop();
-    if (refs.length < 3) throw new Error("OBJ contains a degenerate face");
+    if (refs.length < 3) throw new LocalizedError("errors.obj.degenerateFace");
 
     const points = refs.map((ref) => vertices[ref.vertexIndex]);
     triangulateFace(points).forEach((triangle) => {
@@ -247,7 +252,7 @@ export function importedShapeFromObj(fileName: string, source: string): Workplan
   });
 
   if (!vertices.length || !faceCount || !rawPositions.length) {
-    throw new Error("OBJ has no readable mesh geometry");
+    throw new LocalizedError("errors.obj.noGeometry");
   }
 
   return importedObjShapeFromTriangles(

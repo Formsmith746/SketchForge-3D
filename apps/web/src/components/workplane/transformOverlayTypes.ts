@@ -182,7 +182,7 @@ export type TransformOverlayState = {
   width: number;
   height: number;
   guides: Array<{ x1: number; y1: number; x2: number; y2: number }>;
-  handles: Array<{ key: string; className: string; kind: TransformHandleKind; x: number; y: number; title: string; angle?: number }>;
+  handles: Array<{ key: string; className: string; kind: TransformHandleKind; x: number; y: number; angle?: number }>;
   rotateHandles: Array<{ key: string; className: string; x: number; y: number; plane: RotationPlaneBasis }>;
   dimensions: Record<string, DimensionMark[]>;
   rotationWheel: RotationWheelView | null;

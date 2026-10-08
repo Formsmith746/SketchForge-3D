@@ -1,4 +1,5 @@
 import { sketchForgeToZUp, type MeshPoint } from "@/lib/meshCoordinates";
+import { LocalizedError } from "@/i18n/LocalizedError";
 
 export type StlExportMesh = {
   vertices: readonly MeshPoint[];
@@ -34,7 +35,7 @@ function writePoint(view: DataView, offset: number, point: MeshPoint) {
 export function exportMeshesToStl(meshes: readonly StlExportMesh[]): ArrayBuffer {
   const triangleCount = meshes.reduce((count, mesh) => count + mesh.faces.length, 0);
   if (triangleCount > 0xffff_ffff) {
-    throw new Error("STL export exceeds the binary format's triangle limit");
+    throw new LocalizedError("errors.stl.exportTriangleLimit");
   }
 
   const buffer = new ArrayBuffer(STL_PREFIX_BYTES + triangleCount * STL_TRIANGLE_BYTES);

@@ -1,4 +1,5 @@
 import type { WorkplaneShape } from "@/types/sketchforge";
+import { LocalizedError } from "@/i18n/LocalizedError";
 import { importedShapeFromTriangleSoup } from "@/lib/stlImport";
 import { loadBrepWithOcct } from "@/lib/brepKernel";
 
@@ -13,7 +14,7 @@ export async function importedShapeFromStep(fileName: string, buffer: ArrayBuffe
 
   const imported = await brep.importSTEP(new Blob([buffer]));
   if (!imported.ok) {
-    throw new Error(`Could not read STEP: ${String(imported.error.message ?? imported.error)}`);
+    throw new LocalizedError("errors.step.readFailed", { detail: String(imported.error.message ?? imported.error) });
   }
 
   // STEP/CAD space is Z-up; SketchForge is Y-up. Rotating −90° about X maps CAD
@@ -23,7 +24,7 @@ export async function importedShapeFromStep(fileName: string, buffer: ArrayBuffe
   const flipped = brep.rotate(imported.value, -90, { axis: [1, 0, 0] });
   const tess = brep.mesh(flipped);
   if (tess.vertices.length < 9) {
-    throw new Error("STEP file has no solid geometry to import");
+    throw new LocalizedError("errors.step.noSolidGeometry");
   }
 
   const positions: number[] = [];

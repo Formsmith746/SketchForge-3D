@@ -1,0 +1,28 @@
+{
+  "desktop": {
+    "tray": {
+      "open": "Open SketchForge",
+      "checkForUpdates": "Check for Updates",
+      "quit": "Quit SketchForge",
+      "downloadingUpdate": "SketchForge - downloading update {percent}%",
+      "updateReady": "SketchForge {version} ready to install"
+    },
+    "updates": {
+      "title": "SketchForge updates",
+      "availableTitle": "SketchForge update",
+      "available": "SketchForge {version} is available.",
+      "availableDetail": "Open Settings and press Update to install it.",
+      "upToDate": "SketchForge is up to date.",
+      "devBuild": "Automatic updates are tested from the installed SketchForge app.",
+      "packagedOnly": "Updates can only be installed from the packaged SketchForge app.",
+      "checkFailed": "Could not check for updates",
+      "installFailed": "Could not update SketchForge"
+    },
+    "startup": {
+      "failed": "SketchForge could not start",
+      "webProcessExited": "SketchForge web process exited with code {code}.",
+      "webProcessTimeout": "SketchForge did not start its local web process in time.",
+      "webBundleMissing": "Desktop web bundle is missing: {path}"
+    }
+  }
+}

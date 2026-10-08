@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SketchForge UI Languages</title>
+<link rel="icon" href="data:,">
+<style>
+  /* Layout: sticky filter bar, issue matrix, then one row of language screenshots per screen; marked issues collect in a bottom drawer. */
+  :root {
+    --bg: #f2f4f6; --surface: #ffffff; --fg: #17212a; --muted: #5e6b76; --line: #d5dde3; --accent: #0b7fa6;
+    --clipped: #d0263a; --overflow: #c2410c; --wrap: #b7791f; --same: #6d4cc2; --baseline: #7b8794; --mark: #0b7fa6;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f151b; --surface: #17212a; --fg: #e2e9ef; --muted: #93a2ae; --line: #2a3a47; --accent: #4bbfe3;
+      --clipped: #ff6b7d; --overflow: #ff8a4c; --wrap: #f2c14e; --same: #a58bff; --baseline: #8b98a5; --mark: #4bbfe3; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font); }
+  header.top { padding: 20px 20px 8px; display: grid; gap: 6px; }
+  h1 { margin: 0; font-size: 22px; }
+  h2 { margin: 0; font-size: 17px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .meta code, code { font-family: var(--mono); font-size: 12px; }
+  .bar { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  .group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .group > span.label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); cursor: pointer; user-select: none; font-size: 13px; }
+  .toggle input { margin: 0; accent-color: var(--accent); }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; border: 2px solid currentColor; }
+  .c-clipped { color: var(--clipped); } .c-overflow { color: var(--overflow); } .c-wrap { color: var(--wrap); } .c-same { color: var(--same); } .c-baseline { color: var(--baseline); }
+  .count { font-variant-numeric: tabular-nums; color: var(--muted); }
+  input[type=search], select { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
+  main { padding: 16px 20px 120px; display: grid; gap: 28px; }
+  .errors { border: 1px solid var(--clipped); border-radius: 8px; padding: 10px 14px; background: var(--surface); }
+  .errors ul { margin: 6px 0 0; padding-left: 18px; }
+  .matrix-wrap { overflow-x: auto; }
+  table.matrix { border-collapse: collapse; background: var(--surface); font-size: 13px; min-width: 100%; }
+  .matrix th, .matrix td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; white-space: nowrap; }
+  .matrix td.cell { cursor: pointer; }
+  .matrix td.cell:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .pill { display: inline-block; min-width: 20px; padding: 0 6px; margin-right: 3px; border-radius: 999px; color: #fff; font-size: 12px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+  .pill.clipped { background: var(--clipped); } .pill.overflow { background: var(--overflow); } .pill.wrap { background: var(--wrap); } .pill.same { background: var(--same); } .pill.baseline { background: var(--baseline); }
+  .ok { color: var(--muted); }
+  section.screen { display: grid; gap: 10px; scroll-margin-top: 70px; }
+  section.screen > header { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .langs { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 900px) { .langs { grid-template-columns: 1fr; } }
+  figure { margin: 0; display: grid; gap: 6px; min-width: 0; align-content: start; }
+  figcaption { font-family: var(--mono); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .shot { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #000; cursor: zoom-in; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .missing { padding: 30px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line); border-radius: 6px; }
+  .overlay { position: absolute; inset: 0; pointer-events: none; }
+  body.no-frames .overlay { display: none; }
+  .box { position: absolute; border: 2px solid currentColor; border-radius: 2px; pointer-events: auto; cursor: pointer; background: color-mix(in srgb, currentColor 8%, transparent); }
+  .box.baseline { border-style: dashed; }
+  .box.marked { outline: 3px solid var(--mark); outline-offset: 1px; background: color-mix(in srgb, var(--mark) 18%, transparent); }
+  .box.hot, .issue.hot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); }
+  ul.issues { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .issue { display: grid; grid-template-columns: auto auto 1fr; gap: 4px 8px; align-items: start; padding: 5px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
+  .issue.marked { border-color: var(--mark); }
+  .issue .text { min-width: 0; overflow-wrap: anywhere; }
+  .issue .sub { grid-column: 3; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+  .chip { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+  [hidden] { display: none !important; }
+  .drawer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 24px rgb(0 0 0 / .12); }
+  .drawer .head { display: flex; gap: 10px; align-items: center; padding: 10px 20px; flex-wrap: wrap; }
+  .drawer .head strong { margin-right: auto; }
+  .drawer button, dialog button { font: inherit; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+  .drawer button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .drawer .list { max-height: 45vh; overflow: auto; padding: 0 20px 14px; display: grid; gap: 8px; }
+  .marked-item { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; }
+  .marked-item textarea { width: 100%; min-height: 38px; font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); resize: vertical; }
+  .marked-item .row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .copy-fallback { width: 100%; min-height: 160px; font: 12px var(--mono); }
+  dialog { border: 0; padding: 0; background: transparent; max-width: 98vw; max-height: 96vh; }
+  dialog::backdrop { background: rgb(0 0 0 / .85); }
+  dialog .frame { overflow: auto; max-width: 98vw; max-height: 90vh; }
+  dialog .frame .shot { cursor: default; border-radius: 0; }
+  dialog .frame .shot img { width: auto; max-width: none; }
+  dialog .dbar { display: flex; justify-content: space-between; gap: 10px; color: #fff; padding: 6px 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>SketchForge UI languages</h1>
+  <div class="meta" id="meta"></div>
+</header>
+<div class="bar" id="bar"></div>
+<main>
+  <div class="errors" id="errors" hidden></div>
+  <div class="matrix-wrap"><table class="matrix" id="matrix"></table></div>
+  <div id="screens"></div>
+</main>
+<div class="drawer" id="drawer">
+  <div class="head">
+    <strong id="marked-count">No issues marked</strong>
+    <button type="button" id="toggle-list">Show marked</button>
+    <button type="button" id="clear-marks">Clear</button>
+    <button type="button" class="primary" id="copy">Copy for agent</button>
+  </div>
+  <div class="list" id="marked-list" hidden></div>
+</div>
+<dialog id="zoom"><div class="dbar"><span id="zoom-title"></span><button type="button" id="zoom-close">Close</button></div><div class="frame" id="zoom-frame"></div></dialog>
+<script id="report-data" type="application/json">__REPORT_DATA__</script>
+<script>
+(() => {
+  const R = JSON.parse(document.getElementById("report-data").textContent);
+  const CAT = R.categories;
+  const ORDER = ["clipped", "overflow", "wrap", "same", "baseline"];
+  const storeKey = "sketchforge-i18n-report:" + R.createdAt;
+  const state = {
+    viewport: R.viewports[0],
+    cats: new Set(["clipped", "overflow", "wrap", "same"]),
+    langs: new Set(R.languages),
+    frames: true,
+    onlyIssues: false,
+    search: "",
+    marks: new Map(),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem(storeKey) || "null");
+    if (saved) for (const [uid, value] of saved) state.marks.set(uid, value);
+  } catch (error) { /* marks still work for this session */ }
+  const save = () => { try { localStorage.setItem(storeKey, JSON.stringify([...state.marks])); } catch (error) { /* ignore */ } };
+
+  const esc = (value) => String(value ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  const uidOf = (viewport, lang, screen, issue) => [viewport, lang, screen, issue.id].join("|");
+  const resultOf = (viewport, lang, screen) => R.results[viewport]?.[lang]?.[screen] ?? null;
+  const findIssue = (uid) => {
+    const [viewport, lang, screen, ...rest] = uid.split("|");
+    const id = rest.join("|");
+    const result = resultOf(viewport, lang, screen);
+    const issue = result?.issues.find((candidate) => candidate.id === id);
+    return issue ? { viewport, lang, screen, issue, result } : null;
+  };
+
+  document.getElementById("meta").innerHTML = [
+    "Generated " + esc(new Date(R.createdAt).toLocaleString()),
+    "branch <code>" + esc(R.branch) + "</code> at <code>" + esc(R.commit) + "</code>",
+    "baseline <code>" + esc(R.baseline) + "</code>",
+    "languages " + R.languages.map((lang) => "<code>" + esc(lang) + "</code>").join(" "),
+    R.screens.length + " screens",
+  ].join(" · ");
+
+  if (R.errors.length) {
+    const box = document.getElementById("errors");
+    box.hidden = false;
+    box.innerHTML = "<strong>Chapters that stopped early</strong> (their remaining screens are missing)<ul>" +
+      R.errors.map((error) => "<li><code>" + esc(error.viewport) + " " + esc(error.lang) + " " + esc(error.chapter) + "</code>: " + esc(error.message) + "</li>").join("") + "</ul>";
+  }
+
+  function buildBar() {
+    const bar = document.getElementById("bar");
+    const viewportSelect = R.viewports.length > 1
+      ? '<label class="group"><span class="label">Viewport</span><select id="viewport">' + R.viewports.map((viewport) => "<option>" + esc(viewport) + "</option>").join("") + "</select></label>"
+      : "";
+    bar.innerHTML = viewportSelect +
+      '<div class="group"><span class="label">Frames</span><label class="toggle"><input type="checkbox" id="frames" checked>show</label>' +
+      ORDER.map((cat) => '<label class="toggle c-' + cat + '" title="' + esc(CAT[cat].meaning) + '"><input type="checkbox" data-cat="' + cat + '"' + (state.cats.has(cat) ? " checked" : "") + '><span class="swatch"></span><span style="color:var(--fg)">' + esc(CAT[cat].label) + '</span><span class="count" data-cat-count="' + cat + '"></span></label>').join("") + "</div>" +
+      '<div class="group"><span class="label">Languages</span>' + R.languages.map((lang) => '<label class="toggle"><input type="checkbox" data-lang="' + esc(lang) + '" checked>' + esc(lang) + (lang === R.baseline ? " (baseline)" : "") + "</label>").join("") + "</div>" +
+      '<div class="group"><label class="toggle"><input type="checkbox" id="only-issues">only screens with issues</label><input type="search" id="search" placeholder="Filter by text"></div>';
+    bar.addEventListener("change", (event) => {
+      const target = event.target;
+      if (target.id === "viewport") { state.viewport = target.value; buildScreens(); }
+      else if (target.id === "frames") { state.frames = target.checked; document.body.classList.toggle("no-frames", !state.frames); }
+      else if (target.id === "only-issues") state.onlyIssues = target.checked;
+      else if (target.dataset.cat) target.checked ? state.cats.add(target.dataset.cat) : state.cats.delete(target.dataset.cat);
+      else if (target.dataset.lang) target.checked ? state.langs.add(target.dataset.lang) : state.langs.delete(target.dataset.lang);
+      applyFilters();
+    });
+    bar.querySelector("#search").addEventListener("input", (event) => { state.search = event.target.value.trim().toLowerCase(); applyFilters(); });
+  }
+
+  const pct = (value, total) => (100 * value / total).toFixed(3) + "%";
+  function boxesHtml(viewport, lang, screen, result) {
+    return result.issues.map((issue) => {
+      const uid = uidOf(viewport, lang, screen, issue);
+      const b = issue.box;
+      return '<div class="box c-' + issue.category + " " + issue.category + (state.marks.has(uid) ? " marked" : "") + '" data-uid="' + esc(uid) + '" data-cat="' + issue.category +
+        '" style="left:' + pct(b.x, result.viewport.w) + ";top:" + pct(b.y, result.viewport.h) + ";width:" + pct(b.w, result.viewport.w) + ";height:" + pct(b.h, result.viewport.h) +
+        '" title="' + esc(CAT[issue.category].label + ": " + issue.text + " — " + issue.detail) + '"></div>';
+    }).join("");
+  }
+  function issueRow(viewport, lang, screen, issue) {
+    const uid = uidOf(viewport, lang, screen, issue);
+    const marked = state.marks.has(uid);
+    const keys = issue.keys.length ? issue.keys.map((key) => "<code>" + esc(key.key) + "</code>").join(", ") : "no catalog key found";
+    const base = issue.baselineText != null && issue.baselineText !== issue.text ? " · " + esc(R.baseline) + ": “" + esc(issue.baselineText) + "”" : "";
+    return '<li class="issue' + (marked ? " marked" : "") + '" data-uid="' + esc(uid) + '" data-cat="' + issue.category + '" data-text="' + esc((issue.text + " " + (issue.baselineText || "")).toLowerCase()) + '">' +
+      '<input type="checkbox" aria-label="Mark issue"' + (marked ? " checked" : "") + '>' +
+      '<span class="chip c-' + issue.category + '">' + esc(CAT[issue.category].label) + "</span>" +
+      '<span class="text">“' + esc(issue.text) + "”</span>" +
+      '<span class="sub">' + esc(issue.detail) + base + " · " + keys + "</span></li>";
+  }
+
+  function buildScreens() {
+    const container = document.getElementById("screens");
+    const viewport = state.viewport;
+    container.innerHTML = R.screens.map((screen) => {
+      const figures = R.languages.map((lang) => {
+        const result = resultOf(viewport, lang, screen.id);
+        const body = result
+          ? '<div class="shot" data-zoom="' + esc(lang) + '"><img loading="lazy" src="' + esc(result.file) + '" alt="' + esc(screen.title + " in " + lang) + '"><div class="overlay">' + boxesHtml(viewport, lang, screen.id, result) + "</div></div>" +
+            '<ul class="issues">' + result.issues.map((issue) => issueRow(viewport, lang, screen.id, issue)).join("") + "</ul>"
+          : '<div class="missing">Not captured</div>';
+        return '<figure data-lang="' + esc(lang) + '"><figcaption>' + esc(lang) + (lang === R.baseline ? " · baseline" : "") + "</figcaption>" + body + "</figure>";
+      }).join("");
+      return '<section class="screen" id="screen-' + esc(screen.id) + '" data-screen="' + esc(screen.id) + '"><header><h2>' + esc(screen.title) + "</h2><code>" + esc(screen.id) + "</code>" +
+        (screen.scope ? '<span class="meta">checked inside <code>' + esc(screen.scope) + "</code></span>" : "") + '</header><div class="langs">' + figures + "</div></section>";
+    }).join("");
+    applyFilters();
+  }
+
+  function visibleIssue(el) {
+    return state.cats.has(el.dataset.cat) && (!state.search || (el.dataset.text || "").includes(state.search) || (el.title || "").toLowerCase().includes(state.search));
+  }
+
+  function applyFilters() {
+    const visibleLangs = R.languages.filter((lang) => state.langs.has(lang));
+    document.querySelectorAll(".langs").forEach((grid) => grid.style.setProperty("--cols", String(Math.max(1, visibleLangs.length))));
+    document.querySelectorAll("figure[data-lang]").forEach((figure) => { figure.hidden = !state.langs.has(figure.dataset.lang); });
+    document.querySelectorAll(".box, .issue").forEach((el) => { el.hidden = !visibleIssue(el); });
+    const catCounts = Object.fromEntries(ORDER.map((cat) => [cat, 0]));
+    const matrixRows = [];
+    for (const screen of R.screens) {
+      const section = document.getElementById("screen-" + screen.id);
+      let visibleCount = 0;
+      const cells = visibleLangs.map((lang) => {
+        const result = resultOf(state.viewport, lang, screen.id);
+        if (!result) return '<td class="ok">—</td>';
+        const counts = {};
+        for (const issue of result.issues) {
+          catCounts[issue.category] += 1;
+          if (!state.cats.has(issue.category)) continue;
+          if (state.search && !(issue.text + " " + (issue.baselineText || "")).toLowerCase().includes(state.search)) continue;
+          counts[issue.category] = (counts[issue.category] || 0) + 1;
+          visibleCount += 1;
+        }
+        const pills = ORDER.filter((cat) => counts[cat]).map((cat) => '<span class="pill ' + cat + '" title="' + esc(CAT[cat].label) + '">' + counts[cat] + "</span>").join("");
+        return '<td class="cell" data-target="' + esc(screen.id) + '">' + (pills || '<span class="ok">ok</span>') + "</td>";
+      });
+      section.hidden = state.onlyIssues && visibleCount === 0;
+      if (!section.hidden) matrixRows.push('<tr><th scope="row">' + esc(screen.title) + "</th>" + cells.join("") + "</tr>");
+    }
+    document.getElementById("matrix").innerHTML = "<thead><tr><th>Screen (" + esc(state.viewport) + ")</th>" + visibleLangs.map((lang) => "<th>" + esc(lang) + "</th>").join("") + "</tr></thead><tbody>" + matrixRows.join("") + "</tbody>";
+    for (const cat of ORDER) {
+      const counter = document.querySelector('[data-cat-count="' + cat + '"]');
+      if (counter) counter.textContent = String(catCounts[cat]);
+    }
+  }
+
+  document.getElementById("matrix").addEventListener("click", (event) => {
+    const cell = event.target.closest("[data-target]");
+    if (cell) document.getElementById("screen-" + cell.dataset.target)?.scrollIntoView({ behavior: "smooth" });
+  });
+
+  function setMark(uid, marked) {
+    if (marked) state.marks.set(uid, state.marks.get(uid) || { note: "" });
+    else state.marks.delete(uid);
+    document.querySelectorAll('[data-uid="' + CSS.escape(uid) + '"]').forEach((el) => {
+      el.classList.toggle("marked", marked);
+      const checkbox = el.querySelector("input[type=checkbox]");
+      if (checkbox) checkbox.checked = marked;
+    });
+    save();
+    renderDrawer();
+  }
+
+  document.addEventListener("click", (event) => {
+    const box = event.target.closest(".box");
+    if (box) { event.stopPropagation(); setMark(box.dataset.uid, !state.marks.has(box.dataset.uid)); return; }
+    const shot = event.target.closest(".shot[data-zoom]");
+    if (shot && !shot.closest("dialog")) openZoom(shot);
+  });
+  document.addEventListener("change", (event) => {
+    const row = event.target.closest(".issue");
+    if (row && event.target.type === "checkbox") setMark(row.dataset.uid, event.target.checked);
+  });
+  for (const type of ["mouseover", "mouseout"]) {
+    document.addEventListener(type, (event) => {
+      const el = event.target.closest(".issue, .box");
+      if (!el) return;
+      document.querySelectorAll('[data-uid="' + CSS.escape(el.dataset.uid) + '"]').forEach((peer) => peer.classList.toggle("hot", type === "mouseover"));
+    });
+  }
+
+  const zoom = document.getElementById("zoom");
+  function openZoom(shot) {
+    const section = shot.closest("section.screen");
+    const frame = document.getElementById("zoom-frame");
+    frame.innerHTML = "";
+    const copy = shot.cloneNode(true);
+    const img = copy.querySelector("img");
+    img.loading = "eager";
+    img.addEventListener("load", () => { copy.style.width = img.naturalWidth + "px"; });
+    if (img.complete) copy.style.width = img.naturalWidth + "px";
+    frame.append(copy);
+    document.getElementById("zoom-title").textContent = section.querySelector("h2").textContent + " · " + shot.dataset.zoom;
+    zoom.showModal();
+  }
+  document.getElementById("zoom-close").addEventListener("click", () => zoom.close());
+  zoom.addEventListener("click", (event) => { if (event.target === zoom) zoom.close(); });
+
+  const list = document.getElementById("marked-list");
+  function renderDrawer() {
+    const count = state.marks.size;
+    document.getElementById("marked-count").textContent = count ? count + (count === 1 ? " issue marked" : " issues marked") : "No issues marked";
+    if (list.hidden) return;
+    list.innerHTML = [...state.marks].map(([uid, value]) => {
+      const found = findIssue(uid);
+      if (!found) return "";
+      const { viewport, lang, screen, issue } = found;
+      const title = R.screens.find((candidate) => candidate.id === screen)?.title || screen;
+      return '<div class="marked-item" data-uid="' + esc(uid) + '"><div class="row"><span class="chip c-' + issue.category + '">' + esc(CAT[issue.category].label) + "</span><strong>" + esc(lang) + "</strong><span>" + esc(title) + " · " + esc(viewport) +
+        '</span><span>“' + esc(issue.text) + '”</span><button type="button" data-unmark>Remove</button></div><textarea placeholder="Note for the agent (optional)">' + esc(value.note) + "</textarea></div>";
+    }).join("") || '<p class="meta">Click a frame or tick an issue to mark it.</p>';
+  }
+  list.addEventListener("input", (event) => {
+    const item = event.target.closest(".marked-item");
+    if (!item || event.target.tagName !== "TEXTAREA") return;
+    state.marks.set(item.dataset.uid, { note: event.target.value });
+    save();
+  });
+  list.addEventListener("click", (event) => {
+    const item = event.target.closest(".marked-item");
+    if (item && event.target.matches("[data-unmark]")) setMark(item.dataset.uid, false);
+  });
+  document.getElementById("toggle-list").addEventListener("click", (event) => {
+    list.hidden = !list.hidden;
+    event.target.textContent = list.hidden ? "Show marked" : "Hide marked";
+    renderDrawer();
+  });
+  document.getElementById("clear-marks").addEventListener("click", () => {
+    for (const uid of [...state.marks.keys()]) setMark(uid, false);
+  });
+
+  const lastPath = (value) => value.split(">").slice(-4).join(" > ");
+  function agentText() {
+    const items = [...state.marks].map(([uid, value]) => ({ ...findIssue(uid), note: value.note })).filter((item) => item.issue);
+    const langs = [...new Set(items.map((item) => item.lang))];
+    const screens = [...new Set(items.map((item) => item.screen))];
+    const lines = [
+      "# SketchForge UI translation issues (" + items.length + ")",
+      "",
+      "Context: SketchForge 3D editor, repo `" + R.repoRoot + "`, branch `" + R.branch + "` at `" + R.commit + "`. Report generated " + R.createdAt + " from " + R.baseUrl + ".",
+      "Each issue compares a screen in one UI language with the same screen in the baseline language `" + R.baseline + "`, found by an automated layout check and confirmed by a person.",
+      "",
+      "How to fix:",
+      "- Follow `docs/TRANSLATIONS.md` and the language guide `docs/translations/glossary.<lang>.md` (terms, audience, typography).",
+      "- Prefer fixing the translation in the catalog file named below: shorter wording with the same glossary terms. Keep keys, `{placeholders}` and `<tags>` unchanged; do not change the English text.",
+      "- Change CSS only when the text cannot be shortened without losing meaning, and then check the baseline language too.",
+      "- \"Same as baseline\" may be untranslated text, or text that must stay as is (names, data); decide per item.",
+      "- Re-check: `cd tools/i18n-screens && npm run report -- --languages " + [R.baseline, ...langs.filter((lang) => lang !== R.baseline)].join(",") + " --viewports " + [...new Set(items.map((item) => item.viewport))].join(",") + " --screens " + screens.join(",") + "`",
+      "",
+    ];
+    items.forEach((item, index) => {
+      const { issue, lang, screen, viewport, result } = item;
+      const title = R.screens.find((candidate) => candidate.id === screen)?.title || screen;
+      const baselineResult = resultOf(viewport, R.baseline, screen);
+      lines.push("## " + (index + 1) + ". [" + lang + "] " + CAT[issue.category].label + ": “" + issue.text + "”");
+      lines.push("- Screen: `" + screen + "` (" + title + "), viewport " + viewport + ", language `" + lang + "`, baseline `" + R.baseline + "`");
+      lines.push("- Problem: " + CAT[issue.category].meaning + "; " + issue.detail + ".");
+      lines.push("- Text (" + lang + "): “" + issue.text + "”");
+      if (issue.baselineText != null && lang !== R.baseline) lines.push("- Text (" + R.baseline + "): “" + issue.baselineText + "”");
+      lines.push("- Size: " + issue.box.w + "×" + issue.box.h + " px at (" + issue.box.x + ", " + issue.box.y + "), " + issue.lines + " line(s)" +
+        (issue.baselineBox ? "; baseline " + issue.baselineBox.w + "×" + issue.baselineBox.h + " px, " + issue.baselineLines + " line(s)" : ""));
+      lines.push(issue.keys.length
+        ? "- Catalog: " + issue.keys.map((key) => "`" + key.key + "` in `" + key.file + "`" + (key.en ? " (English: “" + key.en + "”)" : "")).join("; ")
+        : "- Catalog: no key renders this text; it may be data (names, numbers) or text built in code");
+      lines.push("- Element: `" + issue.tag + "` at `" + lastPath(issue.path) + "`");
+      lines.push("- Screenshot: `" + R.outDir + "/" + result.file + "`" + (baselineResult && lang !== R.baseline ? "; baseline: `" + R.outDir + "/" + baselineResult.file + "`" : ""));
+      if (item.note && item.note.trim()) lines.push("- Reviewer note: " + item.note.trim());
+      lines.push("");
+    });
+    return lines.join("\n");
+  }
+
+  document.getElementById("copy").addEventListener("click", async () => {
+    if (!state.marks.size) { document.getElementById("marked-count").textContent = "Mark at least one issue first"; return; }
+    const text = agentText();
+    try {
+      await navigator.clipboard.writeText(text);
+      document.getElementById("marked-count").textContent = "Copied " + state.marks.size + " issues";
+    } catch (error) {
+      list.hidden = false;
+      list.innerHTML = '<p class="meta">Clipboard is not available here. Select the text and copy it.</p><textarea class="copy-fallback" readonly></textarea>';
+      const area = list.querySelector("textarea");
+      area.value = text;
+      area.focus();
+      area.select();
+    }
+  });
+
+  buildBar();
+  buildScreens();
+  renderDrawer();
+})();
+</script>
+</body>
+</html>

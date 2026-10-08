@@ -1,0 +1,1400 @@
+{
+  "common": {
+    "language": {
+      "label": "Language",
+      "system": "System",
+      "note": "Language applies across SketchForge and all projects."
+    },
+    "appTitle": "SketchForge 3D editor",
+    "theme": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "shape": {
+      "box": "Box",
+      "cylinder": "Cylinder",
+      "sphere": "Sphere",
+      "sketch": "Sketch",
+      "scribble": "Scribble",
+      "cone": "Cone",
+      "pyramid": "Pyramid",
+      "roof": "Roof",
+      "text": "Text",
+      "roundRoof": "Round Roof",
+      "halfSphere": "Half Sphere",
+      "torus": "Torus",
+      "tube": "Tube",
+      "gear": "Gear",
+      "ring": "Ring",
+      "wedge": "Wedge",
+      "polygon": "Polygon",
+      "icosahedron": "Icosahedron",
+      "mesh": "Mesh"
+    },
+    "shapeName": {
+      "cube": "Cube",
+      "group": "Group",
+      "intersection": "Intersection",
+      "sketchExtrusion": "Sketch extrusion",
+      "sketchRevolve": "Sketch revolve",
+      "sketchImage": "Sketch image",
+      "part": "{name} Part {index}"
+    },
+    "unit": {
+      "mm": "mm",
+      "cm": "cm",
+      "m": "m",
+      "in": "in",
+      "ft": "ft",
+      "stud": "stud"
+    }
+  },
+  "dashboard": {
+    "topbar": {
+      "homeLink": "SketchForge home",
+      "search": "Search projects",
+      "create": "Create"
+    },
+    "nav": {
+      "home": "Home",
+      "shared": "Shared",
+      "challenges": "Challenges",
+      "customization": "Customization",
+      "dashboard": "Dashboard"
+    },
+    "customization": {
+      "comingSoon": "Coming soon"
+    },
+    "button": {
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "save": "Save"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{count} min ago",
+      "today": "Today"
+    },
+    "fileSize": {
+      "bytes": "{size} B",
+      "kilobytes": "{size} KB",
+      "megabytes": "{size} MB"
+    },
+    "actions": {
+      "create": "Create new 3D design",
+      "import": "Open SKF or import geometry",
+      "continue": "Continue workplane"
+    },
+    "projects": {
+      "title": "Projects",
+      "visible": "{count} visible",
+      "sort": "Sort projects",
+      "sortRecent": "Recent",
+      "sortName": "Name",
+      "view": "Project view",
+      "gridView": "Grid view",
+      "listView": "List view",
+      "shapeCount": "{count, plural, one {{count} shape} other {{count} shapes}}",
+      "noSnapshot": "No snapshot yet",
+      "options": "Project options",
+      "optionsFor": "Project options for {name}",
+      "menuFor": "Options for {name}",
+      "rename": "Rename",
+      "empty": "No projects yet",
+      "emptyHint": "Create a 3D design and it will appear here.",
+      "deleteTitle": "Delete project?",
+      "deleteCancel": "Cancel project deletion",
+      "deleteConfirm": "Do you actually want the project <b>{name}</b> to be deleted?",
+      "renameTitle": "Rename project",
+      "renameCancel": "Cancel project rename",
+      "nameLabel": "Project name"
+    },
+    "shared": {
+      "title": "Shared projects",
+      "available": "{count} available from Docker storage",
+      "refresh": "Refresh",
+      "badge": "Shared",
+      "options": "Shared project options",
+      "optionsFor": "Shared project options for {name}",
+      "menuFor": "Options for shared project {name}",
+      "loading": "Loading shared projects",
+      "empty": "No shared projects yet",
+      "emptyHint": "Save an SKF project to the shared space from the Export window.",
+      "deleteTitle": "Delete shared project?",
+      "deleteCancel": "Cancel shared project deletion",
+      "deleteConfirm": "Delete <b>{name}</b> from shared storage? This removes it for everyone using this shared space.",
+      "opening": "Opening shared project {name}",
+      "opened": "Opened shared project {name}",
+      "openedAutosave": "Opened shared project {name}; edits autosave locally until you save back to shared",
+      "downloadFailed": "Could not download shared project",
+      "openFailed": "Could not open shared project",
+      "deleting": "Deleting shared project {name}",
+      "deleted": "Deleted shared project {name}",
+      "saved": "Saved {name} to the Docker shared project space"
+    },
+    "open": {
+      "validating": "Validating {fileName} before opening it as a new project",
+      "opened": "Opened {fileName} as a new editable local project",
+      "failed": "Could not open SketchForge project"
+    },
+    "import": {
+      "oneSkfAtATime": "Open one .skf project at a time; import STL, OBJ, STEP, and SVG geometry separately",
+      "unsupportedType": "Unsupported file type",
+      "progress": "Importing {index} of {count}: {fileName}",
+      "readFailed": "Could not read file",
+      "importedOne": "Imported {fileName}.",
+      "importedSome": "Imported {imported} of {count} files.",
+      "noneImported": "Could not import any of the {count} selected files.",
+      "failures": "Failed: {details}",
+      "failuresMore": "{details}; plus {count} more",
+      "createProjectFailed": "Could not create a project for the imported files"
+    },
+    "storage": {
+      "unavailable": "Project shape storage is unavailable",
+      "openFailed": "Could not open project shape storage",
+      "loadFailed": "Could not load project shapes",
+      "resourcesLoadFailed": "Could not load project shape resources",
+      "resourcesIncomplete": "Project shape resources are incomplete",
+      "saveFailed": "Could not save project shapes",
+      "prepareFailed": "Could not prepare project shape storage",
+      "migrateFailed": "Could not migrate project shapes to larger storage",
+      "deleteFailed": "Could not delete project shapes from local storage",
+      "saveListFailed": "Could not save project list"
+    },
+    "updates": {
+      "promptTitle": "SketchForge {version} is available",
+      "dismiss": "Dismiss update",
+      "promptQuestion": "Do you want to update from version {version}?",
+      "safetyLocal": "Your browser projects are kept. The updater only replaces the local SketchForge application files.",
+      "safetyServer": "Your projects are kept. Private projects stay in this browser, and Docker shared projects remain in the persistent <code>/data/projects</code> volume.",
+      "notConfigured": "One-click installation is not configured on this server. Continue to the safe update guide.",
+      "keyLabel": "Server update key",
+      "notNow": "Not now",
+      "starting": "Starting…",
+      "update": "Update",
+      "openGuide": "Open update guide",
+      "sectionTitle": "Software updates",
+      "sectionNote": "Updates are checked automatically but are never installed without your approval.",
+      "managed": "Managed by the website owner",
+      "downloading": "Downloading update…",
+      "updateTo": "Update to {version}",
+      "upToDateStatus": "Up to date",
+      "checking": "Checking…",
+      "check": "Check for updates",
+      "readyToInstall": "SketchForge {version} is ready to install.",
+      "availableDesktop": "SketchForge {version} is available. Press Update to download, install, and restart.",
+      "upToDate": "SketchForge is up to date.",
+      "alreadyUpToDate": "SketchForge is already up to date.",
+      "downloadingVersion": "Downloading SketchForge {version}…",
+      "downloadingUpdate": "Downloading SketchForge update…",
+      "restartingToInstall": "Update downloaded. SketchForge is restarting to install it…",
+      "installFailed": "Could not install the update",
+      "keyRequired": "Enter the server update key to continue.",
+      "localRestarting": "Update installed. Restarting local SketchForge…",
+      "localReload": "Update installed. Reload this page once local SketchForge finishes restarting.",
+      "serverStarted": "Update started. The server may briefly go offline; reopen this page after it restarts."
+    },
+    "settings": {
+      "title": "Settings",
+      "close": "Close settings",
+      "saveMethod": "Save method",
+      "browserDownloads": "Browser downloads",
+      "saveToFolder": "Save to folder",
+      "folderPath": "Folder path",
+      "version": "SketchForge version",
+      "license": "License",
+      "source": "Corresponding source",
+      "viewSource": "View source"
+    },
+    "challenges": {
+      "skills": "Skills used in this challenge",
+      "start": "Start Challenge",
+      "skill": {
+        "basicShapes": "Basic shapes",
+        "align": "Align",
+        "hole": "Hole",
+        "lock": "Lock",
+        "group": "Group",
+        "fillet": "Fillet",
+        "elevation": "Elevation"
+      },
+      "keyTag": {
+        "title": "Key Tag",
+        "description": "Build your first Key Tag from simple shapes.",
+        "altLight": "Finished red Key Tag model on the SketchForge workplane",
+        "altDark": "Finished red Key Tag model on the dark SketchForge workplane"
+      },
+      "nameplate": {
+        "title": "Personalized Nameplate",
+        "description": "Create a printable nameplate with rounded edges and raised custom text.",
+        "altLight": "Finished blue ALEX nameplate on the SketchForge workplane",
+        "altDark": "Finished blue ALEX nameplate on the dark SketchForge workplane"
+      }
+    },
+    "loading": {
+      "editor": "Loading editor"
+    }
+  },
+  "editor": {
+    "notice": {
+      "ready": "Ready",
+      "selectShapeFirst": "Select a shape first",
+      "shapeAdded": "{name} added",
+      "deleted": "{count, plural, one {Deleted {count} selected shape} other {Deleted {count} selected shapes}}",
+      "duplicated": "{count, plural, one {Duplicated {count} shape} other {Duplicated {count} shapes}}",
+      "copied": "{count, plural, one {Copied {count} shape} other {Copied {count} shapes}}",
+      "cut": "{count, plural, one {Cut {count} shape} other {Cut {count} shapes}}",
+      "pasted": "{count, plural, one {Pasted {count} shape} other {Pasted {count} shapes}}",
+      "clipboardEmpty": "SketchForge clipboard is empty",
+      "pasteCancelled": "Paste cancelled because the project changed",
+      "finishBeforeUndo": "Finish the current drag or transform before undoing",
+      "finishBeforeRedo": "Finish the current drag or transform before redoing",
+      "finishBeforeRotate": "Finish the current drag or transform before rotating",
+      "finishBeforeSave": "Finish the current drag or transform before saving the project file",
+      "nothingToUndo": "Nothing to undo",
+      "nothingToRedo": "Nothing to redo",
+      "undone": "Undo",
+      "redone": "Redo",
+      "selectionHidden": "Selection hidden",
+      "selectionVisible": "Selection visible",
+      "noHiddenShapes": "No hidden shapes",
+      "showedHidden": "{count, plural, one {Showed {count} hidden shape} other {Showed {count} hidden shapes}}",
+      "selectionLocked": "Selection locked",
+      "selectionUnlocked": "Selection unlocked",
+      "withDetail": "{message}; {detail}",
+      "selectionIsLocked": "Selection is locked",
+      "changedToHole": "Changed selection to hole",
+      "changedToSolid": "Changed selection to solid",
+      "droppedToWorkplane": "Dropped selection to the workplane",
+      "movedSelection": "Moved selection",
+      "selectionCleared": "Selection cleared",
+      "selectedAllVisible": "Selected all visible shapes",
+      "rotated": "{count, plural, one {Rotated {count} shape by {angle}°} other {Rotated {count} shapes by {angle}°}}",
+      "snapped": "{count, plural, one {Snapped {count} shape to {grid} {unit} visible grid} other {Snapped {count} shapes to {grid} {unit} visible grid}}",
+      "newEmptyDesign": "New empty design",
+      "savedDesign": "{count, plural, one {Saved design with {count} shape} other {Saved design with {count} shapes}}",
+      "nothingToCopy": "Nothing to copy yet",
+      "madeCopy": "Made a copy of the design"
+    },
+    "workplane": {
+      "toolActive": "Workplane tool: click a face or empty grid; hold Shift to reverse",
+      "toolCancelled": "Workplane tool cancelled",
+      "setToFace": "Workplane set to selected face",
+      "resetToBase": "Workplane reset to base",
+      "updated": "Workplane updated"
+    },
+    "align": {
+      "needTwo": "Select at least two shapes to align",
+      "started": "Align: choose a dot, or click a selected shape to anchor it",
+      "cancelled": "Align cancelled",
+      "anchor": "Align anchor: {name}",
+      "anchorLocked": "Align anchor: {name} (locked)",
+      "anchorSet": "Align anchor set",
+      "alreadyAligned": "Already aligned",
+      "aligned": "{count, plural, one {Aligned {count} shape {direction}} other {Aligned {count} shapes {direction}}}",
+      "handleAlign": "Align {direction}",
+      "handleAligned": "Already aligned {direction}",
+      "direction": {
+        "left": "left",
+        "center": "center",
+        "right": "right",
+        "front": "front",
+        "middle": "middle",
+        "back": "back",
+        "bottom": "bottom",
+        "top": "top"
+      }
+    },
+    "mirror": {
+      "started": "Mirror: choose an axis arrow",
+      "cancelled": "Mirror cancelled",
+      "nothing": "Nothing to mirror",
+      "mirrored": "{count, plural, one {Mirrored {count} shape {axis}} other {Mirrored {count} shapes {axis}}}",
+      "axis": {
+        "x": "left-right",
+        "y": "top-bottom",
+        "z": "front-back"
+      }
+    },
+    "group": {
+      "needTwo": "Select at least two shapes to group",
+      "unlockAll": "Unlock every selected shape before grouping",
+      "sceneChanged": "The scene changed while grouping; select the objects and try again",
+      "holeConsumedSolid": "Grouped: hole consumed solid",
+      "grouped": "{count, plural, one {Grouped {count} shape} other {Grouped {count} shapes}}",
+      "failedImportedCut": "Could not cut this imported mesh cleanly",
+      "failedCut": "Could not cut this selection",
+      "failedGroup": "Could not group this selection",
+      "intersectionNeedsSolidAndHole": "Select at least one solid and one hole for Intersection",
+      "intersectionFailed": "Could not calculate this Intersection cleanly",
+      "intersectionSceneChanged": "The scene changed while intersecting; select the objects and try again",
+      "intersectionEmpty": "Intersection is empty",
+      "intersected": "{count, plural, one {Intersected {count} shape} other {Intersected {count} shapes}}",
+      "selectGroup": "Select a group first",
+      "ungrouped": "{count, plural, one {Ungrouped {count} group} other {Ungrouped {count} groups}}"
+    },
+    "separate": {
+      "selectOne": "Select one object to separate",
+      "unlock": "Unlock the object before separating parts",
+      "singlePart": "The selected object has only one connected part",
+      "separated": "{count, plural, one {Separated {count} part} other {Separated {count} parts}}"
+    },
+    "edgeModifier": {
+      "cancelled": "Edge modifier cancelled",
+      "cancelledObjectChanged": "Edge modifier cancelled because the object changed",
+      "selectSolid": {
+        "fillet": "Select one unlocked solid to fillet",
+        "chamfer": "Select one unlocked solid to chamfer"
+      },
+      "noSurface": "The selected object has no printable surface",
+      "tooDense": "This mesh is too dense for interactive edge treatment. Simplify it below 180,000 triangles first.",
+      "preparing": {
+        "fillet": "Preparing fillet edges in the CAD worker",
+        "chamfer": "Preparing chamfer edges in the CAD worker"
+      },
+      "selectHighlighted": "Select highlighted edges, then adjust the preview",
+      "previewReady": "Edge treatment preview ready",
+      "needsAdjustment": "Edge treatment needs adjustment",
+      "waitForPreview": "Wait for a valid edge preview before applying",
+      "applied": {
+        "fillet": "{count, plural, one {Filleted {count} edge} other {Filleted {count} edges}}",
+        "chamfer": "{count, plural, one {Chamfered {count} edge} other {Chamfered {count} edges}}"
+      },
+      "defaultTarget": "Object"
+    },
+    "edgeFeature": {
+      "label": {
+        "fillet": "{count, plural, one {fillet ({amount} {unit}, {count} edge)} other {fillet ({amount} {unit}, {count} edges)}}",
+        "chamfer": "{count, plural, one {chamfer ({amount} {unit}, {count} edge)} other {chamfer ({amount} {unit}, {count} edges)}}"
+      },
+      "selectShape": "Select a shape with an edge feature first",
+      "unlockShape": "Unlock the shape before removing an edge feature",
+      "chooseFeature": "Choose an edge feature to remove",
+      "noUndoHistory": "This edge feature has no stored undo history",
+      "none": "No edge feature to remove",
+      "objectChanged": "The object changed while removing the edge feature; try again",
+      "removed": "Removed {feature}"
+    },
+    "sketch": {
+      "started": "Sketch started: place the first point",
+      "revolveStarted": "Revolve sketch started: draw on the left side of the axis",
+      "editingExtrude": "Editing extrude sketch profile",
+      "editingRevolve": "Editing revolve sketch profile",
+      "selectToEdit": "Select one shape created from a sketch to edit it",
+      "cancelled": "Sketch cancelled",
+      "nothingToUndo": "Nothing to undo in this sketch",
+      "undone": "Sketch undo",
+      "nothingToRedo": "Nothing to redo in this sketch",
+      "redone": "Sketch redo",
+      "toolHint": {
+        "line": "Line: click points to draw straight segments",
+        "bezier": "Bézier: click and drag points to pull curve handles",
+        "smooth": "Smooth curve: click points to build a flowing path",
+        "rectangle": "Rectangle: drag across the sketch to create a closed rectangle",
+        "circle": "Circle: drag a bounding box to create a closed circle",
+        "triangle": "Triangle: drag a bounding box to create a closed triangle",
+        "hexagon": "Hexagon: drag a bounding box to create a closed hexagon",
+        "select": "Select: edit sketch geometry or place and scale reference images",
+        "refine": "Refine: click a segment to add a point, or a point to remove it",
+        "erase": "Erase: click a point or segment to remove it",
+        "measure": "Measure: choose two points"
+      },
+      "measureSecond": "Choose the second measurement point",
+      "measured": "Measured {value} {unit}",
+      "measurementRemoved": "Sketch measurement removed",
+      "profileClosed": "Profile closed—edit the path or finish the sketch",
+      "segmentAdded": "Sketch segment added",
+      "pointAndSegmentAdded": "Sketch point and segment added",
+      "pointAdded": "Sketch point added",
+      "pointRemoved": "Sketch point removed",
+      "lineRemoved": "Sketch line removed",
+      "pointMoved": "Sketch point moved",
+      "pointInserted": "Point added to path",
+      "handleAdjusted": "Curve handle adjusted",
+      "madeCorner": "Made corner",
+      "madeSmooth": "Made smooth",
+      "handlesSplit": "Curve handles split",
+      "geometryTransformed": "Sketch geometry transformed",
+      "selectToRemove": "Select a sketch point or segment to remove it",
+      "selectionRemoved": "Selected sketch geometry removed",
+      "selectClosedToRotate": "Select a closed sketch object to rotate",
+      "rotateClosedOnly": "Rotation is available only for closed sketch objects",
+      "rotated45": "Rotated closed sketch selection by 45°",
+      "chainCleared": "Current sketch chain cleared",
+      "selectedItems": "{count, plural, one {Selected {count} sketch item} other {Selected {count} sketch items}}",
+      "selectionCleared": "Sketch selection cleared",
+      "primitive": {
+        "rectangle": "Rectangle",
+        "circle": "Circle",
+        "triangle": "Triangle",
+        "hexagon": "Hexagon"
+      },
+      "primitiveHint": {
+        "rectangle": "Add rectangle at the sketch origin, or drag it onto the sketch",
+        "circle": "Add circle at the sketch origin, or drag it onto the sketch",
+        "triangle": "Add triangle at the sketch origin, or drag it onto the sketch",
+        "hexagon": "Add hexagon at the sketch origin, or drag it onto the sketch"
+      },
+      "primitiveAdded": "{shape} added to sketch",
+      "imageSelected": "Sketch image selected",
+      "imageUpdated": "Sketch image updated",
+      "imageRemoved": "Sketch image removed",
+      "imageLockedEdit": "Unlock the sketch image with L before editing it",
+      "imageLockedDelete": "Unlock the sketch image with L before deleting it",
+      "chooseSelectForImage": "Choose Select before adding a sketch image",
+      "chooseImageFile": "Choose a PNG, JPG, WebP, GIF, or other image file",
+      "imageAdded": "Added {name} to the sketch",
+      "imageAddFailed": "The sketch image could not be added",
+      "selectImageToLock": "Select a sketch image to lock or unlock",
+      "imageLocked": "Sketch image locked",
+      "imageUnlocked": "Sketch image unlocked",
+      "building": "Building exact sketch geometry…",
+      "cannotExtrude": "The sketch profile cannot be extruded to 3D",
+      "cannotRevolve": "The sketch profile cannot be revolved to 3D",
+      "closeProfile": "Close at least one profile before finishing the sketch",
+      "updated": "Sketch updated",
+      "revolveUpdated": "Revolve sketch updated",
+      "extrusionCreated": "Exact sketch created at {height} {unit} height",
+      "revolveCreated": "Revolved sketch created",
+      "revolvePreviewUpdating": "Updating revolve preview…",
+      "revolveShapeUpdated": "Revolve updated",
+      "revolveSettingsFailed": "The revolve settings could not be applied"
+    },
+    "export": {
+      "needSolidSelected": "Select at least one solid shape before exporting",
+      "needSolid": "Add a solid shape before exporting",
+      "needSolidStep": "Select at least one solid shape before exporting STEP",
+      "invalidSvg": "{reason}. Re-import the source SVG after fixing its contours",
+      "buildingSvg": "Building SVG top-view projection…",
+      "buildingBrep": "Building B-Rep… first STEP export loads the OpenCascade kernel (~22 MB), one time per session",
+      "savedTo": "Saved {format} to {path}",
+      "exported": "Exported {format}",
+      "exportedSelected": "{count, plural, one {Exported {count} selected shape as {format}} other {Exported {count} selected shapes as {format}}}",
+      "failed": "Could not export {format}",
+      "stepSaved": "{count, plural, one {Saved STEP ({count} body) to {path}} other {Saved STEP ({count} bodies) to {path}}}",
+      "stepExported": "{count, plural, one {Exported STEP B-Rep with {count} body} other {Exported STEP B-Rep with {count} bodies}}",
+      "stepSkipped": "{count, plural, one {skipped {count} non-primitive shape} other {skipped {count} non-primitive shapes}}",
+      "sharedUnavailable": "Shared project storage is not available in this deployment",
+      "packagingShared": "Packaging project for Docker shared storage…",
+      "packaging": "Packaging editable project, history, and deduplicated assets…",
+      "projectSavedTo": "Saved editable SketchForge project to {path}",
+      "projectSaved": "Saved editable SketchForge project (.skf)",
+      "projectSaveFailed": "Could not save SketchForge project"
+    },
+    "import": {
+      "oneSkf": "Open one .skf project at a time; import STL, OBJ, STEP, and SVG geometry separately",
+      "skfUnavailable": "Opening SketchForge project files is unavailable here",
+      "validatingSkf": "Validating {name} before opening it as a new project",
+      "cancelledProjectChanged": "{count, plural, one {Import of {count} file cancelled because the project changed} other {Import of {count} files cancelled because the project changed}}",
+      "unsupportedType": "Unsupported file type",
+      "importing": "Importing {index} of {count}: {name}",
+      "importingStep": "Importing {index} of {count}: {name}… first STEP import loads the OpenCascade kernel (~22 MB)",
+      "readFailed": "Could not read file",
+      "failedList": "Failed: {details}",
+      "failedMore": "plus {count} more",
+      "noneImported": "Could not import any of the {count} selected files.",
+      "importedFile": "Imported {name}.",
+      "importedCount": "Imported {imported} of {count} files."
+    },
+    "toolbar": {
+      "home": "Home",
+      "homeDashboard": "Home dashboard",
+      "clipboard": "Clipboard",
+      "copy": "Copy",
+      "paste": "Paste",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "history": "History",
+      "undo": "Undo",
+      "redo": "Redo",
+      "shapes": "Shapes",
+      "addShape": "Add shape",
+      "basicShapes": "Basic Shapes",
+      "renameProject": "Rename project",
+      "projectName": "Project name",
+      "visibility": "Visibility",
+      "showSelected": "Show selected",
+      "hideSelected": "Hide selected",
+      "visibilityOptions": "Visibility options",
+      "nothingHidden": "Nothing hidden",
+      "showAllHidden": "Show all hidden ({count})",
+      "visibilityHelpSelected": "Eye again: selected",
+      "visibilityHelpAll": "all",
+      "visibilityHelpShortcut": "<keys></keys>: {action}",
+      "combine": "Combine",
+      "group": "Group",
+      "ungroup": "Ungroup",
+      "intersection": "Boolean Intersection",
+      "modify": "Modify",
+      "align": "Align",
+      "mirror": "Mirror",
+      "snapToGrid": "Snap to grid",
+      "chamfer": "Chamfer",
+      "fillet": "Fillet",
+      "arrange": "Arrange",
+      "dropToWorkplane": "Drop to workplane",
+      "manage": "Manage",
+      "import": "Import",
+      "export": "Export",
+      "workspaceSettings": "Workspace settings",
+      "sketchToolbar": "Sketch toolbar",
+      "draw": "Draw",
+      "line": "Line",
+      "bezier": "Bezier Curve",
+      "smooth": "Smooth Curve",
+      "addSketchShape": "Add sketch shape",
+      "sketchShapesMenu": "Sketch shapes",
+      "sketchShapesTitle": "Sketch Shapes",
+      "select": "Select",
+      "addImageLabel": "Add Image",
+      "addImage": "Add image",
+      "addImageNeedsSelect": "Choose Select to add an image",
+      "refine": "Add or Remove Points",
+      "erase": "Erase",
+      "sketchUndo": "Sketch undo",
+      "sketchRedo": "Sketch redo",
+      "inspect": "Inspect",
+      "measure": "Measure",
+      "finish": "Finish",
+      "finishSketch": "Finish sketch",
+      "finishRevolve": "Finish revolve",
+      "cancelSketch": "Cancel",
+      "create": "Create",
+      "sketchTo3d": "Sketch to 3D",
+      "sketchTo3dOptions": "Sketch to 3D options",
+      "sketchTo3dMethod": "Sketch to 3D method",
+      "extrudeSketch": "Extrude sketch",
+      "extrudeSketchHint": "Raise the profile into a 3D shape",
+      "revolveSketch": "Revolve sketch",
+      "revolveSketchHint": "Rotate the profile around an axis",
+      "editSketchTo3d": "Edit Sketch to 3D",
+      "edit": "Edit",
+      "editorMode": "Editor mode",
+      "geometry": "Geometry",
+      "sketch": "Sketch"
+    },
+    "panel": {
+      "import": "Import",
+      "export": "Export",
+      "settings": "Settings",
+      "profile": "Profile",
+      "close": "Close {title}",
+      "openProject": "Open SketchForge Project",
+      "openProjectHint": "Restore an editable .skf file as a new local project",
+      "orAddGeometry": "or add geometry",
+      "dropFiles": "Drop STL, OBJ, STEP, or SVG files",
+      "orClickToChoose": "or click to choose from your computer",
+      "fileName": "File name",
+      "format": "Format",
+      "fullProject": "Full project",
+      "scopeSelected": "{count} selected",
+      "scopeTotal": "{count} total",
+      "exportFormat": "Export format",
+      "formatInfo": {
+        "stl": {
+          "description": "3D print mesh",
+          "note": "Best for slicers and 3D printing. Geometry is exported as a triangulated mesh."
+        },
+        "obj": {
+          "description": "Universal 3D mesh",
+          "note": "A broadly compatible mesh format for modeling, rendering, and interchange."
+        },
+        "step": {
+          "description": "CAD / B-Rep",
+          "note": "Keeps supported boxes, cylinders, spheres, and cones as precise CAD geometry."
+        },
+        "svg": {
+          "description": "Top-view vector",
+          "note": "Exports a clean top-view silhouette in millimeters, including holes and curved contours."
+        },
+        "skf": {
+          "description": "Editable project",
+          "note": "Preserves the editable project, undo/redo history, sketches, groups, CAD data, and imported sources."
+        }
+      },
+      "historyTitle": "Saved action history",
+      "historyHint": "Choose how many recent undo actions travel with the project",
+      "historyRange": "Saved SKF action history",
+      "historyUnlimited": "Unlimited",
+      "historyActions": "{count, plural, one {{count} action} other {{count} actions}}",
+      "saveToShared": "Save to shared",
+      "savingProject": "Saving project…",
+      "saveProject": "Save SketchForge Project",
+      "buildingStep": "Building STEP…",
+      "exportAs": "Export {format}",
+      "workspacePreferences": "Workspace preferences",
+      "gridAndSnapping": "Grid and snapping",
+      "gridNotice": "Grid display is controlled from the bottom-right Settings dialog",
+      "unitsMillimeters": "Units: Millimeters",
+      "unitsNotice": "Units are set to millimeters",
+      "lighting": "Lighting and shadows",
+      "lightingNotice": "Shadows and ray-traced lighting are enabled",
+      "account": "Account",
+      "accountNotice": "Account menu opened",
+      "dashboard": "Dashboard",
+      "dashboardNotice": "Dashboard opened",
+      "signOut": "Sign out",
+      "signOutNotice": "Sign out selected"
+    },
+    "mcp": {
+      "selected": "{count, plural, one {MCP selected {count} object} other {MCP selected {count} objects}}",
+      "selectionCleared": "MCP cleared selection",
+      "deleted": "{count, plural, one {MCP deleted {count} object} other {MCP deleted {count} objects}}",
+      "added": "{name} added by MCP",
+      "imported": "{name} imported by MCP",
+      "updated": "{name} updated by MCP",
+      "alreadyAligned": "MCP alignment already {direction}",
+      "aligned": "{count, plural, one {MCP aligned {count} object {direction}} other {MCP aligned {count} objects {direction}}}",
+      "grouped": "{count, plural, one {MCP grouped {count} object} other {MCP grouped {count} objects}}",
+      "groupConsumedSolid": "MCP group consumed solid",
+      "ungrouped": "{count, plural, one {MCP ungrouped {count} group} other {MCP ungrouped {count} groups}}",
+      "cutComplete": "MCP boolean cut complete",
+      "cutConsumedSolid": "MCP cut consumed solid",
+      "separated": "{count, plural, one {MCP separated {count} part} other {MCP separated {count} parts}}",
+      "filleted": "{count, plural, one {Filleted {count} edge by MCP} other {Filleted {count} edges by MCP}}",
+      "chamfered": "{count, plural, one {Chamfered {count} edge by MCP} other {Chamfered {count} edges by MCP}}"
+    }
+  },
+  "workspace": {
+    "shortcutHint": "{label} ({key})",
+    "viewCube": {
+      "label": "View orientation cube",
+      "face": {
+        "top": "TOP",
+        "bottom": "BOTTOM",
+        "front": "FRONT",
+        "back": "BACK",
+        "right": "RIGHT",
+        "left": "LEFT"
+      },
+      "view": {
+        "top": "Top view",
+        "bottom": "Bottom view",
+        "front": "Front view",
+        "back": "Back view",
+        "right": "Right view",
+        "left": "Left view"
+      }
+    },
+    "camera": {
+      "controls": "Camera controls",
+      "showControls": "Show controls",
+      "showControlsLabel": "Show camera controls",
+      "hideControls": "Hide controls",
+      "hideControlsLabel": "Hide camera controls",
+      "home": "Home",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out"
+    },
+    "workplane": {
+      "label": "Workplane",
+      "place": "Place workplane"
+    },
+    "ruler": {
+      "tools": "Ruler tools",
+      "actions": "Ruler actions",
+      "add": "Add measurement",
+      "movePoints": "Move measurement points",
+      "deletePart": "Delete measurement part",
+      "measurements": "Ruler measurements"
+    },
+    "dimension": {
+      "width": "Width",
+      "height": "Height"
+    },
+    "transform": {
+      "resize": "Resize",
+      "lift": "Lift",
+      "rotate": "Rotate"
+    },
+    "moveDimensions": {
+      "label": "Movement dimensions",
+      "axis": "{axis} movement"
+    },
+    "align": {
+      "handles": "Alignment handles"
+    },
+    "mirror": {
+      "handles": "Mirror handles",
+      "x": "Mirror left-right",
+      "y": "Mirror top-bottom",
+      "z": "Mirror front-back"
+    },
+    "sketch": {
+      "badge": {
+        "extrude": "Sketch view",
+        "revolve": "Revolve sketch"
+      },
+      "viewControls": "Sketch view controls",
+      "resetView": "Reset sketch view",
+      "plate": "2D sketch plate",
+      "revolveAxis": "REVOLVE AXIS",
+      "removeMeasurement": "Remove measurement",
+      "point": {
+        "actions": "Point actions",
+        "corner": "Corner",
+        "cornerTitle": "Make corner",
+        "smooth": "Smooth",
+        "smoothTitle": "Make smooth",
+        "split": "Split",
+        "splitTitle": "Split handles"
+      },
+      "notice": {
+        "shapeMoved": "Sketch shape moved",
+        "shapeResized": "Sketch shape resized",
+        "imageMoved": "Sketch image moved",
+        "imageResized": "Sketch image resized",
+        "imageWidthUpdated": "Sketch image width updated",
+        "imageHeightUpdated": "Sketch image height updated",
+        "imageOpacityUpdated": "Sketch image opacity updated",
+        "imageLocked": "Sketch image locked",
+        "imageUnlocked": "Sketch image unlocked",
+        "imageAspectUpdated": "Image aspect ratio setting updated"
+      },
+      "image": {
+        "settings": "{name} image settings",
+        "closeSettings": "Close image settings",
+        "lockLabel": "Lock sketch image",
+        "unlockLabel": "Unlock sketch image",
+        "lock": "Lock image",
+        "unlock": "Unlock image",
+        "deleteLabel": "Delete sketch image",
+        "delete": "Delete image",
+        "deleteLocked": "Unlock image before deleting",
+        "pixelSize": "{width} × {height} px",
+        "properties": "Properties",
+        "opacity": "Opacity",
+        "positionX": "Position X",
+        "positionY": "Position Y",
+        "aspectLocked": "Aspect ratio locked",
+        "aspectUnlocked": "Aspect ratio unlocked"
+      },
+      "revolvePreview": {
+        "label": "Revolve 3D preview",
+        "title": "3D preview",
+        "empty": "Draw a closed profile left of the axis"
+      }
+    }
+  },
+  "panels": {
+    "unit": {
+      "deg": "deg",
+      "degrees": "{value} deg",
+      "millimeters": "{value} mm"
+    },
+    "snapGrid": {
+      "label": "Snap Grid",
+      "off": "Off",
+      "brick": "Brick"
+    },
+    "measurement": {
+      "units": {
+        "metric": "Metric (Default)",
+        "imperial": "Imperial",
+        "bricks": "Bricks"
+      },
+      "scale": {
+        "mm": "1:1 (millimeters)",
+        "cm": "1:10 (centimeters)",
+        "m": "1:1000 (meters)",
+        "in": "1:1 (inches)",
+        "ft": "1:1 (feet)",
+        "stud": "1:1 (studs)"
+      }
+    },
+    "font": {
+      "multilanguage": "Multilanguage",
+      "sans": "Sans",
+      "serif": "Serif",
+      "script": "Script",
+      "monospace": "Monospace",
+      "rounded": "Rounded",
+      "stencil": "Stencil"
+    },
+    "gearType": {
+      "label": "Gear type",
+      "spur": "Spur gear",
+      "helical": "Helical gear",
+      "bevel": "Bevel gear"
+    },
+    "property": {
+      "length": "Length",
+      "width": "Width",
+      "height": "Height",
+      "sides": "Sides",
+      "steps": "Steps",
+      "startAngle": "Start Angle",
+      "sweep": "Sweep",
+      "topRadius": "Top Radius",
+      "baseRadius": "Base Radius",
+      "thickness": "Thickness",
+      "teeth": "Teeth",
+      "toothSize": "Tooth Size",
+      "toothWidth": "Tooth Width",
+      "helixAngle": "Helix Angle",
+      "quality": "Quality",
+      "centerHole": "Center Hole",
+      "text": "Text",
+      "font": "Font",
+      "bevel": "Bevel",
+      "segments": "Segments",
+      "topLength": "Top Length",
+      "topWidth": "Top Width",
+      "bottomLength": "Bottom Length",
+      "bottomWidth": "Bottom Width"
+    },
+    "inspector": {
+      "label": "{name} shape settings",
+      "expand": "Expand shape settings",
+      "minimize": "Minimize shape settings",
+      "lock": "Lock shape",
+      "unlock": "Unlock shape",
+      "show": "Show shape",
+      "hide": "Hide shape",
+      "mode": "Shape mode",
+      "solid": "Solid",
+      "hole": "Hole",
+      "color": {
+        "label": "Shape color",
+        "title": "Color",
+        "set": "Set color {color}",
+        "customTitle": "Custom color",
+        "custom": "Custom"
+      },
+      "editSketch": "Edit sketch",
+      "separateParts": "Separate Parts",
+      "section": {
+        "properties": "Properties",
+        "taper": "Taper",
+        "teeth": "Teeth",
+        "helix": "Helix"
+      },
+      "gearType": "Gear Type"
+    },
+    "edgeModifier": {
+      "title": {
+        "fillet": "Fillet edges",
+        "chamfer": "Chamfer edges"
+      },
+      "cancelFillet": "Cancel fillet",
+      "cancelChamfer": "Cancel chamfer",
+      "status": {
+        "preparing": "Preparing edges…",
+        "selected": "{count, plural, one {{selected} of {count} sharp edge selected} other {{selected} of {count} sharp edges selected}}"
+      },
+      "target": {
+        "single": "Single object",
+        "grouped": "{count, plural, one {{count} grouped object} other {{count} grouped objects}}",
+        "features": "{count, plural, one {{count} existing edge feature} other {{count} existing edge features}}"
+      },
+      "help": {
+        "ready": "Click highlighted model edges to toggle them. Hold Shift to add or remove a single edge.",
+        "loading": "Loading CAD edge data from the local browser worker."
+      },
+      "selectAll": "All sharp edges",
+      "clear": "Clear",
+      "history": {
+        "toggle": "Edge feature history",
+        "unavailable": "Older edge features do not have stored undo history.",
+        "alsoRemovesNewer": "{count, plural, one {also removes {count} newer} other {also removes {count} newer}}"
+      },
+      "radius": "Radius",
+      "distance": "Distance",
+      "angle": "Angle",
+      "sharpAngle": "Sharp-edge threshold",
+      "tangentChain": "Select tangent chains",
+      "preserveEdgeSize": "Keep edge size when resizing",
+      "quality": {
+        "label": "Preview quality",
+        "draft": "Draft",
+        "standard": "Standard",
+        "fine": "Fine"
+      },
+      "cancel": "Cancel",
+      "apply": "Apply"
+    },
+    "settings": {
+      "title": "Workspace settings",
+      "close": "Close settings",
+      "sections": "Workspace settings sections",
+      "custom": "Custom",
+      "appDefault": "App: {value}",
+      "appearance": {
+        "title": "Appearance",
+        "description": "Adjust the canvas and navigation behavior.",
+        "theme": "Theme",
+        "themeNote": "Theme applies across SketchForge and all projects.",
+        "showProjectName": "Show project name in toolbar",
+        "moveDimensions": "Show movement dimensions",
+        "selectBeforeMove": "Select before moving",
+        "showShadows": "Show shadows",
+        "cruiseShapes": "Cruise when adding new shapes",
+        "zoomSpeed": "Zoom speed",
+        "zoomSlow": "Slow",
+        "zoomFast": "Fast"
+      },
+      "measurement": {
+        "title": "Measurement",
+        "description": "Choose units, precision, scale, and snapping.",
+        "units": "Units",
+        "scale": "Scale",
+        "accuracy": "Accuracy"
+      },
+      "workplane": {
+        "title": "Workplane",
+        "description": "Set the plate dimensions and visible grid spacing.",
+        "size": "Workplane size",
+        "sizePreset": "{width} x {depth} mm",
+        "gridBlockSize": "Grid block size",
+        "blockSize": "Block size"
+      },
+      "gridColor": {
+        "label": "Grid color",
+        "current": "Grid color {color}",
+        "picker": "Grid color picker",
+        "presets": "Grid color presets",
+        "usePreset": "Use grid color {color}",
+        "hex": "Grid color hexadecimal value",
+        "reset": "Reset grid color"
+      },
+      "shapes": {
+        "title": "Shape defaults",
+        "description": "Customize how each toolbar shape starts. Existing limits stay unchanged until you enter a custom limit.",
+        "shape": "Shape",
+        "customizedOption": "{name} — customized",
+        "customActive": "Custom settings active",
+        "usingDefaults": "Using SketchForge defaults",
+        "reset": "Use app defaults",
+        "details": "Shape details",
+        "detailsDescription": "Extra defaults used when this shape is added.",
+        "topRadius": "Top radius",
+        "baseRadius": "Base radius",
+        "toothSize": "Tooth size",
+        "toothWidth": "Tooth width",
+        "centerHole": "Center hole",
+        "helixAngle": "Helix angle",
+        "helixQuality": "Helix quality",
+        "limit": "Custom size limit",
+        "limitDescription": "Leave blank to keep all current inspector and drag limits for this shape.",
+        "limitPlaceholder": "App limits",
+        "note": "Custom values apply to new shapes. A custom size limit also replaces this shape's existing resize ceilings, up to 2000 mm."
+      },
+      "history": {
+        "nav": "History",
+        "title": "Saved history",
+        "description": "Choose how many completed actions remain available after saving or reopening this project.",
+        "slider": "Saved history actions",
+        "actions": "{count, plural, one {{count} action} other {{count} actions}}",
+        "unlimited": "Unlimited",
+        "retain": "Actions to retain",
+        "note": "100 actions is the default. Lower limits permanently discard older Undo states from this project."
+      },
+      "footer": {
+        "description": "Save the current settings for this project.",
+        "makeDefault": "Make default",
+        "defaultSaved": "Default saved"
+      }
+    },
+    "tutorial": {
+      "beforeStart": "Before you start",
+      "step": "Step {number}",
+      "challenge": "Challenge {number}",
+      "expand": "Expand challenge instructions",
+      "minimize": "Minimize challenge instructions",
+      "requiredDimensions": "Required dimensions",
+      "snapGridValue": "Snap Grid {value}",
+      "elevation": "Elevation",
+      "previous": "Previous",
+      "next": "Next",
+      "finish": "Finish"
+    },
+    "keyTag": {
+      "title": "Key Tag",
+      "ariaLabel": "Key Tag challenge instructions",
+      "intro": {
+        "title": "Build a Key Tag",
+        "body": "Set Snap Grid in the bottom-right corner to 0.5 mm, then build the Key Tag from simple shapes.",
+        "alt": "Finished Key Tag shown in the SketchForge workplane"
+      },
+      "middle": {
+        "title": "Make the middle",
+        "body": "Add a Box, then set its size in the shape panel.",
+        "alt": "The middle box of the Key Tag in SketchForge"
+      },
+      "leftEnd": {
+        "title": "Add the left round end",
+        "body": "Add a solid Cylinder and place half of it over the left end of the box.",
+        "alt": "A solid cylinder added to the left end of the Key Tag"
+      },
+      "rightEnd": {
+        "title": "Make the other end",
+        "body": "Select the solid cylinder and press Duplicate in the Clipboard section at the top. Place the copy on the right end.",
+        "alt": "Two solid cylinders forming both rounded ends of the Key Tag"
+      },
+      "lockCircle": {
+        "title": "Lock the left circle",
+        "body": "Select the left solid cylinder and click the padlock icon at the top of the shape panel. It will be the alignment reference.",
+        "alt": "The left solid cylinder selected in the SketchForge workplane"
+      },
+      "hole": {
+        "title": "Create the hole",
+        "body": "Add another Cylinder, set its size, then change it from Solid to Hole.",
+        "alt": "The small hole cylinder added near the left end of the Key Tag"
+      },
+      "alignHole": {
+        "title": "Align the hole",
+        "body": "Select the hole, then hold Shift and click the locked left circle. Press Align in the Modify section at the top. Dots appear around the shapes: click the middle dot on each of the two lines that lie on the grid.",
+        "alt": "The hole aligned to the center of the left solid cylinder"
+      },
+      "unlockCircle": {
+        "title": "Unlock the circle",
+        "body": "Select the left solid circle again and click the padlock icon to unlock it.",
+        "alt": "The left solid cylinder selected again after the hole has been aligned"
+      },
+      "group": {
+        "title": "Group the Key Tag",
+        "body": "Select the box, both solid circles and the hole: hold Shift and click each one, or drag a frame around them. Press Group in the Combine section at the top. If Group stays grey, a shape is still locked: unlock the left circle first.",
+        "alt": "The finished grouped Key Tag selected in SketchForge"
+      }
+    },
+    "nameplate": {
+      "shortTitle": "Nameplate",
+      "title": "Personalized Nameplate",
+      "ariaLabel": "Personalized Nameplate challenge instructions",
+      "clickFillet": "Click Fillet",
+      "intro": {
+        "title": "Build a Nameplate",
+        "body": "Set Snap Grid in the bottom-right corner to 0.5 mm. Then create a rounded base, personalize a Text object, and combine both parts into one printable design.",
+        "alt": "Finished blue ALEX nameplate on the SketchForge workplane"
+      },
+      "base": {
+        "title": "Make the base",
+        "body": "Add a Box and enter these dimensions in the shape panel.",
+        "alt": "Plain rectangular blue nameplate base"
+      },
+      "round": {
+        "title": "Round the outside",
+        "body": "Select the base and press Fillet in the Modify section at the top. Click its outside edges, then press Apply.",
+        "alt": "Blue nameplate base with softly rounded outer edges",
+        "callout": "Use a 1.00 mm fillet amount."
+      },
+      "text": {
+        "title": "Add a Text object",
+        "body": "Open Shapes and add Text. The new object starts with the letter T.",
+        "alt": "A red capital T Text object on the blue nameplate base"
+      },
+      "personalize": {
+        "title": "Personalize the text",
+        "body": "Change the Text field to your name. This example uses ALEX. Pick any font you like.",
+        "alt": "Raised red ALEX text placed off-center on the blue base"
+      },
+      "place": {
+        "title": "Place it on top",
+        "body": "Select the Text. Click the small black arrow above it. Type 3 in the box that appears and press Enter. The Text now sits exactly on the 3 mm base.",
+        "alt": "Raised red ALEX text resting on the blue nameplate base"
+      },
+      "center": {
+        "title": "Center the name",
+        "body": "Select the base and click the padlock icon at the top of the shape panel to lock it. Select the Text, then hold Shift and click the base. Press Align in the Modify section at the top and click the middle dot on each of the two lines that lie on the grid. Click the padlock again to unlock the base.",
+        "alt": "Red ALEX text centered on the blue nameplate base",
+        "callout": "The locked base stays fixed as your alignment reference."
+      },
+      "group": {
+        "title": "Group the Nameplate",
+        "body": "Select the base and the Text object: hold Shift and click both, or drag a frame around them. Press Group in the Combine section at the top to make one finished printable model. If Group stays grey, the base is still locked: unlock it with the padlock in the shape panel first.",
+        "alt": "Finished grouped blue ALEX nameplate"
+      }
+    }
+  },
+  "errors": {
+    "asset": {
+      "unsupportedType": "Unsupported project asset type"
+    },
+    "cadModifier": {
+      "workerFailed": "The CAD worker could not start. Update to Firefox 121+, Chrome/Brave 114+, or Safari 17.2+, then try again.",
+      "prepareTimeout": "Edge preparation timed out. This mesh needs more CAD processing than the interactive limit allows. Try a repaired or lower-detail STL.",
+      "previewTimeout": "The edge preview timed out. Cancel the tool and try again.",
+      "noMeshData": "The selected object has no mesh data",
+      "invalidPrimitiveDimensions": "The selected primitive has invalid dimensions",
+      "primitiveNotSolid": "The selected primitive could not be prepared as a valid CAD solid",
+      "storedFeatureInvalid": "The stored CAD feature could not be restored as a valid solid",
+      "noClosedFaces": "The selected object has no closed faces",
+      "meshNotManifold": "The selected mesh is open or non-manifold. Repair it before adding edge treatments.",
+      "noSolidBody": "The group has no solid body to modify",
+      "groupRepairFailed": "The grouped solid could not be repaired into valid topology",
+      "noClosedSolidComponents": "The selected group contains no closed solid components",
+      "edgeOwnerUnmapped": "A CAD edge could not be mapped to its solid component; restart the edge tool",
+      "notPrepared": "Prepare an object before previewing the modifier",
+      "noEdgesSelected": "Select at least one highlighted edge",
+      "invalidResult": "The chosen size creates invalid or overlapping edge geometry",
+      "filletTooLarge": "The selected edges cannot be filleted together at this size. Reduce the size or select fewer connected edges.",
+      "chamferTooLarge": "The selected edges cannot be chamfered together at this size. Reduce the size or select fewer connected edges.",
+      "edgeTreatmentFailed": "The CAD kernel could not complete this edge treatment",
+      "meshImportReset": "The selected mesh could not be converted into a closed CAD solid. The CAD kernel reset; try Separate Parts, ungrouping, or simplifying the object before adding edge features.",
+      "validatorReset": "The CAD kernel exposed an incomplete validation function and reset. Start the edge tool again; no page refresh is needed.",
+      "memoryFaultReset": "The CAD kernel hit a memory fault and reset. Start the edge tool again; no page refresh is needed."
+    },
+    "mesh": {
+      "incompleteTriangles": "Mesh does not contain complete triangles",
+      "nonFiniteCoordinates": "Mesh contains non-finite coordinates"
+    },
+    "obj": {
+      "invalidVertexIndex": "OBJ has an invalid vertex index",
+      "invalidNormalIndex": "OBJ has an invalid normal index",
+      "vertexIndexOutOfRange": "OBJ vertex index is out of range",
+      "normalIndexOutOfRange": "OBJ normal index is out of range",
+      "invalidVertex": "OBJ contains an invalid vertex",
+      "nonFiniteVertex": "OBJ contains a non-finite vertex",
+      "invalidNormal": "OBJ contains an invalid normal",
+      "nonFiniteNormal": "OBJ contains a non-finite normal",
+      "faceTooFewVertices": "OBJ contains a face with fewer than three vertices",
+      "degenerateFace": "OBJ contains a degenerate face",
+      "degeneratePolygonFace": "OBJ contains a degenerate polygon face",
+      "untriangulatableFace": "OBJ contains a polygon face that could not be triangulated",
+      "noGeometry": "OBJ has no readable mesh geometry",
+      "emptyGeometry": "OBJ geometry is empty"
+    },
+    "revolve": {
+      "noProfile": "Draw at least one closed profile on the left side of the revolve axis",
+      "noFilledArea": "The revolve profile has no filled area",
+      "invalidSolid": "The profile could not be revolved into a valid solid"
+    },
+    "sketch": {
+      "allPathsOpen": "All profile paths are open. Close at least one loop before finishing the sketch.",
+      "noClosedProfile": "No closed profile found. Draw at least one closed loop and ensure it has no degenerate (zero-area) geometry.",
+      "invalidTopology": "OpenCascade produced invalid sketch topology",
+      "buildFailed": "The CAD kernel could not build this sketch"
+    },
+    "skf": {
+      "fileEmpty": ".skf file is empty",
+      "archiveTooLarge": ".skf file exceeds the 512 MB archive limit",
+      "notPackage": ".skf file is not a valid package",
+      "zipDirectoryMissing": ".skf package is missing its ZIP directory",
+      "zip64Unsupported": "ZIP64 .skf packages are not supported",
+      "invalidFileCount": ".skf package has an invalid number of files",
+      "directoryTruncated": ".skf package directory is truncated",
+      "directoryMalformed": ".skf package directory is malformed",
+      "directoryEntryTruncated": ".skf package directory entry is truncated",
+      "encryptedUnsupported": "Encrypted .skf packages are not supported",
+      "compressionUnsupported": ".skf package uses an unsupported compression method",
+      "unsafePath": ".skf package contains an unsafe or duplicate file path",
+      "assetExpansionLimit": "Asset ''{path}' exceeds the expansion limit",
+      "projectJsonTooLarge": "project.json exceeds the supported size limit",
+      "expansionLimit": ".skf package expands beyond the 1 GB safety limit",
+      "projectJsonMissing": ".skf package is missing project.json",
+      "expandFailed": "Could not expand .skf package: {detail}",
+      "expandFailedCorrupt": "Could not expand .skf package: corrupt ZIP data",
+      "projectJsonMalformed": "project.json is malformed",
+      "sharedRequiresPackage": "Shared storage accepts packaged .skf files, not legacy JSON projects",
+      "notSketchForgeProject": "This file is not a SketchForge project",
+      "formatVersionMissing": "SketchForge formatVersion is missing",
+      "formatTooNew": "This project uses .skf format {version}, which requires a newer SketchForge version",
+      "formatMigrationUnavailable": "Packaged .skf format {version} requires migration support that is not available",
+      "readerTooOld": "This project requires a newer SketchForge reader and was not opened",
+      "projectJsonIncomplete": "project.json is missing assets, states, or history",
+      "invalidStateCount": "Project contains an invalid number of states",
+      "duplicateAssetId": "Duplicate asset ID ''{id}'",
+      "assetUnknownKind": "Asset ''{id}' has an unknown type",
+      "assetUnsafePath": "Asset ''{id}' has an unsafe or duplicate path",
+      "assetMissing": "Missing asset ''{path}'",
+      "assetInvalidSize": "Asset ''{path}' has an invalid size",
+      "assetIntegrity": "Asset ''{path}' failed its integrity check",
+      "sourceAssetUnknownFormat": "Source asset ''{id}' has an unknown source format",
+      "duplicateStateId": "Duplicate state ID ''{id}'",
+      "stateTooManyObjects": "State ''{state}' has too many objects",
+      "stateDuplicateNodeId": "State ''{state}' contains duplicate node ID ''{id}'",
+      "stateMissingNode": "State ''{state}' references missing node ''{id}'",
+      "stateDuplicateObjectId": "State ''{state}' contains duplicate object ID ''{id}'",
+      "nodeObjectIdMismatch": "Node ''{id}' objectId does not match its shape definition",
+      "nodeCycle": "Cyclic group or history reference detected at ''{id}'",
+      "importedObjectMissingAsset": "Imported object ''{id}' is missing its source or mesh asset",
+      "importedObjectInvalidAsset": "Imported object ''{id}' has an invalid asset reference",
+      "importedObjectMissingBrep": "Imported object ''{id}' has a missing STEP B-Rep asset",
+      "objectMissingBrep": "Object ''{id}' has a missing exact B-Rep asset",
+      "objectMissingDisplayEdges": "Object ''{id}' has a missing display-edge asset",
+      "sceneStateMissing": "Active scene state is missing",
+      "historyIndexInvalid": "Undo history index is invalid",
+      "historyMissingState": "History entry {index} references missing state ''{state}'",
+      "historySceneMismatch": "Active scene and undo history index do not match",
+      "duplicateFeatureId": "Duplicate feature ID ''{id}'",
+      "unknownFeatureType": "Unknown operation type ''{type}'",
+      "featureMissingOutput": "Feature ''{id}' references missing output object ''{objectId}'",
+      "featureMissingInput": "Feature ''{id}' references missing input object ''{objectId}'",
+      "featureMissingDependency": "Feature ''{id}' references missing dependency ''{dependency}'",
+      "featureCycle": "Cyclic feature dependency detected at ''{id}'",
+      "sourceFormatUnsupported": "SketchForge cannot reconstruct this source asset format",
+      "displayEdgesInvalid": "Invalid display-edge resource",
+      "displayEdgePointsInvalid": "Invalid display-edge points",
+      "displayEdgeCoordinatesInvalid": "Invalid display-edge coordinates",
+      "shapeCycle": "Cyclic shape dependency detected at ''{id}'",
+      "shapeNodeMissing": "Missing shape node ''{id}'",
+      "objectMissingImage": "Object ''{id}' has a missing image asset",
+      "sketchMissingImage": "Sketch ''{id}' has a missing image asset",
+      "objectMissingSource": "Object ''{id}' is missing its imported source asset",
+      "objectMissingMesh": "Object ''{id}' is missing its derived mesh",
+      "historyRestoreLoss": "Undo history could not be restored without data loss",
+      "meshTooLarge": "Imported mesh is too large for a SketchForge project file",
+      "meshInvalidCoordinate": "Imported mesh contains an invalid coordinate",
+      "meshInvalidNormal": "Imported mesh contains an invalid normal",
+      "derivedMeshHeader": "A derived mesh asset has an invalid header",
+      "derivedMeshTooLarge": "A derived mesh asset exceeds the supported coordinate limit",
+      "derivedMeshTruncated": "A derived mesh asset is truncated or malformed",
+      "imageDataUrlInvalid": "Embedded image has an invalid data URL",
+      "resourceTooLarge": "Resource exceeds the per-asset size limit",
+      "tooManyStates": "Project has too many undo states for the .skf format",
+      "activeStateUnknown": "Could not identify the active project state",
+      "projectTooLarge": "Project data exceeds the 64 MB .skf limit. Export with fewer history steps or simplify the project.",
+      "duplicateRootObjectId": "Project state contains duplicate root object ID ''{id}'",
+      "emptyRootObjectId": "Project state contains duplicate root object ID '(empty)'",
+      "exportDuplicateObjectId": "{state} contains duplicate object ID ''{id}'",
+      "exportEmptyObjectId": "{state} contains duplicate object ID '(empty)'",
+      "legacyTooLarge": "Legacy .skf JSON exceeds the supported size limit",
+      "legacyMalformed": "Legacy .skf JSON is malformed",
+      "legacyNotObject": "Legacy .skf project must be an object",
+      "legacyVersionUnsupported": "This legacy .skf version is not supported",
+      "legacyDuplicateObjectId": "Legacy project contains duplicate object ID ''{id}'",
+      "legacyEmptyObjectId": "Legacy project contains duplicate object ID '(empty)'",
+      "notObject": "{label} must be an object",
+      "notNonEmptyString": "{label} must be a non-empty string",
+      "notStringArray": "{label} must be a string array",
+      "notFiniteNumber": "{label} must be a finite number",
+      "fieldMissing": "{label} is missing",
+      "fieldInvalid": "{label} is invalid",
+      "invalidOrTooLarge": "{label} is invalid or too large",
+      "outOfRange": "{label} is outside the supported range",
+      "notPositive": "{label} must be positive",
+      "negative": "{label} cannot be negative",
+      "unknownShapeKind": "{label} has unknown shape type ''{kind}'",
+      "nonPositiveDimensions": "{label} has non-positive dimensions",
+      "dimensionsOutOfRange": "{label} dimensions exceed the supported range",
+      "inlinePackageFields": "{label} contains inline package-only geometry fields",
+      "invalidPositions": "{label} has invalid positions",
+      "sketchMissingPointsOrSegments": "{label} is missing points or segments",
+      "sketchDuplicatePointId": "{label} contains duplicate point ID ''{id}'",
+      "sketchDuplicateSegmentId": "{label} contains duplicate segment ID ''{id}'",
+      "sketchMissingPointReference": "{label} contains a segment with a missing point reference"
+    },
+    "step": {
+      "readFailed": "Could not read STEP: {detail}",
+      "noSolidGeometry": "STEP file has no solid geometry to import",
+      "nothingToExport": "No box/cylinder/sphere or imported STEP solids to export as B-Rep STEP",
+      "exportFailed": "STEP export failed: {detail}"
+    },
+    "stl": {
+      "noGeometry": "STL has no readable geometry",
+      "emptyGeometry": "STL geometry is empty",
+      "exportTriangleLimit": "STL export exceeds the binary format's triangle limit"
+    },
+    "svg": {
+      "empty": "SVG file is empty",
+      "tooLarge": "SVG is too large. The maximum supported size is {max} MB",
+      "entitiesUnsupported": "SVG entities are not supported",
+      "doctypeUnsupported": "Only the standard SVG 1.1 document type is supported",
+      "nanGeometry": "SVG contains invalid NaN geometry. In Tinkercad, make sure the workplane intersects the model before exporting the cross-section",
+      "tooManyElements": "SVG is too complex ({count} elements; maximum {max})",
+      "tooManyGeometryElements": "SVG has too many geometry elements ({count}; maximum {max})",
+      "tooManyPathCommands": "SVG has too many path commands (maximum {max})",
+      "externalReferences": "SVG external references are not supported; embed referenced artwork in the file",
+      "invalidXml": "SVG is not valid XML",
+      "noFilledPaths": "SVG has no readable filled paths",
+      "onlyOpenStrokes": "SVG contains only open strokes. Close the paths or convert the strokes to filled outlines before importing",
+      "noVisiblePaths": "SVG has no readable visible filled or closed-stroke paths",
+      "noSolidContours": "SVG has no filled contours that can be converted into a solid",
+      "tooManyTrianglesTotal": "SVG is too complex (maximum {max} triangles)",
+      "tooManyTriangles": "SVG is too complex ({count} triangles; maximum {max})",
+      "degenerateTriangles": "{count, plural, one {SVG contains {count} zero-area triangle} other {SVG contains {count} zero-area triangles}}",
+      "notWatertight": "{count, plural, one {SVG is not a watertight manifold ({count} open edge, {nonManifold} non-manifold edges)} other {SVG is not a watertight manifold ({count} open edges, {nonManifold} non-manifold edges)}}",
+      "notWatertightOneNonManifold": "{count, plural, one {SVG is not a watertight manifold ({count} open edge, 1 non-manifold edge)} other {SVG is not a watertight manifold ({count} open edges, 1 non-manifold edge)}}",
+      "noVolume": "SVG does not enclose a non-zero volume",
+      "meshTooManyTriangles": "SVG mesh \"{name}\" is too complex ({count} triangles; maximum {max})",
+      "meshDegenerateTriangles": "{count, plural, one {SVG mesh \"{name}\" contains {count} zero-area triangle} other {SVG mesh \"{name}\" contains {count} zero-area triangles}}",
+      "meshNotWatertight": "{count, plural, one {SVG mesh \"{name}\" is not a watertight manifold ({count} open edge, {nonManifold} non-manifold edges)} other {SVG mesh \"{name}\" is not a watertight manifold ({count} open edges, {nonManifold} non-manifold edges)}}",
+      "meshNotWatertightOneNonManifold": "{count, plural, one {SVG mesh \"{name}\" is not a watertight manifold ({count} open edge, 1 non-manifold edge)} other {SVG mesh \"{name}\" is not a watertight manifold ({count} open edges, 1 non-manifold edge)}}",
+      "meshNoVolume": "SVG mesh \"{name}\" does not enclose a non-zero volume",
+      "meshInvalid": "SVG mesh \"{name}\" is invalid"
+    },
+    "svgExport": {
+      "noContours": "SVG projection contains no readable contours",
+      "noVisibleArea": "SVG projection does not enclose a visible area"
+    },
+    "edgeModifier": {
+      "emptyResult": "The CAD kernel returned an empty edge treatment",
+      "noMatchingEdges": "No sharp edges match this threshold",
+      "noSharpEdges": "No sharp manifold edges were found at this threshold",
+      "selectAtLeastOne": "Select at least one highlighted edge"
+    },
+    "editor": {
+      "capturePreview": "Could not capture the current project preview",
+      "imageDecode": "Image could not be decoded",
+      "imageNoDimensions": "Image has no readable dimensions",
+      "imagePrepare": "Image could not be prepared",
+      "imageRead": "Image could not be read",
+      "saveExport": "Could not save export",
+      "sketchEmptySolid": "OpenCascade returned an empty sketch solid",
+      "sketchInvalidSolid": "The crossing sketch could not be converted into a valid solid",
+      "sketchNoArea": "The sketch has no filled area after resolving its crossings",
+      "sketchTimedOut": "OpenCascade timed out while building the sketch",
+      "sketchWorkerFailed": "The OpenCascade sketch worker failed to start",
+      "svgNoArea": "Top view of {name} has no exportable area",
+      "svgOutline": "Could not convert {name} into a watertight SVG outline"
+    },
+    "download": {
+      "localOnly": "Local folder downloads are only available from this localhost app",
+      "invalidBinary": "Invalid binary download request",
+      "invalidRequest": "Invalid download request",
+      "tooLarge": "File is too large for local folder download",
+      "noFolder": "Choose a folder first",
+      "invalidPath": "Invalid file path",
+      "saveFailed": "Could not save file"
+    },
+    "shared": {
+      "loadFailed": "Could not load shared projects",
+      "notConfigured": "{name} is not configured",
+      "disabled": "Shared project storage is disabled",
+      "invalidName": "Invalid shared project name",
+      "nameRequired": "Shared project name is required",
+      "notFound": "Shared project was not found",
+      "deleteSameOrigin": "Shared projects only accept same-origin deletes",
+      "busyChanging": "This shared project is currently being changed by someone else",
+      "deleteNeedsReload": "Reload shared projects before deleting so the current revision can be verified",
+      "changedBeforeDelete": "The shared project changed after you loaded it. Refresh the shared projects list and try again.",
+      "deleteFailed": "Could not delete shared project",
+      "saveNeedsLocalProject": "Open a local project before saving it to the shared space",
+      "thumbnailPrepareFailed": "Could not prepare the shared project thumbnail",
+      "saveSameOrigin": "Shared projects only accept same-origin saves",
+      "missingProject": "Shared project upload is missing its .skf file",
+      "missingThumbnail": "Shared project upload is missing its thumbnail",
+      "thumbnailTooLarge": "Shared project thumbnail exceeds the 5 MB size limit",
+      "thumbnailNotPng": "Shared project thumbnail must be a PNG image",
+      "tooLarge": ".skf file exceeds the shared storage size limit",
+      "busySaving": "This shared project is currently being saved by someone else",
+      "changedBeforeSave": "The shared project changed after you opened it. Reload it or save under a different name.",
+      "gone": "The shared project no longer exists. Save it under a different name.",
+      "saveFailed": "Could not save the shared project"
+    },
+    "thumbnail": {
+      "sameOrigin": "Project thumbnails require a same-origin request",
+      "invalidRequest": "Invalid thumbnail request",
+      "invalidProject": "Invalid project id",
+      "invalidImage": "Invalid thumbnail image",
+      "tooLarge": "Thumbnail image is too large",
+      "saveFailed": "Could not save project thumbnail"
+    },
+    "update": {
+      "checkFailed": "Could not check for updates",
+      "serverStatus": "Update server returned {status}",
+      "serverInvalidVersion": "Update server returned an invalid version",
+      "sameOrigin": "Updates only accept same-origin requests",
+      "alreadyRequested": "An update was already requested. Wait a moment before trying again.",
+      "upToDate": "SketchForge is already up to date",
+      "notConfigured": "One-click installation is not configured on this server",
+      "keyIncorrect": "The update key is incorrect",
+      "uncommittedChanges": "Local SketchForge has uncommitted code changes. Commit or stash them before updating so the updater does not overwrite your work.",
+      "unexpectedVersion": "The local checkout updated to {installed}, but {expected} was expected.",
+      "localFailed": "Could not update local SketchForge",
+      "serviceStatus": "Update service returned {status}",
+      "startFailed": "Could not start the update"
+    }
+  }
+}

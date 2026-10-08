@@ -1,0 +1,28 @@
+{
+  "desktop": {
+    "tray": {
+      "open": "Abrir o SketchForge",
+      "checkForUpdates": "Verificar atualizações",
+      "quit": "Sair do SketchForge",
+      "downloadingUpdate": "SketchForge — baixando atualização: {percent}%",
+      "updateReady": "SketchForge {version} pronto para instalar"
+    },
+    "updates": {
+      "title": "Atualizações do SketchForge",
+      "availableTitle": "Atualização do SketchForge",
+      "available": "O SketchForge {version} está disponível.",
+      "availableDetail": "Abra “Configurações” e clique em “Atualizar” para instalar.",
+      "upToDate": "O SketchForge está atualizado.",
+      "devBuild": "As atualizações automáticas são testadas a partir do aplicativo SketchForge instalado.",
+      "packagedOnly": "As atualizações só podem ser instaladas pelo aplicativo SketchForge instalado.",
+      "checkFailed": "Não foi possível verificar se há atualizações",
+      "installFailed": "Não foi possível atualizar o SketchForge"
+    },
+    "startup": {
+      "failed": "Não foi possível iniciar o SketchForge",
+      "webProcessExited": "O processo web do SketchForge foi encerrado com o código {code}.",
+      "webProcessTimeout": "O SketchForge não iniciou seu processo web local a tempo.",
+      "webBundleMissing": "Os arquivos web do aplicativo para computador estão faltando: {path}"
+    }
+  }
+}

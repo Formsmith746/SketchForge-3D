@@ -1,3 +1,4 @@
+import type { LocalizedErrorPayload } from "@/i18n/LocalizedError";
 import type { SketchProfile } from "@/types/sketchforge";
 
 export type SketchCadBuildRequest = {
@@ -17,4 +18,4 @@ export type SketchCadBuildResponse =
       triangleCount: number;
       brep: string;
     }
-  | { type: "error"; requestId: number; message: string };
+  | ({ type: "error"; requestId: number } & LocalizedErrorPayload);

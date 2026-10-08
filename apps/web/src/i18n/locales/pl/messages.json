@@ -1,0 +1,1400 @@
+{
+  "common": {
+    "language": {
+      "label": "Język",
+      "system": "Jak w systemie",
+      "note": "Język obowiązuje w całym SketchForge i we wszystkich projektach."
+    },
+    "appTitle": "SketchForge – edytor 3D",
+    "theme": {
+      "system": "Jak w systemie",
+      "light": "Jasny",
+      "dark": "Ciemny"
+    },
+    "shape": {
+      "box": "Prostopadłościan",
+      "cylinder": "Walec",
+      "sphere": "Kula",
+      "sketch": "Szkic",
+      "scribble": "Rysunek odręczny",
+      "cone": "Stożek",
+      "pyramid": "Ostrosłup",
+      "roof": "Dach",
+      "text": "Tekst",
+      "roundRoof": "Dach półokrągły",
+      "halfSphere": "Półkula",
+      "torus": "Torus",
+      "tube": "Rura",
+      "gear": "Koło zębate",
+      "ring": "Pierścień",
+      "wedge": "Klin",
+      "polygon": "Wielokąt",
+      "icosahedron": "Dwudziestościan",
+      "mesh": "Model"
+    },
+    "shapeName": {
+      "cube": "Sześcian",
+      "group": "Grupa",
+      "intersection": "Część wspólna",
+      "sketchExtrusion": "Wyciągnięcie szkicu",
+      "sketchRevolve": "Bryła obrotowa ze szkicu",
+      "sketchImage": "Obraz w szkicu",
+      "part": "{name}, część {index}"
+    },
+    "unit": {
+      "mm": "mm",
+      "cm": "cm",
+      "m": "m",
+      "in": "in",
+      "ft": "ft",
+      "stud": "wypustka"
+    }
+  },
+  "dashboard": {
+    "topbar": {
+      "homeLink": "Strona główna SketchForge",
+      "search": "Szukaj projektów",
+      "create": "Utwórz"
+    },
+    "nav": {
+      "home": "Start",
+      "shared": "Wspólne",
+      "challenges": "Zadania",
+      "customization": "Personalizacja",
+      "dashboard": "Strona główna"
+    },
+    "customization": {
+      "comingSoon": "Wkrótce"
+    },
+    "button": {
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "save": "Zapisz"
+    },
+    "time": {
+      "justNow": "Przed chwilą",
+      "minutesAgo": "{count} min temu",
+      "today": "Dzisiaj"
+    },
+    "fileSize": {
+      "bytes": "{size} B",
+      "kilobytes": "{size} KB",
+      "megabytes": "{size} MB"
+    },
+    "actions": {
+      "create": "Utwórz nowy projekt 3D",
+      "import": "Otwórz plik SKF lub importuj model",
+      "continue": "Kontynuuj pracę"
+    },
+    "projects": {
+      "title": "Projekty",
+      "visible": "{count, plural, one {{count} widoczny projekt} few {{count} widoczne projekty} many {{count} widocznych projektów} other {{count} widocznego projektu}}",
+      "sort": "Sortuj projekty",
+      "sortRecent": "Ostatnio zmienione",
+      "sortName": "Według nazwy",
+      "view": "Widok listy projektów",
+      "gridView": "Kafelki",
+      "listView": "Lista",
+      "shapeCount": "{count, plural, one {{count} kształt} few {{count} kształty} many {{count} kształtów} other {{count} kształtu}}",
+      "noSnapshot": "Brak miniatury",
+      "options": "Opcje projektu",
+      "optionsFor": "Opcje projektu „{name}”",
+      "menuFor": "Menu projektu „{name}”",
+      "rename": "Zmień nazwę",
+      "empty": "Brak projektów",
+      "emptyHint": "Utwórz projekt 3D, a pojawi się tutaj.",
+      "deleteTitle": "Usunąć projekt?",
+      "deleteCancel": "Anuluj usuwanie projektu",
+      "deleteConfirm": "Czy na pewno usunąć projekt „<b>{name}</b>”?",
+      "renameTitle": "Zmień nazwę projektu",
+      "renameCancel": "Anuluj zmianę nazwy projektu",
+      "nameLabel": "Nazwa projektu"
+    },
+    "shared": {
+      "title": "Wspólne projekty",
+      "available": "{count, plural, one {{count} projekt w magazynie Dockera} few {{count} projekty w magazynie Dockera} many {{count} projektów w magazynie Dockera} other {{count} projektu w magazynie Dockera}}",
+      "refresh": "Odśwież",
+      "badge": "Wspólny",
+      "options": "Opcje wspólnego projektu",
+      "optionsFor": "Opcje wspólnego projektu „{name}”",
+      "menuFor": "Menu wspólnego projektu „{name}”",
+      "loading": "Wczytywanie wspólnych projektów",
+      "empty": "Brak wspólnych projektów",
+      "emptyHint": "Zapisz projekt SKF we wspólnych projektach w oknie „Eksport”.",
+      "deleteTitle": "Usunąć wspólny projekt?",
+      "deleteCancel": "Anuluj usuwanie wspólnego projektu",
+      "deleteConfirm": "Usunąć projekt „<b>{name}</b>” ze wspólnych projektów? Zniknie on dla wszystkich, którzy korzystają z tych wspólnych projektów.",
+      "opening": "Otwieranie wspólnego projektu „{name}”",
+      "opened": "Otwarto wspólny projekt „{name}”",
+      "openedAutosave": "Otwarto wspólny projekt „{name}”. Zmiany są zapisywane automatycznie w tej przeglądarce, dopóki nie zapiszesz projektu z powrotem we wspólnych projektach",
+      "downloadFailed": "Nie udało się pobrać wspólnego projektu",
+      "openFailed": "Nie udało się otworzyć wspólnego projektu",
+      "deleting": "Usuwanie wspólnego projektu „{name}”",
+      "deleted": "Usunięto wspólny projekt „{name}”",
+      "saved": "Zapisano projekt „{name}” we wspólnych projektach (magazyn Dockera)"
+    },
+    "open": {
+      "validating": "Sprawdzanie pliku {fileName} przed otwarciem go jako nowego projektu",
+      "opened": "Otwarto plik {fileName} jako nowy projekt w tej przeglądarce",
+      "failed": "Nie udało się otworzyć projektu SketchForge"
+    },
+    "import": {
+      "oneSkfAtATime": "Otwieraj projekty .skf pojedynczo, a pliki STL, OBJ, STEP i SVG importuj osobno",
+      "unsupportedType": "Nieobsługiwany typ pliku",
+      "progress": "Importowanie {index} z {count}: {fileName}",
+      "readFailed": "Nie udało się odczytać pliku",
+      "importedOne": "Zaimportowano plik {fileName}.",
+      "importedSome": "{count, plural, one {Zaimportowano {imported} z {count} pliku.} few {Zaimportowano {imported} z {count} plików.} many {Zaimportowano {imported} z {count} plików.} other {Zaimportowano {imported} z {count} pliku.}}",
+      "noneImported": "Nie udało się zaimportować żadnego z wybranych plików ({count}).",
+      "failures": "Błędy: {details}",
+      "failuresMore": "{details}; i jeszcze {count}",
+      "createProjectFailed": "Nie udało się utworzyć projektu dla zaimportowanych plików"
+    },
+    "storage": {
+      "unavailable": "Magazyn projektów w przeglądarce jest niedostępny",
+      "openFailed": "Nie udało się otworzyć magazynu projektów w przeglądarce",
+      "loadFailed": "Nie udało się wczytać kształtów projektu",
+      "resourcesLoadFailed": "Nie udało się wczytać zaimportowanych modeli projektu",
+      "resourcesIncomplete": "Brakuje części zaimportowanych modeli projektu",
+      "saveFailed": "Nie udało się zapisać kształtów projektu",
+      "prepareFailed": "Nie udało się przygotować miejsca na zapis projektu",
+      "migrateFailed": "Nie udało się przenieść kształtów projektów do większego magazynu",
+      "deleteFailed": "Nie udało się usunąć kształtów projektu z przeglądarki",
+      "saveListFailed": "Nie udało się zapisać listy projektów"
+    },
+    "updates": {
+      "promptTitle": "Dostępna jest wersja SketchForge {version}",
+      "dismiss": "Zamknij powiadomienie o aktualizacji",
+      "promptQuestion": "Zaktualizować z wersji {version}?",
+      "safetyLocal": "Projekty w przeglądarce zostaną zachowane. Aktualizacja zastąpi tylko pliki programu SketchForge na tym komputerze.",
+      "safetyServer": "Projekty zostaną zachowane. Prywatne projekty pozostaną w tej przeglądarce, a wspólne projekty Dockera – w stałym folderze <code>/data/projects</code> na serwerze.",
+      "notConfigured": "Instalacja jednym kliknięciem nie jest skonfigurowana na tym serwerze. Przejdź do instrukcji bezpiecznej aktualizacji.",
+      "keyLabel": "Klucz aktualizacji serwera",
+      "notNow": "Nie teraz",
+      "starting": "Uruchamianie…",
+      "update": "Aktualizuj",
+      "openGuide": "Otwórz instrukcję aktualizacji",
+      "sectionTitle": "Aktualizacje oprogramowania",
+      "sectionNote": "Aktualizacje są sprawdzane automatycznie, ale nigdy nie są instalowane bez potwierdzenia.",
+      "managed": "Zarządzane przez właściciela witryny",
+      "downloading": "Pobieranie aktualizacji…",
+      "updateTo": "Aktualizuj do wersji {version}",
+      "upToDateStatus": "Najnowsza wersja",
+      "checking": "Sprawdzanie…",
+      "check": "Sprawdź aktualizacje",
+      "readyToInstall": "Wersja SketchForge {version} jest gotowa do instalacji.",
+      "availableDesktop": "Dostępna jest wersja SketchForge {version}. Kliknij „Aktualizuj”, aby ją pobrać, zainstalować i uruchomić program ponownie.",
+      "upToDate": "Zainstalowana jest najnowsza wersja SketchForge.",
+      "alreadyUpToDate": "SketchForge jest już w najnowszej wersji.",
+      "downloadingVersion": "Pobieranie wersji SketchForge {version}…",
+      "downloadingUpdate": "Pobieranie aktualizacji SketchForge…",
+      "restartingToInstall": "Pobrano aktualizację. SketchForge uruchamia się ponownie, aby ją zainstalować…",
+      "installFailed": "Nie udało się zainstalować aktualizacji",
+      "keyRequired": "Aby kontynuować, wpisz klucz aktualizacji serwera.",
+      "localRestarting": "Zainstalowano aktualizację. SketchForge na tym komputerze uruchamia się ponownie…",
+      "localReload": "Zainstalowano aktualizację. Odśwież tę stronę, gdy SketchForge na tym komputerze uruchomi się ponownie.",
+      "serverStarted": "Rozpoczęto aktualizację. Serwer może na chwilę przestać działać – otwórz tę stronę ponownie, gdy się uruchomi."
+    },
+    "settings": {
+      "title": "Opcje",
+      "close": "Zamknij ustawienia",
+      "saveMethod": "Sposób zapisywania",
+      "browserDownloads": "Pobieranie przez przeglądarkę",
+      "saveToFolder": "Zapisywanie w folderze",
+      "folderPath": "Ścieżka folderu",
+      "version": "Wersja SketchForge",
+      "license": "Licencja",
+      "source": "Kod źródłowy",
+      "viewSource": "Otwórz kod źródłowy"
+    },
+    "challenges": {
+      "skills": "Umiejętności w tym zadaniu",
+      "start": "Rozpocznij zadanie",
+      "skill": {
+        "basicShapes": "Kształty podstawowe",
+        "align": "Wyrównywanie",
+        "hole": "Otwór",
+        "lock": "Blokowanie",
+        "group": "Grupowanie",
+        "fillet": "Zaokrąglenie",
+        "elevation": "Wysokość nad płaszczyzną roboczą"
+      },
+      "keyTag": {
+        "title": "Brelok",
+        "description": "Zbuduj swój pierwszy brelok z prostych kształtów.",
+        "altLight": "Gotowy model czerwonego breloka na płaszczyźnie roboczej SketchForge",
+        "altDark": "Gotowy model czerwonego breloka na ciemnej płaszczyźnie roboczej SketchForge"
+      },
+      "nameplate": {
+        "title": "Tabliczka z imieniem",
+        "description": "Utwórz tabliczkę do druku z zaokrąglonymi krawędziami i wypukłym napisem.",
+        "altLight": "Gotowa niebieska tabliczka z imieniem ALEX na płaszczyźnie roboczej SketchForge",
+        "altDark": "Gotowa niebieska tabliczka z imieniem ALEX na ciemnej płaszczyźnie roboczej SketchForge"
+      }
+    },
+    "loading": {
+      "editor": "Wczytywanie edytora"
+    }
+  },
+  "editor": {
+    "notice": {
+      "ready": "Gotowe",
+      "selectShapeFirst": "Najpierw zaznacz kształt",
+      "shapeAdded": "Dodano kształt „{name}”",
+      "deleted": "{count, plural, one {Usunięto {count} zaznaczony kształt} few {Usunięto {count} zaznaczone kształty} many {Usunięto {count} zaznaczonych kształtów} other {Usunięto {count} zaznaczonego kształtu}}",
+      "duplicated": "{count, plural, one {Zduplikowano {count} kształt} few {Zduplikowano {count} kształty} many {Zduplikowano {count} kształtów} other {Zduplikowano {count} kształtu}}",
+      "copied": "{count, plural, one {Skopiowano {count} kształt} few {Skopiowano {count} kształty} many {Skopiowano {count} kształtów} other {Skopiowano {count} kształtu}}",
+      "cut": "{count, plural, one {Wycięto {count} kształt} few {Wycięto {count} kształty} many {Wycięto {count} kształtów} other {Wycięto {count} kształtu}}",
+      "pasted": "{count, plural, one {Wklejono {count} kształt} few {Wklejono {count} kształty} many {Wklejono {count} kształtów} other {Wklejono {count} kształtu}}",
+      "clipboardEmpty": "Schowek SketchForge jest pusty",
+      "pasteCancelled": "Anulowano wklejanie, ponieważ projekt się zmienił",
+      "finishBeforeUndo": "Nie można cofnąć: najpierw zakończ przeciąganie lub przekształcanie",
+      "finishBeforeRedo": "Nie można ponowić: najpierw zakończ przeciąganie lub przekształcanie",
+      "finishBeforeRotate": "Nie można obrócić: najpierw zakończ przeciąganie lub przekształcanie",
+      "finishBeforeSave": "Nie można zapisać pliku projektu: najpierw zakończ przeciąganie lub przekształcanie",
+      "nothingToUndo": "Nie ma czego cofnąć",
+      "nothingToRedo": "Nie ma czego ponowić",
+      "undone": "Cofnięto",
+      "redone": "Ponowiono",
+      "selectionHidden": "Ukryto zaznaczone obiekty",
+      "selectionVisible": "Pokazano zaznaczone obiekty",
+      "noHiddenShapes": "Brak ukrytych kształtów",
+      "showedHidden": "{count, plural, one {Pokazano {count} ukryty kształt} few {Pokazano {count} ukryte kształty} many {Pokazano {count} ukrytych kształtów} other {Pokazano {count} ukrytego kształtu}}",
+      "selectionLocked": "Zablokowano zaznaczone obiekty",
+      "selectionUnlocked": "Odblokowano zaznaczone obiekty",
+      "withDetail": "{message}; {detail}",
+      "selectionIsLocked": "Zaznaczone obiekty są zablokowane",
+      "changedToHole": "Zmieniono zaznaczone obiekty w otwory",
+      "changedToSolid": "Zmieniono zaznaczone obiekty w bryły",
+      "droppedToWorkplane": "Opuszczono zaznaczone obiekty na płaszczyznę roboczą",
+      "movedSelection": "Przesunięto zaznaczone obiekty",
+      "selectionCleared": "Wyczyszczono zaznaczenie",
+      "selectedAllVisible": "Zaznaczono wszystkie widoczne kształty",
+      "rotated": "{count, plural, one {Obrócono {count} kształt o {angle}°} few {Obrócono {count} kształty o {angle}°} many {Obrócono {count} kształtów o {angle}°} other {Obrócono {count} kształtu o {angle}°}}",
+      "snapped": "{count, plural, one {Przyciągnięto {count} kształt do widocznej siatki o odstępie {grid} {unit}} few {Przyciągnięto {count} kształty do widocznej siatki o odstępie {grid} {unit}} many {Przyciągnięto {count} kształtów do widocznej siatki o odstępie {grid} {unit}} other {Przyciągnięto {count} kształtu do widocznej siatki o odstępie {grid} {unit}}}",
+      "newEmptyDesign": "Nowy pusty projekt",
+      "savedDesign": "{count, plural, one {Zapisano projekt ({count} kształt)} few {Zapisano projekt ({count} kształty)} many {Zapisano projekt ({count} kształtów)} other {Zapisano projekt ({count} kształtu)}}",
+      "nothingToCopy": "Na razie nie ma czego kopiować",
+      "madeCopy": "Utworzono kopię projektu"
+    },
+    "workplane": {
+      "toolActive": "Płaszczyzna robocza: kliknij ścianę lub puste miejsce na siatce. Przytrzymaj Shift, aby ją odwrócić",
+      "toolCancelled": "Anulowano ustawianie płaszczyzny roboczej",
+      "setToFace": "Przeniesiono płaszczyznę roboczą na wybraną ścianę",
+      "resetToBase": "Przywrócono płaszczyznę roboczą do położenia początkowego",
+      "updated": "Zmieniono płaszczyznę roboczą"
+    },
+    "align": {
+      "needTwo": "Aby wyrównać, zaznacz co najmniej dwa kształty",
+      "started": "Wyrównywanie: wybierz kropkę lub kształt odniesienia",
+      "cancelled": "Anulowano wyrównywanie",
+      "anchor": "Wyrównywanie do kształtu „{name}”",
+      "anchorLocked": "Wyrównywanie do kształtu „{name}” (zablokowany)",
+      "anchorSet": "Wybrano kształt, do którego nastąpi wyrównanie",
+      "alreadyAligned": "Kształty są już wyrównane",
+      "aligned": "{count, plural, one {Wyrównano {count} kształt {direction}} few {Wyrównano {count} kształty {direction}} many {Wyrównano {count} kształtów {direction}} other {Wyrównano {count} kształtu {direction}}}",
+      "handleAlign": "Wyrównaj {direction}",
+      "handleAligned": "Już wyrównano {direction}",
+      "direction": {
+        "left": "do lewej",
+        "center": "do środka",
+        "right": "do prawej",
+        "front": "do przodu",
+        "middle": "do środka",
+        "back": "do tyłu",
+        "bottom": "do dołu",
+        "top": "do góry"
+      }
+    },
+    "mirror": {
+      "started": "Odbicie lustrzane: wybierz strzałkę osi",
+      "cancelled": "Anulowano odbicie lustrzane",
+      "nothing": "Nie ma czego odbić",
+      "mirrored": "{count, plural, one {Odbito lustrzanie {count} kształt ({axis})} few {Odbito lustrzanie {count} kształty ({axis})} many {Odbito lustrzanie {count} kształtów ({axis})} other {Odbito lustrzanie {count} kształtu ({axis})}}",
+      "axis": {
+        "x": "lewo–prawo",
+        "y": "góra–dół",
+        "z": "przód–tył"
+      }
+    },
+    "group": {
+      "needTwo": "Aby zgrupować, zaznacz co najmniej dwa kształty",
+      "unlockAll": "Przed grupowaniem odblokuj wszystkie zaznaczone kształty",
+      "sceneChanged": "Obiekty zmieniły się podczas grupowania. Zaznacz je i spróbuj ponownie",
+      "holeConsumedSolid": "Zgrupowano: otwór całkowicie usunął bryłę",
+      "grouped": "{count, plural, one {Zgrupowano {count} kształt} few {Zgrupowano {count} kształty} many {Zgrupowano {count} kształtów} other {Zgrupowano {count} kształtu}}",
+      "failedImportedCut": "Nie udało się poprawnie wyciąć otworu w zaimportowanym modelu",
+      "failedCut": "Nie udało się wyciąć otworów w zaznaczonych obiektach",
+      "failedGroup": "Nie udało się zgrupować zaznaczonych obiektów",
+      "intersectionNeedsSolidAndHole": "Aby utworzyć część wspólną, zaznacz co najmniej jedną bryłę i jeden otwór",
+      "intersectionFailed": "Nie udało się poprawnie obliczyć części wspólnej",
+      "intersectionSceneChanged": "Obiekty zmieniły się podczas tworzenia części wspólnej. Zaznacz je i spróbuj ponownie",
+      "intersectionEmpty": "Część wspólna jest pusta: kształty nie nachodzą na siebie",
+      "intersected": "{count, plural, one {Utworzono część wspólną {count} kształtu} few {Utworzono część wspólną {count} kształtów} many {Utworzono część wspólną {count} kształtów} other {Utworzono część wspólną {count} kształtu}}",
+      "selectGroup": "Najpierw zaznacz grupę",
+      "ungrouped": "{count, plural, one {Rozgrupowano {count} grupę} few {Rozgrupowano {count} grupy} many {Rozgrupowano {count} grup} other {Rozgrupowano {count} grupy}}"
+    },
+    "separate": {
+      "selectOne": "Zaznacz jeden obiekt, aby rozdzielić go na części",
+      "unlock": "Przed rozdzieleniem na części odblokuj obiekt",
+      "singlePart": "Zaznaczony obiekt składa się tylko z jednej spójnej części",
+      "separated": "{count, plural, one {Rozdzielono obiekt na {count} część} few {Rozdzielono obiekt na {count} części} many {Rozdzielono obiekt na {count} części} other {Rozdzielono obiekt na {count} części}}"
+    },
+    "edgeModifier": {
+      "cancelled": "Anulowano obróbkę krawędzi",
+      "cancelledObjectChanged": "Anulowano obróbkę krawędzi, ponieważ obiekt się zmienił",
+      "selectSolid": {
+        "fillet": "Zaznacz jedną odblokowaną bryłę, aby zaokrąglić jej krawędzie",
+        "chamfer": "Zaznacz jedną odblokowaną bryłę, aby sfazować jej krawędzie"
+      },
+      "noSurface": "Zaznaczony obiekt nie ma powierzchni do druku",
+      "tooDense": "Ten model ma zbyt wiele trójkątów do obróbki krawędzi. Najpierw uprość go do mniej niż 180 000 trójkątów.",
+      "preparing": {
+        "fillet": "Przygotowywanie krawędzi do zaokrąglenia",
+        "chamfer": "Przygotowywanie krawędzi do fazowania"
+      },
+      "selectHighlighted": "Zaznacz podświetlone krawędzie, a następnie dostosuj podgląd",
+      "previewReady": "Podgląd obróbki krawędzi jest gotowy",
+      "needsAdjustment": "Zmień parametry obróbki krawędzi",
+      "waitForPreview": "Przed zastosowaniem poczekaj na poprawny podgląd krawędzi",
+      "applied": {
+        "fillet": "{count, plural, one {Zaokrąglono {count} krawędź} few {Zaokrąglono {count} krawędzie} many {Zaokrąglono {count} krawędzi} other {Zaokrąglono {count} krawędzi}}",
+        "chamfer": "{count, plural, one {Sfazowano {count} krawędź} few {Sfazowano {count} krawędzie} many {Sfazowano {count} krawędzi} other {Sfazowano {count} krawędzi}}"
+      },
+      "defaultTarget": "Obiekt"
+    },
+    "edgeFeature": {
+      "label": {
+        "fillet": "{count, plural, one {zaokrąglenie ({amount} {unit}, {count} krawędź)} few {zaokrąglenie ({amount} {unit}, {count} krawędzie)} many {zaokrąglenie ({amount} {unit}, {count} krawędzi)} other {zaokrąglenie ({amount} {unit}, {count} krawędzi)}}",
+        "chamfer": "{count, plural, one {fazka ({amount} {unit}, {count} krawędź)} few {fazka ({amount} {unit}, {count} krawędzie)} many {fazka ({amount} {unit}, {count} krawędzi)} other {fazka ({amount} {unit}, {count} krawędzi)}}"
+      },
+      "selectShape": "Najpierw zaznacz kształt z zaokrągleniem lub fazką",
+      "unlockShape": "Przed usunięciem zaokrąglenia lub fazki odblokuj kształt",
+      "chooseFeature": "Wybierz zaokrąglenie lub fazkę do usunięcia",
+      "noUndoHistory": "Tego zaokrąglenia lub fazki nie można usunąć: brak zapisanej historii zmian",
+      "none": "Brak zaokrągleń i fazek do usunięcia",
+      "objectChanged": "Obiekt zmienił się podczas usuwania zaokrąglenia lub fazki. Spróbuj ponownie",
+      "removed": "Usunięto: {feature}"
+    },
+    "sketch": {
+      "started": "Rozpoczęto szkic: umieść pierwszy punkt",
+      "revolveStarted": "Rozpoczęto szkic bryły obrotowej: rysuj po lewej stronie osi",
+      "editingExtrude": "Edycja profilu szkicu do wyciągnięcia",
+      "editingRevolve": "Edycja profilu szkicu bryły obrotowej",
+      "selectToEdit": "Zaznacz jeden kształt utworzony ze szkicu, aby go edytować",
+      "cancelled": "Anulowano szkic",
+      "nothingToUndo": "W szkicu nie ma czego cofnąć",
+      "undone": "Cofnięto w szkicu",
+      "nothingToRedo": "W szkicu nie ma czego ponowić",
+      "redone": "Ponowiono w szkicu",
+      "toolHint": {
+        "line": "Linia: klikaj kolejne punkty, aby rysować proste odcinki",
+        "bezier": "Krzywa Béziera: klikaj i przeciągaj punkty, aby ustawić uchwyty krzywej",
+        "smooth": "Gładka krzywa: klikaj kolejne punkty, aby rysować płynną linię",
+        "rectangle": "Prostokąt: przeciągnij po szkicu, aby narysować zamknięty prostokąt",
+        "circle": "Okrąg: przeciągnij ramkę, aby narysować zamknięty okrąg",
+        "triangle": "Trójkąt: przeciągnij ramkę, aby narysować zamknięty trójkąt",
+        "hexagon": "Sześciokąt: przeciągnij ramkę, aby narysować zamknięty sześciokąt",
+        "select": "Zaznaczanie: edytuj linie szkicu albo umieszczaj i skaluj obrazy pomocnicze",
+        "refine": "Dodawanie lub usuwanie punktów: kliknij odcinek, aby dodać punkt, albo punkt, aby go usunąć",
+        "erase": "Gumka: kliknij punkt lub odcinek, aby go usunąć",
+        "measure": "Pomiar: wybierz dwa punkty"
+      },
+      "measureSecond": "Wybierz drugi punkt pomiaru",
+      "measured": "Zmierzono: {value} {unit}",
+      "measurementRemoved": "Usunięto pomiar w szkicu",
+      "profileClosed": "Profil jest zamknięty – edytuj linię albo zakończ szkic",
+      "segmentAdded": "Dodano odcinek szkicu",
+      "pointAndSegmentAdded": "Dodano punkt i odcinek szkicu",
+      "pointAdded": "Dodano punkt szkicu",
+      "pointRemoved": "Usunięto punkt szkicu",
+      "lineRemoved": "Usunięto linię szkicu",
+      "pointMoved": "Przesunięto punkt szkicu",
+      "pointInserted": "Dodano punkt na linii",
+      "handleAdjusted": "Przesunięto uchwyt krzywej",
+      "madeCorner": "Zmieniono w punkt narożny",
+      "madeSmooth": "Zmieniono w punkt gładki",
+      "handlesSplit": "Rozdzielono uchwyty krzywej",
+      "geometryTransformed": "Przekształcono elementy szkicu",
+      "selectToRemove": "Zaznacz punkt lub odcinek szkicu, aby go usunąć",
+      "selectionRemoved": "Usunięto zaznaczone elementy szkicu",
+      "selectClosedToRotate": "Zaznacz zamknięty kształt szkicu, aby go obrócić",
+      "rotateClosedOnly": "Obracać można tylko zamknięte kształty szkicu",
+      "rotated45": "Obrócono zaznaczony zamknięty kształt szkicu o 45°",
+      "chainCleared": "Zakończono rysowanie bieżącej linii",
+      "selectedItems": "{count, plural, one {Zaznaczono {count} element szkicu} few {Zaznaczono {count} elementy szkicu} many {Zaznaczono {count} elementów szkicu} other {Zaznaczono {count} elementu szkicu}}",
+      "selectionCleared": "Wyczyszczono zaznaczenie w szkicu",
+      "primitive": {
+        "rectangle": "Prostokąt",
+        "circle": "Okrąg",
+        "triangle": "Trójkąt",
+        "hexagon": "Sześciokąt"
+      },
+      "primitiveHint": {
+        "rectangle": "Dodaj prostokąt w początku układu współrzędnych szkicu albo przeciągnij go na szkic",
+        "circle": "Dodaj okrąg w początku układu współrzędnych szkicu albo przeciągnij go na szkic",
+        "triangle": "Dodaj trójkąt w początku układu współrzędnych szkicu albo przeciągnij go na szkic",
+        "hexagon": "Dodaj sześciokąt w początku układu współrzędnych szkicu albo przeciągnij go na szkic"
+      },
+      "primitiveAdded": "Dodano do szkicu: {shape}",
+      "imageSelected": "Zaznaczono obraz w szkicu",
+      "imageUpdated": "Zmieniono obraz w szkicu",
+      "imageRemoved": "Usunięto obraz ze szkicu",
+      "imageLockedEdit": "Przed edycją odblokuj obraz klawiszem L",
+      "imageLockedDelete": "Przed usunięciem odblokuj obraz klawiszem L",
+      "chooseSelectForImage": "Przed dodaniem obrazu wybierz narzędzie „Zaznaczanie”",
+      "chooseImageFile": "Wybierz plik obrazu: PNG, JPG, WebP, GIF lub inny",
+      "imageAdded": "Dodano obraz „{name}” do szkicu",
+      "imageAddFailed": "Nie udało się dodać obrazu do szkicu",
+      "selectImageToLock": "Zaznacz obraz w szkicu, aby go zablokować lub odblokować",
+      "imageLocked": "Zablokowano obraz w szkicu",
+      "imageUnlocked": "Odblokowano obraz w szkicu",
+      "building": "Tworzenie dokładnej bryły ze szkicu…",
+      "cannotExtrude": "Nie można wyciągnąć profilu szkicu w bryłę 3D",
+      "cannotRevolve": "Z profilu szkicu nie można utworzyć bryły obrotowej",
+      "closeProfile": "Przed zakończeniem szkicu zamknij co najmniej jeden profil",
+      "updated": "Zaktualizowano szkic",
+      "revolveUpdated": "Zaktualizowano szkic bryły obrotowej",
+      "extrusionCreated": "Utworzono bryłę ze szkicu o wysokości {height} {unit}",
+      "revolveCreated": "Utworzono bryłę obrotową ze szkicu",
+      "revolvePreviewUpdating": "Aktualizowanie podglądu bryły obrotowej…",
+      "revolveShapeUpdated": "Zaktualizowano bryłę obrotową",
+      "revolveSettingsFailed": "Nie udało się zastosować ustawień bryły obrotowej"
+    },
+    "export": {
+      "needSolidSelected": "Przed eksportem zaznacz co najmniej jedną bryłę",
+      "needSolid": "Przed eksportem dodaj co najmniej jedną bryłę",
+      "needSolidStep": "Przed eksportem do STEP zaznacz co najmniej jedną bryłę",
+      "invalidSvg": "{reason}. Popraw kontury w źródłowym pliku SVG i zaimportuj go ponownie",
+      "buildingSvg": "Tworzenie SVG z widokiem z góry…",
+      "buildingBrep": "Przygotowywanie STEP… Przy pierwszym eksporcie do STEP wczytywany jest moduł OpenCascade (~22 MB), raz na sesję",
+      "savedTo": "Zapisano plik {format} w {path}",
+      "exported": "Wyeksportowano plik {format}",
+      "exportedSelected": "{count, plural, one {Wyeksportowano {count} zaznaczony kształt do {format}} few {Wyeksportowano {count} zaznaczone kształty do {format}} many {Wyeksportowano {count} zaznaczonych kształtów do {format}} other {Wyeksportowano {count} zaznaczonego kształtu do {format}}}",
+      "failed": "Nie udało się wyeksportować do {format}",
+      "stepSaved": "{count, plural, one {Zapisano plik STEP ({count} bryła) w {path}} few {Zapisano plik STEP ({count} bryły) w {path}} many {Zapisano plik STEP ({count} brył) w {path}} other {Zapisano plik STEP ({count} bryły) w {path}}}",
+      "stepExported": "{count, plural, one {Wyeksportowano STEP (B-Rep): {count} bryła} few {Wyeksportowano STEP (B-Rep): {count} bryły} many {Wyeksportowano STEP (B-Rep): {count} brył} other {Wyeksportowano STEP (B-Rep): {count} bryły}}",
+      "stepSkipped": "{count, plural, one {pominięto {count} kształt, którego nie można zapisać w STEP} few {pominięto {count} kształty, których nie można zapisać w STEP} many {pominięto {count} kształtów, których nie można zapisać w STEP} other {pominięto {count} kształtu, których nie można zapisać w STEP}}",
+      "sharedUnavailable": "Wspólne projekty są niedostępne w tej instalacji SketchForge",
+      "packagingShared": "Przygotowywanie projektu dla wspólnego magazynu Dockera…",
+      "packaging": "Przygotowywanie pliku projektu z historią zmian i zasobami…",
+      "projectSavedTo": "Zapisano edytowalny projekt SketchForge w {path}",
+      "projectSaved": "Zapisano edytowalny projekt SketchForge (.skf)",
+      "projectSaveFailed": "Nie udało się zapisać projektu SketchForge"
+    },
+    "import": {
+      "oneSkf": "Otwieraj projekty .skf pojedynczo, a pliki STL, OBJ, STEP i SVG importuj osobno",
+      "skfUnavailable": "Tutaj nie można otwierać plików projektów SketchForge",
+      "validatingSkf": "Sprawdzanie pliku {name} przed otwarciem go jako nowego projektu",
+      "cancelledProjectChanged": "{count, plural, one {Anulowano import {count} pliku, ponieważ projekt się zmienił} few {Anulowano import {count} plików, ponieważ projekt się zmienił} many {Anulowano import {count} plików, ponieważ projekt się zmienił} other {Anulowano import {count} pliku, ponieważ projekt się zmienił}}",
+      "unsupportedType": "Nieobsługiwany typ pliku",
+      "importing": "Importowanie {index} z {count}: {name}",
+      "importingStep": "Importowanie {index} z {count}: {name}… Przy pierwszym imporcie STEP wczytywany jest moduł OpenCascade (~22 MB)",
+      "readFailed": "Nie udało się odczytać pliku",
+      "failedList": "Błędy: {details}",
+      "failedMore": "i jeszcze {count}",
+      "noneImported": "Nie udało się zaimportować żadnego z wybranych plików ({count}).",
+      "importedFile": "Zaimportowano plik {name}.",
+      "importedCount": "{count, plural, one {Zaimportowano {imported} z {count} pliku.} few {Zaimportowano {imported} z {count} plików.} many {Zaimportowano {imported} z {count} plików.} other {Zaimportowano {imported} z {count} pliku.}}"
+    },
+    "toolbar": {
+      "home": "Start",
+      "homeDashboard": "Przejdź do strony głównej",
+      "clipboard": "Schowek",
+      "copy": "Kopiuj",
+      "paste": "Wklej",
+      "duplicate": "Duplikuj",
+      "delete": "Usuń",
+      "history": "Historia",
+      "undo": "Cofnij",
+      "redo": "Ponów",
+      "shapes": "Kształty",
+      "addShape": "Dodaj kształt",
+      "basicShapes": "Kształty podstawowe",
+      "renameProject": "Zmień nazwę projektu",
+      "projectName": "Nazwa projektu",
+      "visibility": "Widoczność",
+      "showSelected": "Pokaż zaznaczone",
+      "hideSelected": "Ukryj zaznaczone",
+      "visibilityOptions": "Opcje widoczności",
+      "nothingHidden": "Nic nie jest ukryte",
+      "showAllHidden": "Pokaż wszystkie ukryte ({count})",
+      "visibilityHelpSelected": "Przycisk z okiem: zaznaczone",
+      "visibilityHelpAll": "wszystkie",
+      "visibilityHelpShortcut": "<keys></keys>: {action}",
+      "combine": "Łączenie",
+      "group": "Grupuj",
+      "ungroup": "Rozgrupuj",
+      "intersection": "Część wspólna",
+      "modify": "Modyfikacja",
+      "align": "Wyrównaj",
+      "mirror": "Odbij lustrzanie",
+      "snapToGrid": "Przyciągnij do siatki",
+      "chamfer": "Fazka",
+      "fillet": "Zaokrąglenie",
+      "arrange": "Położenie",
+      "dropToWorkplane": "Opuść na płaszczyznę roboczą",
+      "manage": "Zarządzanie",
+      "import": "Importuj",
+      "export": "Eksportuj",
+      "workspaceSettings": "Ustawienia obszaru roboczego",
+      "sketchToolbar": "Pasek narzędzi szkicu",
+      "draw": "Rysowanie",
+      "line": "Linia",
+      "bezier": "Krzywa Béziera",
+      "smooth": "Gładka krzywa",
+      "addSketchShape": "Dodaj kształt do szkicu",
+      "sketchShapesMenu": "Kształty szkicu",
+      "sketchShapesTitle": "Kształty szkicu",
+      "select": "Zaznaczanie",
+      "addImageLabel": "Dodaj obraz",
+      "addImage": "Dodaj obraz",
+      "addImageNeedsSelect": "Aby dodać obraz, wybierz narzędzie „Zaznaczanie”",
+      "refine": "Dodaj lub usuń punkty",
+      "erase": "Gumka",
+      "sketchUndo": "Cofnij w szkicu",
+      "sketchRedo": "Ponów w szkicu",
+      "inspect": "Pomiary",
+      "measure": "Pomiar",
+      "finish": "Zakończenie",
+      "finishSketch": "Zakończ szkic",
+      "finishRevolve": "Zakończ bryłę obrotową",
+      "cancelSketch": "Anuluj",
+      "create": "Tworzenie",
+      "sketchTo3d": "Bryła ze szkicu",
+      "sketchTo3dOptions": "Sposoby tworzenia bryły ze szkicu",
+      "sketchTo3dMethod": "Sposób tworzenia bryły ze szkicu",
+      "extrudeSketch": "Wyciągnięcie",
+      "extrudeSketchHint": "Wyciągnij profil w górę, tworząc bryłę 3D",
+      "revolveSketch": "Bryła obrotowa",
+      "revolveSketchHint": "Obróć profil wokół osi",
+      "editSketchTo3d": "Edytuj szkic kształtu",
+      "edit": "Edytuj",
+      "editorMode": "Tryb edytora",
+      "geometry": "Model 3D",
+      "sketch": "Szkic"
+    },
+    "panel": {
+      "import": "Import",
+      "export": "Eksport",
+      "settings": "Ustawienia",
+      "profile": "Użytkownik",
+      "close": "Zamknij panel „{title}”",
+      "openProject": "Otwórz projekt SketchForge",
+      "openProjectHint": "Przywróć edytowalny plik .skf jako nowy projekt w tej przeglądarce",
+      "orAddGeometry": "lub dodaj modele z plików",
+      "dropFiles": "Upuść tutaj pliki STL, OBJ, STEP lub SVG",
+      "orClickToChoose": "lub kliknij, aby wybrać je z komputera",
+      "fileName": "Plik",
+      "format": "Format",
+      "fullProject": "Cały projekt",
+      "scopeSelected": "Zaznaczone: {count}",
+      "scopeTotal": "Wszystkie: {count}",
+      "exportFormat": "Format eksportu",
+      "formatInfo": {
+        "stl": {
+          "description": "Model do druku 3D",
+          "note": "Najlepszy do druku 3D i programów przygotowujących wydruk (slicerów). Model jest eksportowany jako siatka trójkątów."
+        },
+        "obj": {
+          "description": "Uniwersalny model 3D",
+          "note": "Popularny format do modelowania, renderowania i przenoszenia modeli między programami."
+        },
+        "step": {
+          "description": "CAD / B-Rep",
+          "note": "Zachowuje obsługiwane prostopadłościany, walce, kule i stożki jako dokładną geometrię CAD."
+        },
+        "svg": {
+          "description": "Wektorowy widok z góry",
+          "note": "Eksportuje wyraźną sylwetkę widoku z góry w milimetrach, razem z otworami i zakrzywionymi konturami."
+        },
+        "skf": {
+          "description": "Edytowalny projekt",
+          "note": "Zachowuje edytowalny projekt, historię zmian (cofanie i ponawianie), szkice, grupy, dane CAD i zaimportowane pliki źródłowe."
+        }
+      },
+      "historyTitle": "Zapisywana historia zmian",
+      "historyHint": "Wybierz, ile ostatnich czynności zapisać w projekcie, aby można je było cofnąć",
+      "historyRange": "Historia zmian zapisywana w pliku SKF",
+      "historyUnlimited": "Bez ograniczeń",
+      "historyActions": "{count, plural, one {{count} czynność} few {{count} czynności} many {{count} czynności} other {{count} czynności}}",
+      "saveToShared": "Zapisz we wspólnych projektach",
+      "savingProject": "Zapisywanie projektu…",
+      "saveProject": "Zapisz projekt SketchForge",
+      "buildingStep": "Przygotowywanie STEP…",
+      "exportAs": "Eksportuj do {format}",
+      "workspacePreferences": "Preferencje obszaru roboczego",
+      "gridAndSnapping": "Siatka i przyciąganie",
+      "gridNotice": "Wyświetlanie siatki ustawia się w oknie „Ustawienia obszaru roboczego” w prawym dolnym rogu",
+      "unitsMillimeters": "Jednostki: milimetry",
+      "unitsNotice": "Ustawiono jednostki: milimetry",
+      "lighting": "Oświetlenie i cienie",
+      "lightingNotice": "Cienie i oświetlenie ze śledzeniem promieni są włączone",
+      "account": "Konto",
+      "accountNotice": "Otwarto menu konta",
+      "dashboard": "Strona główna",
+      "dashboardNotice": "Otwarto stronę główną",
+      "signOut": "Wyloguj się",
+      "signOutNotice": "Wybrano wylogowanie"
+    },
+    "mcp": {
+      "selected": "{count, plural, one {MCP: zaznaczono {count} obiekt} few {MCP: zaznaczono {count} obiekty} many {MCP: zaznaczono {count} obiektów} other {MCP: zaznaczono {count} obiektu}}",
+      "selectionCleared": "MCP: wyczyszczono zaznaczenie",
+      "deleted": "{count, plural, one {MCP: usunięto {count} obiekt} few {MCP: usunięto {count} obiekty} many {MCP: usunięto {count} obiektów} other {MCP: usunięto {count} obiektu}}",
+      "added": "MCP: dodano obiekt „{name}”",
+      "imported": "MCP: zaimportowano obiekt „{name}”",
+      "updated": "MCP: zmieniono obiekt „{name}”",
+      "alreadyAligned": "MCP: obiekty są już wyrównane {direction}",
+      "aligned": "{count, plural, one {MCP: wyrównano {count} obiekt {direction}} few {MCP: wyrównano {count} obiekty {direction}} many {MCP: wyrównano {count} obiektów {direction}} other {MCP: wyrównano {count} obiektu {direction}}}",
+      "grouped": "{count, plural, one {MCP: zgrupowano {count} obiekt} few {MCP: zgrupowano {count} obiekty} many {MCP: zgrupowano {count} obiektów} other {MCP: zgrupowano {count} obiektu}}",
+      "groupConsumedSolid": "MCP: przy grupowaniu otwór całkowicie usunął bryłę",
+      "ungrouped": "{count, plural, one {MCP: rozgrupowano {count} grupę} few {MCP: rozgrupowano {count} grupy} many {MCP: rozgrupowano {count} grup} other {MCP: rozgrupowano {count} grupy}}",
+      "cutComplete": "MCP: wycięto otwór",
+      "cutConsumedSolid": "MCP: wycięcie otworu całkowicie usunęło bryłę",
+      "separated": "{count, plural, one {MCP: rozdzielono obiekt na {count} część} few {MCP: rozdzielono obiekt na {count} części} many {MCP: rozdzielono obiekt na {count} części} other {MCP: rozdzielono obiekt na {count} części}}",
+      "filleted": "{count, plural, one {MCP: zaokrąglono {count} krawędź} few {MCP: zaokrąglono {count} krawędzie} many {MCP: zaokrąglono {count} krawędzi} other {MCP: zaokrąglono {count} krawędzi}}",
+      "chamfered": "{count, plural, one {MCP: sfazowano {count} krawędź} few {MCP: sfazowano {count} krawędzie} many {MCP: sfazowano {count} krawędzi} other {MCP: sfazowano {count} krawędzi}}"
+    }
+  },
+  "workspace": {
+    "shortcutHint": "{label} ({key})",
+    "viewCube": {
+      "label": "Kostka orientacji widoku",
+      "face": {
+        "top": "GÓRA",
+        "bottom": "DÓŁ",
+        "front": "PRZÓD",
+        "back": "TYŁ",
+        "right": "PRAWO",
+        "left": "LEWO"
+      },
+      "view": {
+        "top": "Widok z góry",
+        "bottom": "Widok z dołu",
+        "front": "Widok z przodu",
+        "back": "Widok z tyłu",
+        "right": "Widok z prawej",
+        "left": "Widok z lewej"
+      }
+    },
+    "camera": {
+      "controls": "Sterowanie kamerą",
+      "showControls": "Pokaż sterowanie",
+      "showControlsLabel": "Pokaż sterowanie kamerą",
+      "hideControls": "Ukryj sterowanie",
+      "hideControlsLabel": "Ukryj sterowanie kamerą",
+      "home": "Widok początkowy",
+      "zoomIn": "Przybliż",
+      "zoomOut": "Oddal"
+    },
+    "workplane": {
+      "label": "Płaszczyzna robocza",
+      "place": "Ustaw płaszczyznę roboczą"
+    },
+    "ruler": {
+      "tools": "Narzędzia linijki",
+      "actions": "Opcje linijki",
+      "add": "Dodaj pomiar",
+      "movePoints": "Przesuń punkty pomiaru",
+      "deletePart": "Usuń część pomiaru",
+      "measurements": "Pomiary linijką"
+    },
+    "dimension": {
+      "width": "Szerokość",
+      "height": "Wysokość"
+    },
+    "transform": {
+      "resize": "Zmień rozmiar",
+      "lift": "Podnieś",
+      "rotate": "Obróć"
+    },
+    "moveDimensions": {
+      "label": "Wymiary podczas przesuwania",
+      "axis": "Przesunięcie wzdłuż osi {axis}"
+    },
+    "align": {
+      "handles": "Uchwyty wyrównywania"
+    },
+    "mirror": {
+      "handles": "Uchwyty odbicia lustrzanego",
+      "x": "Odbij lustrzanie: lewo–prawo",
+      "y": "Odbij lustrzanie: góra–dół",
+      "z": "Odbij lustrzanie: przód–tył"
+    },
+    "sketch": {
+      "badge": {
+        "extrude": "Tryb szkicu",
+        "revolve": "Szkic bryły obrotowej"
+      },
+      "viewControls": "Sterowanie widokiem szkicu",
+      "resetView": "Przywróć widok szkicu",
+      "plate": "Płaszczyzna szkicu 2D",
+      "revolveAxis": "OŚ OBROTU",
+      "removeMeasurement": "Usuń pomiar",
+      "point": {
+        "actions": "Opcje punktu",
+        "corner": "Zaostrz",
+        "cornerTitle": "Zmień w punkt narożny",
+        "smooth": "Wygładź",
+        "smoothTitle": "Zmień w punkt gładki",
+        "split": "Rozdziel",
+        "splitTitle": "Rozdziel uchwyty"
+      },
+      "notice": {
+        "shapeMoved": "Przesunięto kształt szkicu",
+        "shapeResized": "Zmieniono rozmiar kształtu szkicu",
+        "imageMoved": "Przesunięto obraz w szkicu",
+        "imageResized": "Zmieniono rozmiar obrazu w szkicu",
+        "imageWidthUpdated": "Zmieniono szerokość obrazu w szkicu",
+        "imageHeightUpdated": "Zmieniono wysokość obrazu w szkicu",
+        "imageOpacityUpdated": "Zmieniono krycie obrazu w szkicu",
+        "imageLocked": "Zablokowano obraz w szkicu",
+        "imageUnlocked": "Odblokowano obraz w szkicu",
+        "imageAspectUpdated": "Zmieniono ustawienie proporcji obrazu"
+      },
+      "image": {
+        "settings": "Ustawienia obrazu „{name}”",
+        "closeSettings": "Zamknij ustawienia obrazu",
+        "lockLabel": "Zablokuj obraz w szkicu",
+        "unlockLabel": "Odblokuj obraz w szkicu",
+        "lock": "Zablokuj obraz",
+        "unlock": "Odblokuj obraz",
+        "deleteLabel": "Usuń obraz ze szkicu",
+        "delete": "Usuń obraz",
+        "deleteLocked": "Przed usunięciem odblokuj obraz",
+        "pixelSize": "{width} × {height} px",
+        "properties": "Właściwości",
+        "opacity": "Krycie",
+        "positionX": "Położenie X",
+        "positionY": "Położenie Y",
+        "aspectLocked": "Proporcje zablokowane",
+        "aspectUnlocked": "Proporcje odblokowane"
+      },
+      "revolvePreview": {
+        "label": "Podgląd 3D bryły obrotowej",
+        "title": "Podgląd 3D",
+        "empty": "Narysuj zamknięty profil po lewej stronie osi"
+      }
+    }
+  },
+  "panels": {
+    "unit": {
+      "deg": "°",
+      "degrees": "{value}°",
+      "millimeters": "{value} mm"
+    },
+    "snapGrid": {
+      "label": "Przyciąganie do siatki",
+      "off": "Brak",
+      "brick": "Klocek"
+    },
+    "measurement": {
+      "units": {
+        "metric": "Metryczne (domyślne)",
+        "imperial": "Imperialne",
+        "bricks": "Klocki"
+      },
+      "scale": {
+        "mm": "1:1 (milimetry)",
+        "cm": "1:10 (centymetry)",
+        "m": "1:1000 (metry)",
+        "in": "1:1 (cale)",
+        "ft": "1:1 (stopy)",
+        "stud": "1:1 (wypustki)"
+      }
+    },
+    "font": {
+      "multilanguage": "Wielojęzyczna",
+      "sans": "Bezszeryfowa",
+      "serif": "Szeryfowa",
+      "script": "Odręczna",
+      "monospace": "O stałej szerokości",
+      "rounded": "Zaokrąglona",
+      "stencil": "Szablonowa"
+    },
+    "gearType": {
+      "label": "Rodzaj koła zębatego",
+      "spur": "Prostozębne",
+      "helical": "Skośnozębne",
+      "bevel": "Stożkowe"
+    },
+    "property": {
+      "length": "Długość",
+      "width": "Szerokość",
+      "height": "Wysokość",
+      "sides": "Liczba boków",
+      "steps": "Liczba segmentów",
+      "startAngle": "Kąt początkowy",
+      "sweep": "Kąt obrotu",
+      "topRadius": "Promień górny",
+      "baseRadius": "Promień podstawy",
+      "thickness": "Grubość ścianki",
+      "teeth": "Liczba zębów",
+      "toothSize": "Rozmiar zęba",
+      "toothWidth": "Szerokość zęba",
+      "helixAngle": "Kąt pochylenia zęba",
+      "quality": "Jakość",
+      "centerHole": "Otwór środkowy",
+      "text": "Tekst",
+      "font": "Czcionka",
+      "bevel": "Fazka",
+      "segments": "Liczba segmentów",
+      "topLength": "Długość u góry",
+      "topWidth": "Szerokość u góry",
+      "bottomLength": "Długość u dołu",
+      "bottomWidth": "Szerokość u dołu"
+    },
+    "inspector": {
+      "label": "Ustawienia kształtu „{name}”",
+      "expand": "Rozwiń ustawienia kształtu",
+      "minimize": "Zwiń ustawienia kształtu",
+      "lock": "Zablokuj kształt",
+      "unlock": "Odblokuj kształt",
+      "show": "Pokaż kształt",
+      "hide": "Ukryj kształt",
+      "mode": "Bryła lub otwór",
+      "solid": "Bryła",
+      "hole": "Otwór",
+      "color": {
+        "label": "Kolor kształtu",
+        "title": "Kolor",
+        "set": "Ustaw kolor {color}",
+        "customTitle": "Własny kolor",
+        "custom": "Własny"
+      },
+      "editSketch": "Edytuj szkic",
+      "separateParts": "Rozdziel na części",
+      "section": {
+        "properties": "Właściwości",
+        "taper": "Zwężenie",
+        "teeth": "Zęby",
+        "helix": "Pochylenie zębów"
+      },
+      "gearType": "Rodzaj koła zębatego"
+    },
+    "edgeModifier": {
+      "title": {
+        "fillet": "Zaokrąglanie krawędzi",
+        "chamfer": "Fazowanie krawędzi"
+      },
+      "cancelFillet": "Anuluj zaokrąglanie",
+      "cancelChamfer": "Anuluj fazowanie",
+      "status": {
+        "preparing": "Przygotowywanie krawędzi…",
+        "selected": "{count, plural, one {Zaznaczone ostre krawędzie: {selected} z {count}} few {Zaznaczone ostre krawędzie: {selected} z {count}} many {Zaznaczone ostre krawędzie: {selected} z {count}} other {Zaznaczone ostre krawędzie: {selected} z {count}}}"
+      },
+      "target": {
+        "single": "Pojedynczy obiekt",
+        "grouped": "{count, plural, one {{count} obiekt w grupie} few {{count} obiekty w grupie} many {{count} obiektów w grupie} other {{count} obiektu w grupie}}",
+        "features": "{count, plural, one {Istniejące zaokrąglenia i fazki: {count}} few {Istniejące zaokrąglenia i fazki: {count}} many {Istniejące zaokrąglenia i fazki: {count}} other {Istniejące zaokrąglenia i fazki: {count}}}"
+      },
+      "help": {
+        "ready": "Klikaj podświetlone krawędzie modelu, aby je zaznaczyć lub odznaczyć. Przytrzymaj Shift, aby dodać lub usunąć pojedynczą krawędź.",
+        "loading": "Wczytywanie danych o krawędziach. Obliczenia odbywają się w przeglądarce."
+      },
+      "selectAll": "Wszystkie ostre krawędzie",
+      "clear": "Wyczyść",
+      "history": {
+        "toggle": "Historia zaokrągleń i fazek",
+        "unavailable": "Starszych zaokrągleń i fazek nie można cofnąć: nie zapisano dla nich historii zmian.",
+        "alsoRemovesNewer": "{count, plural, one {usunie też nowsze: {count}} few {usunie też nowsze: {count}} many {usunie też nowsze: {count}} other {usunie też nowsze: {count}}}"
+      },
+      "radius": "Promień",
+      "distance": "Odległość",
+      "angle": "Kąt",
+      "sharpAngle": "Próg kąta ostrej krawędzi",
+      "tangentChain": "Zaznaczaj razem krawędzie styczne",
+      "preserveEdgeSize": "Zachowuj rozmiar zaokrągleń i fazek przy zmianie rozmiaru",
+      "quality": {
+        "label": "Jakość podglądu",
+        "draft": "Robocza",
+        "standard": "Standardowa",
+        "fine": "Wysoka"
+      },
+      "cancel": "Anuluj",
+      "apply": "Zastosuj"
+    },
+    "settings": {
+      "title": "Ustawienia obszaru roboczego",
+      "close": "Zamknij ustawienia",
+      "sections": "Sekcje ustawień obszaru roboczego",
+      "custom": "Własny",
+      "appDefault": "Domyślnie: {value}",
+      "appearance": {
+        "title": "Wygląd",
+        "description": "Dostosuj obszar roboczy i sposób poruszania widokiem.",
+        "theme": "Motyw",
+        "themeNote": "Motyw obowiązuje w całym SketchForge i we wszystkich projektach.",
+        "showProjectName": "Pokazuj nazwę projektu na pasku narzędzi",
+        "moveDimensions": "Pokazuj wymiary podczas przesuwania",
+        "selectBeforeMove": "Przesuwaj tylko zaznaczone kształty",
+        "showShadows": "Pokazuj cienie",
+        "cruiseShapes": "Umieszczaj nowe kształty na powierzchniach innych kształtów",
+        "zoomSpeed": "Szybkość przybliżania",
+        "zoomSlow": "Wolno",
+        "zoomFast": "Szybko"
+      },
+      "measurement": {
+        "title": "Pomiary",
+        "description": "Wybierz jednostki, dokładność, skalę i przyciąganie.",
+        "units": "Jednostki",
+        "scale": "Skala",
+        "accuracy": "Dokładność"
+      },
+      "workplane": {
+        "title": "Płaszczyzna robocza",
+        "description": "Ustaw wymiary płaszczyzny roboczej i odstęp widocznej siatki.",
+        "size": "Rozmiar płaszczyzny roboczej",
+        "sizePreset": "{width} × {depth} mm",
+        "gridBlockSize": "Odstęp siatki",
+        "blockSize": "Własny odstęp"
+      },
+      "gridColor": {
+        "label": "Kolor siatki",
+        "current": "Kolor siatki {color}",
+        "picker": "Wybór koloru siatki",
+        "presets": "Gotowe kolory siatki",
+        "usePreset": "Użyj koloru siatki {color}",
+        "hex": "Kolor siatki w zapisie szesnastkowym",
+        "reset": "Przywróć domyślny kolor siatki"
+      },
+      "shapes": {
+        "title": "Ustawienia nowych kształtów",
+        "description": "Określ, jakie wartości ma każdy kształt z paska narzędzi zaraz po dodaniu. Obecne limity rozmiaru pozostają bez zmian, dopóki nie wpiszesz własnego limitu.",
+        "shape": "Kształt",
+        "customizedOption": "{name} – własne ustawienia",
+        "customActive": "Własne ustawienia są aktywne",
+        "usingDefaults": "Standardowe ustawienia SketchForge",
+        "reset": "Przywróć standardowe ustawienia",
+        "details": "Szczegóły kształtu",
+        "detailsDescription": "Dodatkowe wartości dla nowych kształtów tego typu.",
+        "topRadius": "Promień górny",
+        "baseRadius": "Promień podstawy",
+        "toothSize": "Rozmiar zęba",
+        "toothWidth": "Szerokość zęba",
+        "centerHole": "Otwór środkowy",
+        "helixAngle": "Kąt pochylenia zęba",
+        "helixQuality": "Jakość zębów skośnych",
+        "limit": "Własny limit rozmiaru",
+        "limitDescription": "Pozostaw puste, aby ten kształt miał zwykłe limity rozmiaru w panelu kształtu i przy przeciąganiu.",
+        "limitPlaceholder": "Standardowe",
+        "note": "Własne wartości dotyczą nowych kształtów. Własny limit rozmiaru zastępuje też obecne maksymalne rozmiary tego kształtu – do 2000 mm."
+      },
+      "history": {
+        "nav": "Historia",
+        "title": "Zapisywana historia zmian",
+        "description": "Wybierz, ile wykonanych czynności będzie można cofnąć po zapisaniu lub ponownym otwarciu projektu.",
+        "slider": "Liczba zapisywanych czynności",
+        "actions": "{count, plural, one {{count} czynność} few {{count} czynności} many {{count} czynności} other {{count} czynności}}",
+        "unlimited": "Bez ograniczeń",
+        "retain": "Ile czynności przechowywać",
+        "note": "Domyślnie przechowywanych jest 100 czynności. Przy niższym limicie starsze czynności zostaną trwale usunięte z projektu i nie będzie można ich cofnąć."
+      },
+      "footer": {
+        "description": "Zapisz bieżące ustawienia dla tego projektu.",
+        "makeDefault": "Ustaw jako domyślne",
+        "defaultSaved": "Zapisano jako domyślne"
+      }
+    },
+    "tutorial": {
+      "beforeStart": "Zanim zaczniesz",
+      "step": "Krok {number}",
+      "challenge": "Zadanie {number}",
+      "expand": "Rozwiń instrukcję zadania",
+      "minimize": "Zwiń instrukcję zadania",
+      "requiredDimensions": "Wymagane wymiary",
+      "snapGridValue": "Przyciąganie do siatki: {value}",
+      "elevation": "Wysokość nad płaszczyzną roboczą",
+      "previous": "Wstecz",
+      "next": "Dalej",
+      "finish": "Zakończ"
+    },
+    "keyTag": {
+      "title": "Brelok",
+      "ariaLabel": "Instrukcja zadania „Brelok”",
+      "intro": {
+        "title": "Zbuduj brelok",
+        "body": "W prawym dolnym rogu ustaw przyciąganie do siatki na 0.5 mm, a następnie zbuduj brelok z prostych kształtów.",
+        "alt": "Gotowy brelok na płaszczyźnie roboczej SketchForge"
+      },
+      "middle": {
+        "title": "Zrób środkową część",
+        "body": "Dodaj „Prostopadłościan”, a następnie ustaw jego wymiary w panelu kształtu.",
+        "alt": "Środkowy prostopadłościan breloka w SketchForge"
+      },
+      "leftEnd": {
+        "title": "Dodaj lewy okrągły koniec",
+        "body": "Dodaj „Walec” jako bryłę i ustaw go tak, aby połowa walca zachodziła na lewy koniec prostopadłościanu.",
+        "alt": "Walec (bryła) dodany na lewym końcu breloka"
+      },
+      "rightEnd": {
+        "title": "Zrób drugi koniec",
+        "body": "Zaznacz walec i kliknij „Duplikuj” w sekcji „Schowek” u góry. Ustaw kopię na prawym końcu.",
+        "alt": "Dwa walce tworzą oba zaokrąglone końce breloka"
+      },
+      "lockCircle": {
+        "title": "Zablokuj lewy walec",
+        "body": "Zaznacz lewy walec i kliknij ikonę kłódki u góry panelu kształtu. Walec posłuży jako punkt odniesienia przy wyrównywaniu.",
+        "alt": "Lewy walec zaznaczony na płaszczyźnie roboczej SketchForge"
+      },
+      "hole": {
+        "title": "Zrób otwór",
+        "body": "Dodaj kolejny „Walec”, ustaw jego wymiary, a następnie zmień go z „Bryła” na „Otwór”.",
+        "alt": "Mały walec w trybie „Otwór” przy lewym końcu breloka"
+      },
+      "alignHole": {
+        "title": "Wyrównaj otwór",
+        "body": "Zaznacz otwór, a następnie przytrzymaj Shift i kliknij zablokowany lewy walec. Kliknij „Wyrównaj” w sekcji „Modyfikacja” u góry. Wokół kształtów pojawią się kropki: kliknij środkową kropkę na każdej z dwóch linii leżących na siatce.",
+        "alt": "Otwór wyrównany do środka lewego walca"
+      },
+      "unlockCircle": {
+        "title": "Odblokuj walec",
+        "body": "Ponownie zaznacz lewy walec i kliknij ikonę kłódki, aby go odblokować.",
+        "alt": "Lewy walec ponownie zaznaczony po wyrównaniu otworu"
+      },
+      "group": {
+        "title": "Zgrupuj brelok",
+        "body": "Zaznacz prostopadłościan, oba walce i otwór: przytrzymaj Shift i kliknij każdy z nich albo przeciągnij wokół nich ramkę. Kliknij „Grupuj” w sekcji „Łączenie” u góry. Jeśli przycisk „Grupuj” jest szary, któryś kształt jest nadal zablokowany: najpierw odblokuj lewy walec.",
+        "alt": "Gotowy zgrupowany brelok zaznaczony w SketchForge"
+      }
+    },
+    "nameplate": {
+      "shortTitle": "Tabliczka",
+      "title": "Tabliczka z imieniem",
+      "ariaLabel": "Instrukcja zadania „Tabliczka z imieniem”",
+      "clickFillet": "Kliknij „Zaokrąglenie”",
+      "intro": {
+        "title": "Zbuduj tabliczkę z imieniem",
+        "body": "W prawym dolnym rogu ustaw przyciąganie do siatki na 0.5 mm. Następnie zrób podstawę z zaokrąglonymi krawędziami, wpisz swoje imię w obiekcie „Tekst” i połącz obie części w jeden projekt do druku.",
+        "alt": "Gotowa niebieska tabliczka z imieniem ALEX na płaszczyźnie roboczej SketchForge"
+      },
+      "base": {
+        "title": "Zrób podstawę",
+        "body": "Dodaj „Prostopadłościan” i wpisz te wymiary w panelu kształtu.",
+        "alt": "Zwykła prostokątna niebieska podstawa tabliczki"
+      },
+      "round": {
+        "title": "Zaokrąglij krawędzie zewnętrzne",
+        "body": "Zaznacz podstawę i kliknij „Zaokrąglenie” w sekcji „Modyfikacja” u góry. Kliknij jej zewnętrzne krawędzie, a następnie kliknij „Zastosuj”.",
+        "alt": "Niebieska podstawa tabliczki z łagodnie zaokrąglonymi krawędziami zewnętrznymi",
+        "callout": "Ustaw promień zaokrąglenia 1.00 mm."
+      },
+      "text": {
+        "title": "Dodaj obiekt „Tekst”",
+        "body": "Otwórz „Kształty” i dodaj „Tekst”. Nowy obiekt zawiera na początku literę T.",
+        "alt": "Czerwona wielka litera T (obiekt „Tekst”) na niebieskiej podstawie tabliczki"
+      },
+      "personalize": {
+        "title": "Wpisz swoje imię",
+        "body": "Zmień zawartość pola „Tekst” na swoje imię. W tym przykładzie jest to ALEX. Wybierz dowolną czcionkę.",
+        "alt": "Wypukły czerwony napis ALEX umieszczony poza środkiem niebieskiej podstawy"
+      },
+      "place": {
+        "title": "Postaw tekst na podstawie",
+        "body": "Zaznacz tekst. Kliknij małą czarną strzałkę nad nim. Wpisz 3 w polu, które się pojawi, i naciśnij Enter. Tekst leży teraz dokładnie na podstawie o grubości 3 mm.",
+        "alt": "Wypukły czerwony napis ALEX leżący na niebieskiej podstawie tabliczki"
+      },
+      "center": {
+        "title": "Wyśrodkuj imię",
+        "body": "Zaznacz podstawę i kliknij ikonę kłódki u góry panelu kształtu, aby ją zablokować. Zaznacz tekst, a następnie przytrzymaj Shift i kliknij podstawę. Kliknij „Wyrównaj” w sekcji „Modyfikacja” u góry i kliknij środkową kropkę na każdej z dwóch linii leżących na siatce. Kliknij ponownie kłódkę, aby odblokować podstawę.",
+        "alt": "Czerwony napis ALEX wyśrodkowany na niebieskiej podstawie tabliczki",
+        "callout": "Zablokowana podstawa pozostaje nieruchoma i służy jako punkt odniesienia przy wyrównywaniu."
+      },
+      "group": {
+        "title": "Zgrupuj tabliczkę",
+        "body": "Zaznacz podstawę i obiekt „Tekst”: przytrzymaj Shift i kliknij oba albo przeciągnij wokół nich ramkę. Kliknij „Grupuj” w sekcji „Łączenie” u góry, aby powstał jeden gotowy model do druku. Jeśli przycisk „Grupuj” jest szary, podstawa jest nadal zablokowana: najpierw odblokuj ją kłódką w panelu kształtu.",
+        "alt": "Gotowa zgrupowana niebieska tabliczka ALEX"
+      }
+    }
+  },
+  "errors": {
+    "asset": {
+      "unsupportedType": "Tego typu pliku nie można dodać do projektu"
+    },
+    "cadModifier": {
+      "workerFailed": "Nie udało się uruchomić modułu zaokrągleń i fazek. Zaktualizuj przeglądarkę do Firefox 121+, Chrome/Brave 114+ lub Safari 17.2+ i spróbuj ponownie.",
+      "prepareTimeout": "Przygotowywanie krawędzi trwało zbyt długo: ten model jest zbyt złożony. Użyj naprawionego lub mniej szczegółowego pliku STL.",
+      "previewTimeout": "Podgląd krawędzi trwał zbyt długo. Kliknij „Anuluj” i spróbuj ponownie.",
+      "noMeshData": "Zaznaczony obiekt nie zawiera danych modelu",
+      "invalidPrimitiveDimensions": "Zaznaczony kształt ma nieprawidłowe wymiary",
+      "primitiveNotSolid": "Nie udało się przygotować zaznaczonego kształtu do zaokrąglenia lub fazowania",
+      "storedFeatureInvalid": "Nie udało się odtworzyć zapisanego zaokrąglenia lub fazki jako poprawnej bryły",
+      "noClosedFaces": "Zaznaczony obiekt nie ma zamkniętych ścian",
+      "meshNotManifold": "Zaznaczony model ma dziury lub zbędne ściany. Napraw go, zanim dodasz zaokrąglenia lub fazki.",
+      "noSolidBody": "Grupa nie zawiera bryły, którą można zmienić",
+      "groupRepairFailed": "Nie udało się połączyć zgrupowanych obiektów w jedną poprawną bryłę",
+      "noClosedSolidComponents": "Zaznaczona grupa nie zawiera zamkniętych brył",
+      "edgeOwnerUnmapped": "Nie udało się ustalić, do której bryły należy krawędź. Zamknij narzędzie i otwórz je ponownie",
+      "notPrepared": "Przed podglądem przygotuj obiekt",
+      "noEdgesSelected": "Zaznacz co najmniej jedną podświetloną krawędź",
+      "invalidResult": "Przy wybranym rozmiarze krawędzie wychodzą nieprawidłowe lub nachodzą na siebie",
+      "filletTooLarge": "Przy tym rozmiarze nie można razem zaokrąglić zaznaczonych krawędzi. Zmniejsz rozmiar lub zaznacz mniej połączonych krawędzi.",
+      "chamferTooLarge": "Przy tym rozmiarze nie można razem sfazować zaznaczonych krawędzi. Zmniejsz rozmiar lub zaznacz mniej połączonych krawędzi.",
+      "edgeTreatmentFailed": "Nie udało się utworzyć zaokrąglenia lub fazki",
+      "meshImportReset": "Nie udało się zamienić zaznaczonego modelu w zamkniętą bryłę. Moduł zaokrągleń i fazek został uruchomiony ponownie. Zanim dodasz zaokrąglenia lub fazki, użyj polecenia „Rozdziel na części”, rozgrupuj lub uprość obiekt.",
+      "validatorReset": "Moduł zaokrągleń i fazek uległ awarii podczas sprawdzania i został uruchomiony ponownie. Otwórz narzędzie jeszcze raz – nie trzeba odświeżać strony.",
+      "memoryFaultReset": "W module zaokrągleń i fazek wystąpił błąd pamięci i moduł został uruchomiony ponownie. Otwórz narzędzie jeszcze raz – nie trzeba odświeżać strony."
+    },
+    "mesh": {
+      "incompleteTriangles": "Siatka trójkątów zawiera niepełne trójkąty",
+      "nonFiniteCoordinates": "Siatka trójkątów zawiera nieprawidłowe współrzędne"
+    },
+    "obj": {
+      "invalidVertexIndex": "Plik OBJ zawiera nieprawidłowy numer wierzchołka",
+      "invalidNormalIndex": "Plik OBJ zawiera nieprawidłowy numer normalnej",
+      "vertexIndexOutOfRange": "Plik OBJ odwołuje się do nieistniejącego wierzchołka",
+      "normalIndexOutOfRange": "Plik OBJ odwołuje się do nieistniejącej normalnej",
+      "invalidVertex": "Plik OBJ zawiera nieprawidłowo zapisany wierzchołek",
+      "nonFiniteVertex": "Plik OBJ zawiera wierzchołek z nieprawidłowymi współrzędnymi",
+      "invalidNormal": "Plik OBJ zawiera nieprawidłowo zapisaną normalną",
+      "nonFiniteNormal": "Plik OBJ zawiera normalną z nieprawidłowymi współrzędnymi",
+      "faceTooFewVertices": "Plik OBJ zawiera ścianę, która ma mniej niż trzy wierzchołki",
+      "degenerateFace": "Plik OBJ zawiera ścianę o zerowym polu",
+      "degeneratePolygonFace": "Plik OBJ zawiera wielokątną ścianę o zerowym polu",
+      "untriangulatableFace": "Plik OBJ zawiera wielokątną ścianę, której nie udało się podzielić na trójkąty",
+      "noGeometry": "Plik OBJ nie zawiera modelu, który można odczytać",
+      "emptyGeometry": "Model w pliku OBJ jest pusty"
+    },
+    "revolve": {
+      "noProfile": "Narysuj co najmniej jeden zamknięty profil po lewej stronie osi obrotu",
+      "noFilledArea": "Profil bryły obrotowej ma zerowe pole",
+      "invalidSolid": "Z tego profilu nie udało się utworzyć poprawnej bryły obrotowej"
+    },
+    "sketch": {
+      "allPathsOpen": "Wszystkie linie szkicu są otwarte. Aby zakończyć szkic, zamknij co najmniej jedną z nich.",
+      "noClosedProfile": "Nie znaleziono zamkniętego profilu. Narysuj co najmniej jedną zamkniętą linię i sprawdź, czy nie ma w niej fragmentów o zerowym polu.",
+      "invalidTopology": "Nie udało się utworzyć poprawnej bryły ze szkicu (błąd OpenCascade)",
+      "buildFailed": "Nie udało się utworzyć bryły ze szkicu"
+    },
+    "skf": {
+      "fileEmpty": "Plik .skf jest pusty",
+      "archiveTooLarge": "Plik .skf jest zbyt duży: limit wynosi 512 MB",
+      "notPackage": "Plik projektu jest uszkodzony: to nie jest prawidłowy pakiet .skf",
+      "zipDirectoryMissing": "Plik projektu jest uszkodzony: w pakiecie .skf brakuje spisu plików ZIP",
+      "zip64Unsupported": "Pakiety .skf w formacie ZIP64 nie są obsługiwane",
+      "invalidFileCount": "Plik projektu jest uszkodzony: nieprawidłowa liczba plików w pakiecie .skf",
+      "directoryTruncated": "Plik projektu jest uszkodzony: spis plików pakietu .skf jest ucięty",
+      "directoryMalformed": "Plik projektu jest uszkodzony: spis plików pakietu .skf jest nieprawidłowy",
+      "directoryEntryTruncated": "Plik projektu jest uszkodzony: wpis w spisie plików pakietu .skf jest ucięty",
+      "encryptedUnsupported": "Zaszyfrowane pakiety .skf nie są obsługiwane",
+      "compressionUnsupported": "Pakiet .skf używa nieobsługiwanej metody kompresji",
+      "unsafePath": "Plik projektu jest uszkodzony: pakiet .skf zawiera niedozwoloną lub powtórzoną ścieżkę pliku",
+      "assetExpansionLimit": "Plik „{path}” w pakiecie .skf jest zbyt duży po rozpakowaniu",
+      "projectJsonTooLarge": "Plik project.json jest zbyt duży",
+      "expansionLimit": "Pakiet .skf jest zbyt duży: po rozpakowaniu przekracza limit bezpieczeństwa 1 GB",
+      "projectJsonMissing": "Plik projektu jest uszkodzony: w pakiecie .skf brakuje pliku project.json",
+      "expandFailed": "Nie udało się rozpakować pakietu .skf: {detail}",
+      "expandFailedCorrupt": "Nie udało się rozpakować pakietu .skf: dane ZIP są uszkodzone",
+      "projectJsonMalformed": "Plik projektu jest uszkodzony: nie można odczytać pliku project.json",
+      "sharedRequiresPackage": "Wspólny magazyn przyjmuje tylko pakiety .skf, a nie starsze projekty w formacie JSON",
+      "notSketchForgeProject": "Ten plik nie jest projektem SketchForge",
+      "formatVersionMissing": "Plik projektu jest uszkodzony: brak wersji formatu (formatVersion)",
+      "formatTooNew": "Ten projekt jest zapisany w formacie .skf w wersji {version}. Aby go otworzyć, zaktualizuj SketchForge",
+      "formatMigrationUnavailable": "Nie można otworzyć pakietu .skf w wersji {version}: konwersja z tej wersji nie jest obsługiwana",
+      "readerTooOld": "Ten projekt wymaga nowszej wersji SketchForge, dlatego nie został otwarty",
+      "projectJsonIncomplete": "Plik projektu jest uszkodzony: w project.json brakuje zasobów, stanów lub historii zmian",
+      "invalidStateCount": "Plik projektu jest uszkodzony: nieprawidłowa liczba stanów",
+      "duplicateAssetId": "Plik projektu jest uszkodzony: powtórzony ID zasobu „{id}”",
+      "assetUnknownKind": "Plik projektu jest uszkodzony: zasób „{id}” ma nieznany typ",
+      "assetUnsafePath": "Plik projektu jest uszkodzony: zasób „{id}” ma niedozwoloną lub powtórzoną ścieżkę",
+      "assetMissing": "Plik projektu jest uszkodzony: brak zasobu „{path}”",
+      "assetInvalidSize": "Plik projektu jest uszkodzony: zasób „{path}” ma nieprawidłowy rozmiar",
+      "assetIntegrity": "Plik projektu jest uszkodzony: zasób „{path}” nie przeszedł kontroli integralności",
+      "sourceAssetUnknownFormat": "Plik projektu jest uszkodzony: plik źródłowy „{id}” ma nieznany format",
+      "duplicateStateId": "Plik projektu jest uszkodzony: powtórzony ID stanu „{id}”",
+      "stateTooManyObjects": "Stan projektu „{state}” zawiera zbyt wiele obiektów",
+      "stateDuplicateNodeId": "Plik projektu jest uszkodzony: w stanie „{state}” powtarza się ID węzła „{id}”",
+      "stateMissingNode": "Plik projektu jest uszkodzony: stan „{state}” odwołuje się do nieistniejącego węzła „{id}”",
+      "stateDuplicateObjectId": "Plik projektu jest uszkodzony: w stanie „{state}” powtarza się ID obiektu „{id}”",
+      "nodeObjectIdMismatch": "Plik projektu jest uszkodzony: objectId węzła „{id}” nie zgadza się z opisem kształtu",
+      "nodeCycle": "Plik projektu jest uszkodzony: cykliczne odwołanie grupy lub historii zmian w „{id}”",
+      "importedObjectMissingAsset": "Plik projektu jest uszkodzony: zaimportowany obiekt „{id}” nie ma pliku źródłowego ani modelu",
+      "importedObjectInvalidAsset": "Plik projektu jest uszkodzony: zaimportowany obiekt „{id}” odwołuje się do nieprawidłowego zasobu",
+      "importedObjectMissingBrep": "Plik projektu jest uszkodzony: zaimportowany obiekt „{id}” nie ma danych B-Rep z pliku STEP",
+      "objectMissingBrep": "Plik projektu jest uszkodzony: obiekt „{id}” nie ma dokładnych danych B-Rep",
+      "objectMissingDisplayEdges": "Plik projektu jest uszkodzony: obiekt „{id}” nie ma danych wyświetlanych krawędzi",
+      "sceneStateMissing": "Plik projektu jest uszkodzony: brak bieżącego stanu projektu",
+      "historyIndexInvalid": "Plik projektu jest uszkodzony: nieprawidłowa pozycja w historii zmian",
+      "historyMissingState": "Plik projektu jest uszkodzony: wpis historii zmian {index} odwołuje się do nieistniejącego stanu „{state}”",
+      "historySceneMismatch": "Plik projektu jest uszkodzony: bieżący stan projektu nie zgadza się z pozycją w historii zmian",
+      "duplicateFeatureId": "Plik projektu jest uszkodzony: powtórzony ID operacji „{id}”",
+      "unknownFeatureType": "Plik projektu jest uszkodzony: nieznany typ operacji „{type}”",
+      "featureMissingOutput": "Plik projektu jest uszkodzony: operacja „{id}” odwołuje się do nieistniejącego obiektu wynikowego „{objectId}”",
+      "featureMissingInput": "Plik projektu jest uszkodzony: operacja „{id}” odwołuje się do nieistniejącego obiektu wejściowego „{objectId}”",
+      "featureMissingDependency": "Plik projektu jest uszkodzony: operacja „{id}” odwołuje się do nieistniejącej operacji „{dependency}”",
+      "featureCycle": "Plik projektu jest uszkodzony: cykliczna zależność operacji w „{id}”",
+      "sourceFormatUnsupported": "SketchForge nie może odtworzyć modelu z pliku źródłowego w tym formacie",
+      "displayEdgesInvalid": "Plik projektu jest uszkodzony: nieprawidłowe dane wyświetlanych krawędzi",
+      "displayEdgePointsInvalid": "Plik projektu jest uszkodzony: nieprawidłowe punkty wyświetlanych krawędzi",
+      "displayEdgeCoordinatesInvalid": "Plik projektu jest uszkodzony: nieprawidłowe współrzędne wyświetlanych krawędzi",
+      "shapeCycle": "Plik projektu jest uszkodzony: cykliczna zależność kształtów w „{id}”",
+      "shapeNodeMissing": "Plik projektu jest uszkodzony: brak węzła kształtu „{id}”",
+      "objectMissingImage": "Plik projektu jest uszkodzony: obiekt „{id}” nie ma obrazu",
+      "sketchMissingImage": "Plik projektu jest uszkodzony: szkic „{id}” nie ma obrazu",
+      "objectMissingSource": "Plik projektu jest uszkodzony: obiekt „{id}” nie ma zaimportowanego pliku źródłowego",
+      "objectMissingMesh": "Plik projektu jest uszkodzony: obiekt „{id}” nie ma zapisanego modelu",
+      "historyRestoreLoss": "Nie udało się odtworzyć historii zmian bez utraty danych",
+      "meshTooLarge": "Zaimportowany model jest zbyt duży dla pliku projektu SketchForge",
+      "meshInvalidCoordinate": "Zaimportowany model zawiera nieprawidłową współrzędną",
+      "meshInvalidNormal": "Zaimportowany model zawiera nieprawidłową normalną",
+      "derivedMeshHeader": "Plik projektu jest uszkodzony: zapisany model ma nieprawidłowy nagłówek",
+      "derivedMeshTooLarge": "Plik projektu jest uszkodzony: zapisany model przekracza dopuszczalny rozmiar",
+      "derivedMeshTruncated": "Plik projektu jest uszkodzony: zapisany model jest ucięty lub nieprawidłowy",
+      "imageDataUrlInvalid": "Osadzony obraz jest zapisany nieprawidłowo",
+      "resourceTooLarge": "Jeden z zasobów projektu przekracza dopuszczalny rozmiar",
+      "tooManyStates": "Historia zmian projektu zawiera zbyt wiele czynności dla formatu .skf",
+      "activeStateUnknown": "Nie udało się ustalić bieżącego stanu projektu",
+      "projectTooLarge": "Dane projektu przekraczają limit 64 MB dla pliku .skf. Zapisz projekt z mniejszą liczbą czynności w historii zmian lub go uprość.",
+      "duplicateRootObjectId": "W stanie projektu powtarza się ID obiektu najwyższego poziomu „{id}”",
+      "emptyRootObjectId": "W stanie projektu jest więcej niż jeden obiekt najwyższego poziomu bez ID",
+      "exportDuplicateObjectId": "W stanie „{state}” powtarza się ID obiektu „{id}”",
+      "exportEmptyObjectId": "W stanie „{state}” jest więcej niż jeden obiekt bez ID",
+      "legacyTooLarge": "Projekt w starym formacie .skf (JSON) jest zbyt duży",
+      "legacyMalformed": "Plik projektu jest uszkodzony: nie można odczytać danych JSON w starym formacie .skf",
+      "legacyNotObject": "Plik projektu jest uszkodzony: projekt w starym formacie .skf jest zapisany nieprawidłowo",
+      "legacyVersionUnsupported": "Ta wersja starego formatu .skf nie jest obsługiwana",
+      "legacyDuplicateObjectId": "Plik projektu jest uszkodzony: w projekcie w starym formacie powtarza się ID obiektu „{id}”",
+      "legacyEmptyObjectId": "Plik projektu jest uszkodzony: w projekcie w starym formacie jest więcej niż jeden obiekt bez ID",
+      "notObject": "Plik projektu jest uszkodzony: {label} – oczekiwano obiektu",
+      "notNonEmptyString": "Plik projektu jest uszkodzony: {label} – oczekiwano niepustego tekstu",
+      "notStringArray": "Plik projektu jest uszkodzony: {label} – oczekiwano listy tekstów",
+      "notFiniteNumber": "Plik projektu jest uszkodzony: {label} – oczekiwano liczby",
+      "fieldMissing": "Plik projektu jest uszkodzony: {label} – brak wartości",
+      "fieldInvalid": "Plik projektu jest uszkodzony: {label} – nieprawidłowa wartość",
+      "invalidOrTooLarge": "Plik projektu jest uszkodzony: {label} – nieprawidłowa wartość lub zbyt wiele elementów",
+      "outOfRange": "Plik projektu jest uszkodzony: {label} – wartość poza dopuszczalnym zakresem",
+      "notPositive": "Plik projektu jest uszkodzony: {label} – wartość musi być większa od zera",
+      "negative": "Plik projektu jest uszkodzony: {label} – wartość nie może być ujemna",
+      "unknownShapeKind": "Plik projektu jest uszkodzony: {label} – nieznany typ kształtu „{kind}”",
+      "nonPositiveDimensions": "Plik projektu jest uszkodzony: {label} – wymiary muszą być większe od zera",
+      "dimensionsOutOfRange": "Plik projektu jest uszkodzony: {label} – wymiary poza dopuszczalnym zakresem",
+      "inlinePackageFields": "Plik projektu jest uszkodzony: {label} – geometria musi być zapisana w pakiecie jako osobny plik",
+      "invalidPositions": "Plik projektu jest uszkodzony: {label} – nieprawidłowe współrzędne wierzchołków",
+      "sketchMissingPointsOrSegments": "Plik projektu jest uszkodzony: {label} – brak punktów lub odcinków szkicu",
+      "sketchDuplicatePointId": "Plik projektu jest uszkodzony: {label} – powtórzony ID punktu „{id}”",
+      "sketchDuplicateSegmentId": "Plik projektu jest uszkodzony: {label} – powtórzony ID odcinka „{id}”",
+      "sketchMissingPointReference": "Plik projektu jest uszkodzony: {label} – odcinek odwołuje się do nieistniejącego punktu"
+    },
+    "step": {
+      "readFailed": "Nie udało się odczytać pliku STEP: {detail}",
+      "noSolidGeometry": "Plik STEP nie zawiera brył do zaimportowania",
+      "nothingToExport": "Brak prostopadłościanów, walców, kul ani brył zaimportowanych z plików STEP do eksportu w formacie STEP (B-Rep)",
+      "exportFailed": "Eksport do STEP nie powiódł się: {detail}"
+    },
+    "stl": {
+      "noGeometry": "Plik STL nie zawiera modelu, który można odczytać",
+      "emptyGeometry": "Model w pliku STL jest pusty",
+      "exportTriangleLimit": "Model ma zbyt wiele trójkątów do eksportu w binarnym formacie STL"
+    },
+    "svg": {
+      "empty": "Plik SVG jest pusty",
+      "tooLarge": "Plik SVG jest zbyt duży. Maksymalny obsługiwany rozmiar to {max} MB",
+      "entitiesUnsupported": "Plik SVG zawiera deklaracje ENTITY – takie pliki nie są obsługiwane",
+      "doctypeUnsupported": "Obsługiwany jest tylko standardowy typ dokumentu SVG 1.1",
+      "nanGeometry": "Plik SVG zawiera nieprawidłową geometrię (NaN). W Tinkercad przed eksportem przekroju upewnij się, że płaszczyzna robocza przecina model",
+      "tooManyElements": "{count, plural, one {Plik SVG jest zbyt złożony ({count} element; maksimum {max})} few {Plik SVG jest zbyt złożony ({count} elementy; maksimum {max})} many {Plik SVG jest zbyt złożony ({count} elementów; maksimum {max})} other {Plik SVG jest zbyt złożony ({count} elementu; maksimum {max})}}",
+      "tooManyGeometryElements": "Plik SVG ma zbyt wiele elementów graficznych ({count}; maksimum {max})",
+      "tooManyPathCommands": "Ścieżki w pliku SVG są zbyt złożone (maksymalna liczba poleceń: {max})",
+      "externalReferences": "Plik SVG odwołuje się do plików zewnętrznych – to nie jest obsługiwane. Osadź tę grafikę w samym pliku",
+      "invalidXml": "Plik SVG nie jest prawidłowym plikiem XML",
+      "noFilledPaths": "Plik SVG nie zawiera wypełnionych ścieżek, które można odczytać",
+      "onlyOpenStrokes": "Plik SVG zawiera tylko otwarte linie obrysu. Przed importem zamknij ścieżki albo zamień obrys na wypełnione kontury",
+      "noVisiblePaths": "Plik SVG nie zawiera widocznych wypełnionych ścieżek ani zamkniętych obrysów",
+      "noSolidContours": "Plik SVG nie zawiera wypełnionych konturów, z których można utworzyć bryłę",
+      "tooManyTrianglesTotal": "Plik SVG jest zbyt złożony (maksymalna liczba trójkątów: {max})",
+      "tooManyTriangles": "{count, plural, one {Plik SVG jest zbyt złożony ({count} trójkąt; maksimum {max})} few {Plik SVG jest zbyt złożony ({count} trójkąty; maksimum {max})} many {Plik SVG jest zbyt złożony ({count} trójkątów; maksimum {max})} other {Plik SVG jest zbyt złożony ({count} trójkąta; maksimum {max})}}",
+      "degenerateTriangles": "{count, plural, one {Plik SVG zawiera {count} trójkąt o zerowym polu} few {Plik SVG zawiera {count} trójkąty o zerowym polu} many {Plik SVG zawiera {count} trójkątów o zerowym polu} other {Plik SVG zawiera {count} trójkąta o zerowym polu}}",
+      "notWatertight": "{count, plural, one {Model z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: {nonManifold})} few {Model z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: {nonManifold})} many {Model z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: {nonManifold})} other {Model z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: {nonManifold})}}",
+      "notWatertightOneNonManifold": "{count, plural, one {Model z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: 1)} few {Model z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: 1)} many {Model z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: 1)} other {Model z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: 1)}}",
+      "noVolume": "Model z pliku SVG nie ma objętości",
+      "meshTooManyTriangles": "{count, plural, one {Model „{name}” z pliku SVG jest zbyt złożony ({count} trójkąt; maksimum {max})} few {Model „{name}” z pliku SVG jest zbyt złożony ({count} trójkąty; maksimum {max})} many {Model „{name}” z pliku SVG jest zbyt złożony ({count} trójkątów; maksimum {max})} other {Model „{name}” z pliku SVG jest zbyt złożony ({count} trójkąta; maksimum {max})}}",
+      "meshDegenerateTriangles": "{count, plural, one {Model „{name}” z pliku SVG zawiera {count} trójkąt o zerowym polu} few {Model „{name}” z pliku SVG zawiera {count} trójkąty o zerowym polu} many {Model „{name}” z pliku SVG zawiera {count} trójkątów o zerowym polu} other {Model „{name}” z pliku SVG zawiera {count} trójkąta o zerowym polu}}",
+      "meshNotWatertight": "{count, plural, one {Model „{name}” z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: {nonManifold})} few {Model „{name}” z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: {nonManifold})} many {Model „{name}” z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: {nonManifold})} other {Model „{name}” z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: {nonManifold})}}",
+      "meshNotWatertightOneNonManifold": "{count, plural, one {Model „{name}” z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: 1)} few {Model „{name}” z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: 1)} many {Model „{name}” z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: 1)} other {Model „{name}” z pliku SVG nie jest zamknięty: ma dziury lub zbędne ściany (krawędzie przy dziurach: {count}, krawędzie ze zbędnymi ścianami: 1)}}",
+      "meshNoVolume": "Model „{name}” z pliku SVG nie ma objętości",
+      "meshInvalid": "Model „{name}” z pliku SVG jest nieprawidłowy"
+    },
+    "svgExport": {
+      "noContours": "Nie ma czego eksportować do SVG: rzut nie zawiera konturów",
+      "noVisibleArea": "Nie ma czego eksportować do SVG: rzut ma zerowe pole"
+    },
+    "edgeModifier": {
+      "emptyResult": "Obróbka krawędzi dała pusty wynik",
+      "noMatchingEdges": "Przy tym progu nie ma ostrych krawędzi",
+      "noSharpEdges": "Przy tym progu nie znaleziono ostrych krawędzi",
+      "selectAtLeastOne": "Zaznacz co najmniej jedną podświetloną krawędź"
+    },
+    "editor": {
+      "capturePreview": "Nie udało się przygotować miniatury projektu",
+      "imageDecode": "Nie udało się otworzyć obrazu",
+      "imageNoDimensions": "Nie udało się ustalić wymiarów obrazu",
+      "imagePrepare": "Nie udało się przygotować obrazu",
+      "imageRead": "Nie udało się odczytać obrazu",
+      "saveExport": "Nie udało się zapisać wyeksportowanego pliku",
+      "sketchEmptySolid": "Ze szkicu powstała pusta bryła",
+      "sketchInvalidSolid": "Szkicu z przecinającymi się liniami nie udało się zamienić w poprawną bryłę",
+      "sketchNoArea": "Po usunięciu przecięć linii w szkicu nie pozostał żaden zamknięty obszar",
+      "sketchTimedOut": "Tworzenie bryły ze szkicu trwało zbyt długo. Spróbuj uprościć szkic",
+      "sketchWorkerFailed": "Nie udało się uruchomić modułu tworzenia brył ze szkiców",
+      "svgNoArea": "Widok z góry kształtu „{name}” ma zerowe pole – nie ma czego eksportować",
+      "svgOutline": "Nie udało się utworzyć zamkniętego konturu SVG dla kształtu „{name}”"
+    },
+    "download": {
+      "localOnly": "Zapisywanie w folderze działa tylko w SketchForge uruchomionym na tym komputerze",
+      "invalidBinary": "Nie udało się zapisać pliku: nieprawidłowe żądanie",
+      "invalidRequest": "Nie udało się zapisać pliku: nieprawidłowe żądanie",
+      "tooLarge": "Plik jest za duży, aby zapisać go w folderze",
+      "noFolder": "Najpierw wybierz folder",
+      "invalidPath": "Nieprawidłowa ścieżka pliku",
+      "saveFailed": "Nie udało się zapisać pliku"
+    },
+    "shared": {
+      "loadFailed": "Nie udało się wczytać wspólnych projektów",
+      "notConfigured": "Nie ustawiono {name}",
+      "disabled": "Wspólne projekty są wyłączone w tej instalacji SketchForge",
+      "invalidName": "Nieprawidłowa nazwa wspólnego projektu",
+      "nameRequired": "Brak nazwy wspólnego projektu",
+      "notFound": "Nie znaleziono wspólnego projektu",
+      "deleteSameOrigin": "Wspólne projekty można usuwać tylko ze strony SketchForge",
+      "busyChanging": "Ktoś inny właśnie zmienia ten wspólny projekt",
+      "deleteNeedsReload": "Przed usunięciem odśwież wspólne projekty, aby można było sprawdzić aktualną wersję",
+      "changedBeforeDelete": "Wspólny projekt zmienił się po wczytaniu. Odśwież listę wspólnych projektów i spróbuj ponownie.",
+      "deleteFailed": "Nie udało się usunąć wspólnego projektu",
+      "saveNeedsLocalProject": "Aby zapisać projekt we wspólnych projektach, najpierw otwórz projekt z tej przeglądarki",
+      "thumbnailPrepareFailed": "Nie udało się przygotować miniatury wspólnego projektu",
+      "saveSameOrigin": "Wspólne projekty można zapisywać tylko ze strony SketchForge",
+      "missingProject": "Nie udało się zapisać wspólnego projektu: brak pliku projektu",
+      "missingThumbnail": "Nie udało się zapisać wspólnego projektu: brak miniatury",
+      "thumbnailTooLarge": "Miniatura wspólnego projektu jest większa niż 5 MB",
+      "thumbnailNotPng": "Miniatura wspólnego projektu musi być obrazem PNG",
+      "tooLarge": "Plik projektu jest za duży dla wspólnych projektów",
+      "busySaving": "Ktoś inny właśnie zapisuje ten wspólny projekt",
+      "changedBeforeSave": "Wspólny projekt zmienił się po otwarciu. Otwórz go ponownie lub zapisz pod inną nazwą.",
+      "gone": "Wspólny projekt już nie istnieje. Zapisz go pod inną nazwą.",
+      "saveFailed": "Nie udało się zapisać wspólnego projektu"
+    },
+    "thumbnail": {
+      "sameOrigin": "Miniaturę projektu można zapisać tylko ze strony SketchForge",
+      "invalidRequest": "Nie udało się zapisać miniatury projektu: nieprawidłowe żądanie",
+      "invalidProject": "Nieprawidłowy identyfikator projektu",
+      "invalidImage": "Miniatura projektu jest uszkodzona lub ma nieprawidłowy format",
+      "tooLarge": "Miniatura projektu jest za duża",
+      "saveFailed": "Nie udało się zapisać miniatury projektu"
+    },
+    "update": {
+      "checkFailed": "Nie udało się sprawdzić aktualizacji",
+      "serverStatus": "Serwer aktualizacji zwrócił błąd {status}",
+      "serverInvalidVersion": "Serwer aktualizacji zwrócił nieprawidłowy numer wersji",
+      "sameOrigin": "Aktualizację można uruchomić tylko ze strony SketchForge",
+      "alreadyRequested": "Aktualizacja została już zlecona. Poczekaj chwilę i spróbuj ponownie.",
+      "upToDate": "SketchForge jest już w najnowszej wersji",
+      "notConfigured": "Instalacja jednym kliknięciem nie jest skonfigurowana na tym serwerze",
+      "keyIncorrect": "Nieprawidłowy klucz aktualizacji serwera",
+      "uncommittedChanges": "Kod SketchForge na tym komputerze zawiera zmiany niezapisane w repozytorium Git. Przed aktualizacją zapisz je poleceniem git commit lub git stash, aby aktualizacja ich nie nadpisała.",
+      "unexpectedVersion": "SketchForge na tym komputerze zaktualizował się do wersji {installed}, a oczekiwano wersji {expected}.",
+      "localFailed": "Nie udało się zaktualizować SketchForge na tym komputerze",
+      "serviceStatus": "Usługa aktualizacji zwróciła błąd {status}",
+      "startFailed": "Nie udało się uruchomić aktualizacji"
+    }
+  }
+}

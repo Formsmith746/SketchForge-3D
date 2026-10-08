@@ -47,6 +47,6 @@ describe("project thumbnail request origins", () => {
     }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "Invalid thumbnail request" });
+    await expect(response.json()).resolves.toEqual({ error: "Invalid thumbnail request", errorKey: "errors.thumbnail.invalidRequest" });
   });
 });

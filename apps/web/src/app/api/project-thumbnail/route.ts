@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
+import { caughtErrorResponse, errorResponse } from "@/lib/apiErrors";
 
 export const revalidate = false;
 
@@ -76,38 +77,38 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Project thumbnails require a same-origin request" }, { status: 403 });
+    return errorResponse("errors.thumbnail.sameOrigin", 403);
   }
 
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_THUMBNAIL_REQUEST_BYTES) {
-    return NextResponse.json({ error: "Thumbnail image is too large" }, { status: 413 });
+    return errorResponse("errors.thumbnail.tooLarge", 413);
   }
 
   let body: { dataUrl?: unknown; projectId?: unknown };
   try {
     body = (await request.json()) as { dataUrl?: unknown; projectId?: unknown };
   } catch {
-    return NextResponse.json({ error: "Invalid thumbnail request" }, { status: 400 });
+    return errorResponse("errors.thumbnail.invalidRequest", 400);
   }
 
   try {
     if (typeof body.projectId !== "string" || typeof body.dataUrl !== "string") {
-      return NextResponse.json({ error: "Invalid thumbnail request" }, { status: 400 });
+      return errorResponse("errors.thumbnail.invalidRequest", 400);
     }
 
     const filePath = thumbnailPath(body.projectId);
     if (!filePath || !body.dataUrl.startsWith(PNG_DATA_URL_PREFIX)) {
-      return NextResponse.json({ error: "Invalid thumbnail image" }, { status: 400 });
+      return errorResponse("errors.thumbnail.invalidImage", 400);
     }
 
     const encodedImage = body.dataUrl.slice(PNG_DATA_URL_PREFIX.length);
     const decodedBytes = decodedBase64ByteLength(encodedImage);
     if (decodedBytes === null) {
-      return NextResponse.json({ error: "Invalid thumbnail image" }, { status: 400 });
+      return errorResponse("errors.thumbnail.invalidImage", 400);
     }
     if (decodedBytes > MAX_THUMBNAIL_BYTES) {
-      return NextResponse.json({ error: "Thumbnail image is too large" }, { status: 413 });
+      return errorResponse("errors.thumbnail.tooLarge", 413);
     }
 
     await fs.mkdir(THUMBNAIL_DIR, { recursive: true });
@@ -116,19 +117,19 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ version: Date.now() });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not save thumbnail" }, { status: 500 });
+    return caughtErrorResponse(error, "errors.thumbnail.saveFailed", 500);
   }
 }
 
 export async function DELETE(request: Request) {
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Project thumbnails require a same-origin request" }, { status: 403 });
+    return errorResponse("errors.thumbnail.sameOrigin", 403);
   }
 
   const projectId = new URL(request.url).searchParams.get("projectId") ?? "";
   const filePath = thumbnailPath(projectId);
   if (!filePath) {
-    return NextResponse.json({ error: "Invalid project id" }, { status: 400 });
+    return errorResponse("errors.thumbnail.invalidProject", 400);
   }
 
   await fs.rm(filePath, { force: true });

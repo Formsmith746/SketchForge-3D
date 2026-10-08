@@ -1,31 +1,49 @@
-import type { MeasurementAccuracy, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
+import type { MessageKey, Translator } from "@/i18n";
+import type { GridSize, MeasurementAccuracy, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 const MILLIMETERS_PER_INCH = 25.4;
 const MILLIMETERS_PER_FOOT = 304.8;
 const MILLIMETERS_PER_STUD = 8;
 
 type WorkspaceScaleOption = {
+  /** Stored in project workspace settings; shown through `labelKey`. */
   label: string;
+  labelKey: MessageKey;
   displayLabel: string;
   millimetersPerDisplayUnit: number;
 };
 
 const METRIC_SCALE_OPTIONS: WorkspaceScaleOption[] = [
-  { label: "1:1 (millimeters)", displayLabel: "mm", millimetersPerDisplayUnit: 1 },
-  { label: "1:10 (centimeters)", displayLabel: "cm", millimetersPerDisplayUnit: 10 },
-  { label: "1:1000 (meters)", displayLabel: "m", millimetersPerDisplayUnit: 1000 },
+  { label: "1:1 (millimeters)", labelKey: "panels.measurement.scale.mm", displayLabel: "mm", millimetersPerDisplayUnit: 1 },
+  { label: "1:10 (centimeters)", labelKey: "panels.measurement.scale.cm", displayLabel: "cm", millimetersPerDisplayUnit: 10 },
+  { label: "1:1000 (meters)", labelKey: "panels.measurement.scale.m", displayLabel: "m", millimetersPerDisplayUnit: 1000 },
 ];
 
 const IMPERIAL_SCALE_OPTIONS: WorkspaceScaleOption[] = [
-  { label: "1:1 (inches)", displayLabel: "in", millimetersPerDisplayUnit: MILLIMETERS_PER_INCH },
-  { label: "1:1 (feet)", displayLabel: "ft", millimetersPerDisplayUnit: MILLIMETERS_PER_FOOT },
+  { label: "1:1 (inches)", labelKey: "panels.measurement.scale.in", displayLabel: "in", millimetersPerDisplayUnit: MILLIMETERS_PER_INCH },
+  { label: "1:1 (feet)", labelKey: "panels.measurement.scale.ft", displayLabel: "ft", millimetersPerDisplayUnit: MILLIMETERS_PER_FOOT },
 ];
 
 const BRICK_SCALE_OPTIONS: WorkspaceScaleOption[] = [
-  { label: "1:1 (studs)", displayLabel: "stud", millimetersPerDisplayUnit: MILLIMETERS_PER_STUD },
+  { label: "1:1 (studs)", labelKey: "panels.measurement.scale.stud", displayLabel: "stud", millimetersPerDisplayUnit: MILLIMETERS_PER_STUD },
 ];
 
 export const WORKSPACE_UNIT_OPTIONS = ["Metric (Default)", "Imperial", "Bricks"] as const;
+
+const WORKSPACE_UNIT_LABEL_KEYS: Record<(typeof WORKSPACE_UNIT_OPTIONS)[number], MessageKey> = {
+  "Metric (Default)": "panels.measurement.units.metric",
+  Imperial: "panels.measurement.units.imperial",
+  Bricks: "panels.measurement.units.bricks",
+};
+
+function isWorkspaceUnitOption(value: string): value is (typeof WORKSPACE_UNIT_OPTIONS)[number] {
+  return (WORKSPACE_UNIT_OPTIONS as readonly string[]).includes(value);
+}
+
+/** Display text for a stored workspace units value (`WORKSPACE_UNIT_OPTIONS`); unknown values pass through. */
+export function workspaceUnitsLabel(t: Translator, units: string): string {
+  return isWorkspaceUnitOption(units) ? t(WORKSPACE_UNIT_LABEL_KEYS[units]) : units;
+}
 
 export type LengthDisplayUnit = {
   label: string;
@@ -40,6 +58,19 @@ function scaleEntriesForUnits(units: string) {
 
 export function scaleOptionsForUnits(units: string) {
   return scaleEntriesForUnits(units).map((option) => option.label);
+}
+
+/** Display text for a stored workspace scale value (`scaleOptionsForUnits`); unknown values pass through. */
+export function workspaceScaleLabel(t: Translator, scale: string): string {
+  const option = [...METRIC_SCALE_OPTIONS, ...IMPERIAL_SCALE_OPTIONS, ...BRICK_SCALE_OPTIONS].find((entry) => entry.label === scale);
+  return option ? t(option.labelKey) : scale;
+}
+
+/** Display text for a snap grid value: `Off` and `Brick` are translated, millimeter steps get the localized unit. */
+export function snapGridLabel(t: Translator, size: GridSize): string {
+  if (size === "Off") return t("panels.snapGrid.off");
+  if (size === "Brick") return t("panels.snapGrid.brick");
+  return `${size.slice(0, -" mm".length)} ${t("common.unit.mm")}`;
 }
 
 export function defaultScaleForUnits(units: string) {

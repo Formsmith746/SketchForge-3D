@@ -2,6 +2,8 @@ import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
+import { LocalizedError, errorResponseFields } from "@/i18n/LocalizedError";
+import { caughtErrorResponse, errorResponse } from "@/lib/apiErrors";
 import { inspectSkfProjectPackage, SKF_LIMITS, SKF_MEDIA_TYPE } from "@/lib/skfProject";
 
 export const runtime = "nodejs";
@@ -76,12 +78,12 @@ async function sharedProjectRequestBytes(request: Request) {
   const formData = await request.formData();
   const project = formData.get("project");
   const thumbnail = formData.get("thumbnail");
-  if (!(project instanceof Blob)) throw new Error("Shared project upload is missing its .skf file");
-  if (!(thumbnail instanceof Blob)) throw new Error("Shared project upload is missing its thumbnail");
+  if (!(project instanceof Blob)) throw new LocalizedError("errors.shared.missingProject");
+  if (!(thumbnail instanceof Blob)) throw new LocalizedError("errors.shared.missingThumbnail");
   const projectBytes = new Uint8Array(await project.arrayBuffer());
   const thumbnailBytes = new Uint8Array(await thumbnail.arrayBuffer());
-  if (thumbnailBytes.byteLength > MAX_THUMBNAIL_BYTES) throw new Error("Shared project thumbnail exceeds the 5 MB size limit");
-  if (!isPng(thumbnailBytes)) throw new Error("Shared project thumbnail must be a PNG image");
+  if (thumbnailBytes.byteLength > MAX_THUMBNAIL_BYTES) throw new LocalizedError("errors.shared.thumbnailTooLarge");
+  if (!isPng(thumbnailBytes)) throw new LocalizedError("errors.shared.thumbnailNotPng");
   return { projectBytes, thumbnailBytes };
 }
 
@@ -118,7 +120,7 @@ async function regularFileStat(filePath: string) {
 
 function disabledResponse() {
   return NextResponse.json(
-    { enabled: false, projects: [], error: `${SHARED_PROJECTS_ENV} is not configured` },
+    { enabled: false, projects: [], ...errorResponseFields(new LocalizedError("errors.shared.notConfigured", { name: SHARED_PROJECTS_ENV })) },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -132,10 +134,10 @@ export async function GET(request: Request) {
     const requestedFile = requestUrl.searchParams.get("fileName");
     if (requestedFile) {
       const fileName = safeProjectFileName(requestedFile);
-      if (fileName !== requestedFile) return NextResponse.json({ error: "Invalid shared project name" }, { status: 400 });
+      if (fileName !== requestedFile) return errorResponse("errors.shared.invalidName", 400);
       const filePath = path.join(root, fileName);
       const stat = await regularFileStat(filePath);
-      if (!stat) return NextResponse.json({ error: "Shared project was not found" }, { status: 404 });
+      if (!stat) return errorResponse("errors.shared.notFound", 404);
       if (requestUrl.searchParams.get("thumbnail") === "1") {
         const revision = revisionForStat(stat);
         const requestedRevision = requestUrl.searchParams.get("v");
@@ -182,23 +184,23 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    return NextResponse.json({ enabled: true, projects: [], error: error instanceof Error ? error.message : "Could not read shared projects" }, { status: 500 });
+    return caughtErrorResponse(error, "errors.shared.loadFailed", 500, { enabled: true, projects: [] });
   }
 }
 
 export async function DELETE(request: Request) {
   const root = sharedProjectsDirectory();
-  if (!root) return NextResponse.json({ error: "Shared project storage is disabled" }, { status: 404 });
-  if (!sameOriginRequest(request)) return NextResponse.json({ error: "Shared projects only accept same-origin deletes" }, { status: 403 });
+  if (!root) return errorResponse("errors.shared.disabled", 404);
+  if (!sameOriginRequest(request)) return errorResponse("errors.shared.deleteSameOrigin", 403);
 
   let lockHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
   let lockPath = "";
   try {
     const requestUrl = new URL(request.url);
     const requestedFile = requestUrl.searchParams.get("fileName");
-    if (!requestedFile) return NextResponse.json({ error: "Shared project name is required" }, { status: 400 });
+    if (!requestedFile) return errorResponse("errors.shared.nameRequired", 400);
     const fileName = safeProjectFileName(requestedFile);
-    if (fileName !== requestedFile) return NextResponse.json({ error: "Invalid shared project name" }, { status: 400 });
+    if (fileName !== requestedFile) return errorResponse("errors.shared.invalidName", 400);
 
     await fs.mkdir(root, { recursive: true });
     const filePath = path.join(root, fileName);
@@ -208,27 +210,21 @@ export async function DELETE(request: Request) {
       lockHandle = await fs.open(lockPath, "wx");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-        return NextResponse.json({ error: "This shared project is currently being changed by someone else" }, { status: 409 });
+        return errorResponse("errors.shared.busyChanging", 409);
       }
       throw error;
     }
 
     const currentStat = await regularFileStat(filePath);
-    if (!currentStat) return NextResponse.json({ error: "Shared project was not found" }, { status: 404 });
+    if (!currentStat) return errorResponse("errors.shared.notFound", 404);
 
     const currentRevision = revisionForStat(currentStat);
     const expectedRevision = unquoteEtag(request.headers.get("if-match"));
     if (!expectedRevision) {
-      return NextResponse.json(
-        { error: "Reload shared projects before deleting so the current revision can be verified", currentRevision },
-        { status: 428 },
-      );
+      return errorResponse("errors.shared.deleteNeedsReload", 428, { currentRevision });
     }
     if (expectedRevision !== currentRevision) {
-      return NextResponse.json(
-        { error: "The shared project changed after you loaded it. Refresh the shared projects list and try again.", currentRevision },
-        { status: 409 },
-      );
+      return errorResponse("errors.shared.changedBeforeDelete", 409, { currentRevision });
     }
 
     const thumbnailPath = sharedThumbnailPath(root, fileName, currentRevision);
@@ -241,7 +237,7 @@ export async function DELETE(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not delete shared project" }, { status: 500 });
+    return caughtErrorResponse(error, "errors.shared.deleteFailed", 500);
   } finally {
     if (lockHandle) await lockHandle.close().catch(() => undefined);
     if (lockPath) await fs.unlink(lockPath).catch(() => undefined);
@@ -250,14 +246,14 @@ export async function DELETE(request: Request) {
 
 export async function POST(request: Request) {
   const root = sharedProjectsDirectory();
-  if (!root) return NextResponse.json({ error: "Shared project storage is disabled" }, { status: 404 });
-  if (!sameOriginRequest(request)) return NextResponse.json({ error: "Shared projects only accept same-origin saves" }, { status: 403 });
+  if (!root) return errorResponse("errors.shared.disabled", 404);
+  if (!sameOriginRequest(request)) return errorResponse("errors.shared.saveSameOrigin", 403);
 
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
   const multipartRequest = request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data") ?? false;
   const requestLimit = SKF_LIMITS.archiveBytes + (multipartRequest ? MAX_THUMBNAIL_BYTES + MAX_MULTIPART_OVERHEAD_BYTES : 0);
   if (Number.isFinite(declaredLength) && declaredLength > requestLimit) {
-    return NextResponse.json({ error: ".skf file exceeds the shared storage size limit" }, { status: 413 });
+    return errorResponse("errors.shared.tooLarge", 413);
   }
 
   let lockHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
@@ -266,7 +262,7 @@ export async function POST(request: Request) {
   let temporaryThumbnailPath = "";
   try {
     const { projectBytes: bytes, thumbnailBytes } = await sharedProjectRequestBytes(request);
-    if (bytes.byteLength > SKF_LIMITS.archiveBytes) return NextResponse.json({ error: ".skf file exceeds the shared storage size limit" }, { status: 413 });
+    if (bytes.byteLength > SKF_LIMITS.archiveBytes) return errorResponse("errors.shared.tooLarge", 413);
     const summary = await inspectSkfProjectPackage(bytes);
     const requestUrl = new URL(request.url);
     const fileName = safeProjectFileName(requestUrl.searchParams.get("fileName") ?? summary.projectName);
@@ -279,7 +275,7 @@ export async function POST(request: Request) {
       lockHandle = await fs.open(lockPath, "wx");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-        return NextResponse.json({ error: "This shared project is currently being saved by someone else" }, { status: 409 });
+        return errorResponse("errors.shared.busySaving", 409);
       }
       throw error;
     }
@@ -289,13 +285,10 @@ export async function POST(request: Request) {
     const expectedRevision = unquoteEtag(request.headers.get("if-match"));
     const createOnly = request.headers.get("if-none-match") === "*";
     if (currentStat && (createOnly || !expectedRevision || expectedRevision !== currentRevision)) {
-      return NextResponse.json(
-        { error: "The shared project changed after you opened it. Reload it or save under a different name.", currentRevision },
-        { status: 409 },
-      );
+      return errorResponse("errors.shared.changedBeforeSave", 409, { currentRevision });
     }
     if (!currentStat && expectedRevision) {
-      return NextResponse.json({ error: "The shared project no longer exists. Save it under a different name." }, { status: 409 });
+      return errorResponse("errors.shared.gone", 409);
     }
 
     const temporaryHandle = await fs.open(temporaryPath, "wx");
@@ -335,7 +328,7 @@ export async function POST(request: Request) {
       { status: currentStat ? 200 : 201, headers: { "Cache-Control": "no-store", ETag: `"${project.revision}"` } },
     );
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not save shared project" }, { status: 400 });
+    return caughtErrorResponse(error, "errors.shared.saveFailed", 400);
   } finally {
     if (lockHandle) await lockHandle.close().catch(() => undefined);
     if (temporaryPath) await fs.unlink(temporaryPath).catch(() => undefined);

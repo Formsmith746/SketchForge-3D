@@ -1,3 +1,5 @@
+import { LocalizedError } from "@/i18n/LocalizedError";
+
 export type SvgProjectionPolygon = ReadonlyArray<readonly [number, number]>;
 
 export type SvgProjectionLayer = {
@@ -43,11 +45,11 @@ export function toSvgProjection(layers: ReadonlyArray<SvgProjectionLayer>, title
     maxX = Math.max(maxX, x);
     maxY = Math.max(maxY, y);
   })));
-  if (!pointCount) throw new Error("SVG projection contains no readable contours");
+  if (!pointCount) throw new LocalizedError("errors.svgExport.noContours");
 
   const width = maxX - minX;
   const height = maxY - minY;
-  if (width <= 0 || height <= 0) throw new Error("SVG projection does not enclose a visible area");
+  if (width <= 0 || height <= 0) throw new LocalizedError("errors.svgExport.noVisibleArea");
 
   const body = cleanLayers.map((layer) => {
     const pathData = layer.polygons

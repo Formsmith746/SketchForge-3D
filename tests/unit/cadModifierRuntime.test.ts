@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { translatorFor } from "@/i18n/translator";
 import {
   CAD_MODIFIER_MAX_SHARP_ANGLE,
   CAD_MODIFIER_MAX_PREPARE_TIMEOUT_MS,
@@ -7,9 +8,9 @@ import {
   cadModifierPrepareTimeoutMs,
   cadModifierTopologyEdgeIsSelectable,
   cadTransformRequiresGeneralTransform,
-  cadModifierTimeoutMessage,
+  cadModifierTimeoutError,
   defaultCadModifierTangentChain,
-  edgeModifierSelectionStatus,
+  edgeModifierSelectionMessage,
   isCadModifierWasmMemoryFault,
   selectableCadModifierEdge,
 } from "@/lib/cadModifierRuntime";
@@ -20,9 +21,14 @@ describe("CAD modifier runtime state", () => {
   });
 
   it("does not report zero edges before preparation finishes", () => {
-    expect(edgeModifierSelectionStatus(false, 0, 0)).toBe("Preparing edges\u2026");
-    expect(edgeModifierSelectionStatus(true, 0, 0)).toBe("0 of 0 sharp edges selected");
-    expect(edgeModifierSelectionStatus(true, 2, 12)).toBe("2 of 12 sharp edges selected");
+    const status = (...args: Parameters<typeof edgeModifierSelectionMessage>) => {
+      const { key, params } = edgeModifierSelectionMessage(...args);
+      return translatorFor("en")(key, params);
+    };
+    expect(status(false, 0, 0)).toBe("Preparing edges\u2026");
+    expect(status(true, 0, 0)).toBe("0 of 0 sharp edges selected");
+    expect(status(true, 2, 12)).toBe("2 of 12 sharp edges selected");
+    expect(status(true, 1, 1)).toBe("1 of 1 sharp edge selected");
   });
 
   it("keeps exact CAD preparation short and gives imported meshes a bounded triangle-aware budget", () => {
@@ -33,8 +39,8 @@ describe("CAD modifier runtime state", () => {
     expect(cadModifierPrepareTimeoutMs(10_000)).toBe(60_000);
     expect(cadModifierPrepareTimeoutMs(100_000)).toBe(120_000);
     expect(cadModifierPrepareTimeoutMs(180_000)).toBe(CAD_MODIFIER_MAX_PREPARE_TIMEOUT_MS);
-    expect(cadModifierTimeoutMessage("prepare")).toContain("lower-detail STL");
-    expect(cadModifierTimeoutMessage("prepare")).not.toContain("Firefox");
+    expect(cadModifierTimeoutError("prepare").message).toContain("lower-detail STL");
+    expect(cadModifierTimeoutError("prepare").message).not.toContain("Firefox");
   });
 
   it("does not expose thresholds above the worker's folded edge-angle range", () => {

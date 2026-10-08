@@ -1,12 +1,8 @@
 export const APP_THEME_STORAGE_KEY = "sketchForge.theme";
 
-export const APP_THEME_OPTIONS = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-] as const;
+export const APP_THEME_PREFERENCES = ["system", "light", "dark"] as const;
 
-export type AppThemePreference = (typeof APP_THEME_OPTIONS)[number]["value"];
+export type AppThemePreference = (typeof APP_THEME_PREFERENCES)[number];
 export type ResolvedAppTheme = Exclude<AppThemePreference, "system">;
 
 export function normalizeAppThemePreference(value: unknown): AppThemePreference {

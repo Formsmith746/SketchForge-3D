@@ -1,0 +1,14 @@
+{
+  "name": "sketchforge-i18n-screens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Screenshots every SketchForge screen in every UI language and reports layout differences against English.",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "report": "node src/run.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
