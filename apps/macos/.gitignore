@@ -1,0 +1,3 @@
+# SwiftPM build products, staged web sources and the static export
+.build/
+.swiftpm/

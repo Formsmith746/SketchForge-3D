@@ -1,0 +1,115 @@
+name: macOS Native
+
+# Builds the native Swift/WebKit app (apps/macos) for Apple silicon. Pull requests
+# get a build plus an end-to-end smoke test; version tags also attach
+# SketchForge-macOS-<version>-arm64[-unsigned].{dmg,zip} to the release.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  pull_request:
+    paths:
+      - "apps/macos/**"
+      - "apps/web/**"
+      - "scripts/sketchforge-mcp-server.mjs"
+      - "package-lock.json"
+      - ".github/workflows/macos-native.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build:
+    name: Build macOS native (arm64)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Use the tag as the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - name: Build and smoke test (automation build)
+        run: |
+          node apps/macos/scripts/build.mjs --automation
+          node apps/macos/scripts/smoke-test.mjs --no-build
+
+      - name: Import Developer ID certificate
+        id: signing
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$CSC_LINK" || -z "$CSC_KEY_PASSWORD" ]]; then
+            echo "identity=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(uuidgen)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$CSC_LINK" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity=$(security find-identity -v -p codesigning "$keychain" | grep -o '"Developer ID Application[^"]*"' | head -1 | tr -d '"')
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+
+      - name: Build release packages
+        env:
+          SKETCHFORGE_CODESIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+          APPLE_API_KEY_INPUT: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          args=(--skip-web --release)
+          if [[ -n "$SKETCHFORGE_CODESIGN_IDENTITY" && -n "$APPLE_API_KEY_INPUT" && -n "$APPLE_API_KEY_ID" && -n "$APPLE_API_ISSUER" ]]; then
+            export APPLE_API_KEY="$RUNNER_TEMP/notary.p8"
+            if [[ "$APPLE_API_KEY_INPUT" == *"BEGIN PRIVATE KEY"* ]]; then
+              printf '%s' "$APPLE_API_KEY_INPUT" > "$APPLE_API_KEY"
+            else
+              printf '%s' "$APPLE_API_KEY_INPUT" | base64 --decode > "$APPLE_API_KEY"
+            fi
+            args+=(--notarize)
+          fi
+          node apps/macos/scripts/build.mjs "${args[@]}"
+
+      - name: Store packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: sketchforge-macos-native-arm64
+          path: |
+            dist/macos/*.dmg
+            dist/macos/*.zip
+
+      # The Desktop Release workflow recreates the draft release and replaces
+      # every SketchForge-* asset, so attach only after it has finished.
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 90); do
+            state=$(gh run list --workflow desktop-release.yml --commit "$GITHUB_SHA" --json status --jq '.[0].status' 2>/dev/null || true)
+            if [[ "$state" == "completed" ]] && gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+              gh release upload "$GITHUB_REF_NAME" dist/macos/SketchForge-macOS-*.dmg dist/macos/SketchForge-macOS-*.zip --clobber
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "The Desktop Release workflow did not finish in time; attach the packages from the build artifact manually." >&2
+          exit 1
