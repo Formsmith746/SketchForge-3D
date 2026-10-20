@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, Circle as CircleIcon, CloudUpload, Download, Eye, FolderOpen, Hexagon as HexagonIcon, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
+import { Check, Circle as CircleIcon, CloudUpload, Download, Eye, FolderOpen, Hexagon as HexagonIcon, Settings as SettingsIcon, Square as SquareIcon, Triangle as TriangleIcon, Upload, X } from "lucide-react";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ADDITION, Brush, Evaluator, HOLLOW_INTERSECTION, HOLLOW_SUBTRACTION, INTERSECTION, SUBTRACTION, type CSGOperation } from "three-bvh-csg";
 import * as THREE from "three";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
@@ -71,12 +71,10 @@ import {
   ToolbarPasteIcon,
   ToolbarRedoIcon,
   ToolbarSnapGridIcon,
-  ToolbarSettingsIcon,
   ToolbarShapeAddIcon,
   ToolbarTrashIcon,
   ToolbarUngroupIcon,
   ToolbarUndoIcon,
-  ToolbarVectorExportIcon,
 } from "./icons";
 import { WorkplaneViewport } from "./WorkplaneViewport";
 import { SketchWorkspace, type SketchMeasurement, type SketchPrimitive, type SketchSelection, type SketchTool } from "./SketchWorkspace";
@@ -155,6 +153,7 @@ import { exportMeshesToStl } from "@/lib/stlExport";
 import { exportMeshesTo3mf } from "@/lib/threeMfExport";
 import { importedShapeFromSvg, invalidSvgMeshError } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
+import { toolbarDensityStyle, toolbarLayoutForWidth, toolbarMenuAnchor } from "@/lib/toolbarLayout";
 import { keyboardNudgeStep, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import {
   normalizePlacementWorkplane,
@@ -9762,6 +9761,14 @@ const sketchShapeMenuItems = [
   { primitive: "hexagon", icon: HexagonIcon },
 ] satisfies Array<{ primitive: SketchPrimitive; icon: typeof SquareIcon }>;
 
+// Menu widths, matching `.shape-menu-dropdown`, `.sketch-create-dropdown` and
+// `.visibility-dropdown` in globals.css. They are needed here because a menu
+// anchored to the window has to be clamped against the window's edge before it
+// is painted.
+const SHAPE_MENU_WIDTH = 244;
+const SKETCH_CREATE_MENU_WIDTH = 232;
+const VISIBILITY_MENU_WIDTH = 276;
+
 function SecondaryToolbar({
   toolbarMode,
   projectName,
@@ -9891,7 +9898,9 @@ function SecondaryToolbar({
 }) {
   const t = useTranslations();
   const [shapesOpen, setShapesOpen] = useState(false);
+  const [shapesMenuPosition, setShapesMenuPosition] = useState({ top: 0, left: 0 });
   const [sketchCreateOpen, setSketchCreateOpen] = useState(false);
+  const [sketchCreateMenuPosition, setSketchCreateMenuPosition] = useState({ top: 0, left: 0 });
   const [visibilityOpen, setVisibilityOpen] = useState(false);
   const [visibilityMenuPosition, setVisibilityMenuPosition] = useState({ top: 0, left: 0 });
   const [distributeOpen, setDistributeOpen] = useState(false);
@@ -9923,6 +9932,32 @@ function SecondaryToolbar({
   const cancelProjectNameEditRef = useRef(false);
   const projectNameFieldRef = useRef<HTMLLabelElement>(null);
   const projectNameInputRef = useRef<HTMLInputElement>(null);
+  // The toolbar is fixed to both edges, so the bar's width is the window's. Zero
+  // until it has been read, which `toolbarLayoutForWidth` reads as "not measured
+  // yet" rather than as a zero-width window.
+  const [barWidth, setBarWidth] = useState(0);
+  useEffect(() => {
+    const measure = () => setBarWidth(window.innerWidth);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+  const toolbarLayout = toolbarLayoutForWidth(barWidth, { hasHomeButton: Boolean(onHome) });
+  // Toolbar menus are positioned against the window because the ribbon they
+  // hang off scrolls sideways; see `toolbarMenuAnchor`.
+  const menuAnchorFor = (element: HTMLElement | null, menuWidth: number, align: "start" | "center", gap: number) => {
+    const bounds = element?.getBoundingClientRect();
+    if (!bounds) return { top: 0, left: 0 };
+    return toolbarMenuAnchor({
+      triggerLeft: bounds.left,
+      triggerWidth: bounds.width,
+      triggerBottom: bounds.bottom,
+      menuWidth,
+      viewportWidth: window.innerWidth,
+      align,
+      gap,
+    });
+  };
   const [projectNameDraft, setProjectNameDraft] = useState(projectName);
   useEffect(() => {
     setProjectNameDraft(projectName);
@@ -10122,21 +10157,7 @@ function SecondaryToolbar({
       setVisibilityOpen(false);
       return;
     }
-    const triggerBounds = visibilityMenuRef.current?.getBoundingClientRect();
-    if (triggerBounds) {
-      const viewportGutter = 12;
-      const menuWidth = Math.min(276, Math.max(0, window.innerWidth - viewportGutter * 2));
-      setVisibilityMenuPosition({
-        top: triggerBounds.bottom + 8,
-        left: Math.max(
-          viewportGutter,
-          Math.min(
-            triggerBounds.left + triggerBounds.width / 2 - menuWidth / 2,
-            window.innerWidth - menuWidth - viewportGutter,
-          ),
-        ),
-      });
-    }
+    setVisibilityMenuPosition(menuAnchorFor(visibilityMenuRef.current, VISIBILITY_MENU_WIDTH, "center", 8));
     setShapesOpen(false);
     setSketchCreateOpen(false);
     onTopPanel(null);
@@ -10200,7 +10221,12 @@ function SecondaryToolbar({
   };
 
   return (
-    <div className="secondary-toolbar">
+    <div
+      className="secondary-toolbar"
+      data-toolbar-density={toolbarLayout.density}
+      data-toolbar-overflow={toolbarLayout.toolsOverflow ? "scroll" : undefined}
+      style={toolbarDensityStyle(toolbarLayout.density) as CSSProperties}
+    >
       <div className={`toolbar-mode-content ${toolbarMode}`}>
         {toolbarMode === "geometry" ? (
           <>
@@ -10234,6 +10260,7 @@ function SecondaryToolbar({
               aria-expanded={shapesOpen}
               onClick={() => {
                 setVisibilityOpen(false);
+                if (!shapesOpen) setShapesMenuPosition(menuAnchorFor(shapesMenuRef.current, SHAPE_MENU_WIDTH, "start", 0));
                 setShapesOpen((value) => !value);
               }}
             >
@@ -10241,7 +10268,7 @@ function SecondaryToolbar({
             </button>
           </div>
           {shapesOpen ? (
-            <div className="shape-menu-dropdown" ref={shapeMenuDropdownRef}>
+            <div className="shape-menu-dropdown" ref={shapeMenuDropdownRef} style={shapesMenuPosition}>
               <div className="shape-menu-title">{t("editor.toolbar.basicShapes")}</div>
               <div className="shape-menu-list">
                 {toolbarShapeAssets.map((shape) => (
@@ -10411,7 +10438,7 @@ function SecondaryToolbar({
       </div>
       <div className="toolbar-spacer" />
       <div className="tool-group right">
-        <div className="toolbar-section compact toolbar-visibility-section" ref={visibilityMenuRef}>
+        <div className="toolbar-section toolbar-visibility-section" ref={visibilityMenuRef}>
           <div className="toolbar-section-label">{t("editor.toolbar.visibility")}</div>
           <div className="toolbar-section-tools">
             {visibilityTools.map(renderToolButton)}
@@ -10629,20 +10656,6 @@ function SecondaryToolbar({
           </div>
         </div>
       </div>
-      <div className="toolbar-section toolbar-actions-section">
-        <div className="toolbar-section-label">{t("editor.toolbar.manage")}</div>
-        <div className="action-buttons">
-          <button className="action-icon-button" aria-label={t("editor.toolbar.import")} title={t("editor.toolbar.import")} onClick={() => onTopPanel("import")}>
-            <ToolbarImportIcon />
-          </button>
-          <button className="action-icon-button" aria-label={t("editor.toolbar.export")} title={t("editor.toolbar.export")} onClick={() => onTopPanel("export")}>
-            <ToolbarVectorExportIcon />
-          </button>
-          <button className="action-icon-button" aria-label={t("editor.toolbar.workspaceSettings")} title={t("editor.toolbar.workspaceSettings")} onClick={() => window.dispatchEvent(new Event("sketchforge:open-workspace-settings"))}>
-            <ToolbarSettingsIcon />
-          </button>
-        </div>
-      </div>
           </>
         ) : (
           <div className="sketch-toolbar-ribbon" aria-label={t("editor.toolbar.sketchToolbar")}>
@@ -10674,6 +10687,7 @@ function SecondaryToolbar({
                       onClick={() => {
                         setSketchCreateOpen(false);
                         setVisibilityOpen(false);
+                        if (!shapesOpen) setShapesMenuPosition(menuAnchorFor(shapesMenuRef.current, SHAPE_MENU_WIDTH, "start", 0));
                         setShapesOpen((open) => !open);
                       }}
                     >
@@ -10681,7 +10695,7 @@ function SecondaryToolbar({
                     </button>
                   </div>
                   {shapesOpen ? (
-                    <div className="shape-menu-dropdown sketch-shape-menu-dropdown" role="menu" aria-label={t("editor.toolbar.sketchShapesMenu")}>
+                    <div className="shape-menu-dropdown sketch-shape-menu-dropdown" role="menu" aria-label={t("editor.toolbar.sketchShapesMenu")} style={shapesMenuPosition}>
                       <div className="shape-menu-title">{t("editor.toolbar.sketchShapesTitle")}</div>
                       <div className="shape-menu-list">
                         {sketchShapeMenuItems.map(({ primitive, icon: Icon }) => (
@@ -10776,14 +10790,17 @@ function SecondaryToolbar({
                       aria-label={t("editor.toolbar.sketchTo3dOptions")}
                       aria-haspopup="menu"
                       aria-expanded={sketchCreateOpen}
-                      onClick={() => setSketchCreateOpen((open) => !open)}
+                      onClick={() => {
+                        if (!sketchCreateOpen) setSketchCreateMenuPosition(menuAnchorFor(sketchCreateMenuRef.current, SKETCH_CREATE_MENU_WIDTH, "start", 5));
+                        setSketchCreateOpen((open) => !open);
+                      }}
                     >
                       <SketchReferenceIcon name="sketchTo3d" />
                       <span>{t("editor.toolbar.sketchTo3d")}</span>
                       <ToolbarCaretDownIcon className="sketch-create-menu-chevron" />
                     </button>
                     {sketchCreateOpen ? (
-                      <div className="sketch-create-dropdown" role="menu" aria-label={t("editor.toolbar.sketchTo3dMethod")}>
+                      <div className="sketch-create-dropdown" role="menu" aria-label={t("editor.toolbar.sketchTo3dMethod")} style={sketchCreateMenuPosition}>
                         <button type="button" role="menuitem" onClick={() => startSketch("extrude")}>
                           <strong>{t("editor.toolbar.extrudeSketch")}</strong>
                           <span>{t("editor.toolbar.extrudeSketchHint")}</span>
@@ -10855,6 +10872,45 @@ function SecondaryToolbar({
             </label>
           </div>
         ) : null}
+        {/*
+          Import, Export and workspace settings sit up here, beside the project
+          name, rather than at the far end of the tools ribbon. In the ribbon
+          they were the last thing in a row of fixed-width sections, so a window
+          narrower than the ribbon's full width pushed them off the right edge
+          with nothing to scroll them back into view (#87). Here the row they
+          are in has nothing else competing for the space.
+        */}
+        <div className="toolbar-title-actions" role="group" aria-label={t("editor.toolbar.manage")}>
+          <button
+            className="toolbar-title-action"
+            type="button"
+            aria-label={t("editor.toolbar.import")}
+            title={t("editor.toolbar.import")}
+            onClick={() => onTopPanel("import")}
+          >
+            <Upload size={15} aria-hidden="true" />
+            {toolbarLayout.showActionLabels ? <span>{t("editor.toolbar.import")}</span> : null}
+          </button>
+          <button
+            className="toolbar-title-action"
+            type="button"
+            aria-label={t("editor.toolbar.export")}
+            title={t("editor.toolbar.export")}
+            onClick={() => onTopPanel("export")}
+          >
+            <Download size={15} aria-hidden="true" />
+            {toolbarLayout.showActionLabels ? <span>{t("editor.toolbar.export")}</span> : null}
+          </button>
+          <button
+            className="toolbar-title-action toolbar-title-action-icon"
+            type="button"
+            aria-label={t("editor.toolbar.workspaceSettings")}
+            title={t("editor.toolbar.workspaceSettings")}
+            onClick={() => window.dispatchEvent(new Event("sketchforge:open-workspace-settings"))}
+          >
+            <SettingsIcon size={15} aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
   );

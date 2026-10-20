@@ -125,6 +125,26 @@ button {
   border-radius: 999px;
 }
 
+.editor-loading-title-actions {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 5px;
+}
+
+.editor-loading-title-action {
+  width: 82px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.editor-loading-title-action:last-child {
+  width: 26px;
+}
+
 .editor-loading-tool-groups {
   position: absolute;
   inset: 32px 0 0 0;
@@ -160,7 +180,6 @@ button {
 .editor-loading-tool-section.combine { width: 135.8px; }
 .editor-loading-tool-section.modify { width: 221.8px; }
 .editor-loading-tool-section.arrange { width: 92.8px; }
-.editor-loading-tool-section.manage { width: 152px; }
 
 .editor-loading-section-label {
   position: absolute;
@@ -178,10 +197,6 @@ button {
   left: 50%;
   display: flex;
   transform: translateX(-50%);
-}
-
-.editor-loading-tool-section.manage .editor-loading-section-controls {
-  gap: 5px;
 }
 
 .editor-loading-tool {
@@ -1172,8 +1187,8 @@ button {
 }
 
 .editor-home-control svg {
-  width: 43px;
-  height: 43px;
+  width: var(--toolbar-icon-size);
+  height: var(--toolbar-icon-size);
 }
 
 .dashboard-settings-panel {
@@ -1579,6 +1594,16 @@ button {
 }
 
 .secondary-toolbar {
+  /* Overwritten inline from `toolbarDensityStyle` once the bar's width is known;
+     these are the comfortable values, so a server render draws the toolbar at
+     full size instead of unstyled. See apps/web/src/lib/toolbarLayout.ts. */
+  --toolbar-button-size: 43px;
+  --toolbar-icon-size: 43px;
+  --toolbar-section-min-width: 88px;
+  --toolbar-section-label-size: 12px;
+  --toolbar-section-label-height: 24px;
+  --toolbar-section-label-padding: 9px;
+  --toolbar-section-min-width-scale: 1;
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 19;
@@ -1879,6 +1904,37 @@ button {
   align-items: stretch;
   background: #f4f7f9;
   border-top: 1px solid #d2dce5;
+  /* The ribbon is a fixed number of fixed-size buttons, so past some width it
+     cannot fit. Scrolling it is how it degrades: every tool stays reachable,
+     where before the sections shrank under their own contents and the buttons
+     overlapped each other (#87). */
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  /* No visible scrollbar: the row is exactly as tall as a label plus a button,
+     and a classic scrollbar would eat into the buttons. Tabbing scrolls the
+     focused button into view, a trackpad or shift-wheel scrolls the row, and
+     the fade below says there is more of it. */
+  scrollbar-width: none;
+}
+
+.toolbar-mode-content::-webkit-scrollbar {
+  display: none;
+}
+
+/* A hint that there is more ribbon than there is room, since a thin scrollbar
+   inside a 76px strip is easy to miss. Painted over the row rather than masked
+   into it, because a mask would clip the menus that open out of the toolbar. */
+.secondary-toolbar[data-toolbar-overflow="scroll"]::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--editor-toolbar-height) - var(--editor-toolbar-tools-height));
+  right: 0;
+  z-index: 3;
+  width: 26px;
+  height: var(--editor-toolbar-tools-height);
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(244, 247, 249, 0), rgba(244, 247, 249, 0.96));
 }
 
 .sketch-toolbar-ribbon {
@@ -1890,27 +1946,27 @@ button {
 }
 
 .sketch-create-section {
-  min-width: 150px;
+  min-width: calc(150px * var(--toolbar-section-min-width-scale, 1));
 }
 
 .sketch-edit-section {
-  min-width: 150px;
+  min-width: calc(150px * var(--toolbar-section-min-width-scale, 1));
 }
 
 .sketch-history-section {
-  min-width: 104px;
+  min-width: calc(104px * var(--toolbar-section-min-width-scale, 1));
 }
 
 .sketch-measure-section {
-  min-width: 58px;
+  min-width: calc(58px * var(--toolbar-section-min-width-scale, 1));
 }
 
 .sketch-start-section {
-  min-width: 360px;
+  min-width: calc(360px * var(--toolbar-section-min-width-scale, 1));
 }
 
 .sketch-finish-section {
-  min-width: 190px;
+  min-width: calc(190px * var(--toolbar-section-min-width-scale, 1));
   border-left: 1px solid rgba(203, 215, 226, 0.82);
 }
 
@@ -1973,7 +2029,7 @@ button {
 
 .sketch-command-button {
   display: inline-flex;
-  height: 43px;
+  height: var(--toolbar-button-size);
   min-width: 80px;
   padding: 3px 9px;
   flex-direction: column;
@@ -2029,7 +2085,7 @@ button {
 
 .sketch-create-menu {
   position: relative;
-  height: 43px;
+  height: var(--toolbar-button-size);
 }
 
 .sketch-create-menu-trigger {
@@ -2053,12 +2109,10 @@ button {
 }
 
 .sketch-create-dropdown {
-  position: absolute;
-  top: calc(100% + 5px);
-  left: 0;
+  position: fixed;
   z-index: 70;
   display: grid;
-  width: 232px;
+  width: min(232px, calc(100vw - 24px));
   padding: 5px;
   background: rgba(250, 252, 253, 0.99);
   border: 1px solid #cbd9e3;
@@ -2124,6 +2178,71 @@ button {
   display: flex;
   height: calc(var(--editor-toolbar-height) - var(--editor-toolbar-tools-height));
   align-items: stretch;
+  /* Narrower than the tabs plus the actions, the row scrolls rather than
+     clipping the tabs. The actions stay put — see below. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.toolbar-title-row::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+  Import, Export and workspace settings. They live in this row rather than at
+  the end of the tools ribbon because the ribbon is a fixed-width thing that
+  runs off the side of a narrow window; this row has one flexible item (the
+  project name) and gives way gracefully. `sticky` pins them to the right edge
+  of the row, so even a window too narrow for the tabs beside them keeps the
+  three actions on screen (#87).
+*/
+.toolbar-title-actions {
+  position: sticky;
+  right: 0;
+  display: flex;
+  height: 100%;
+  flex: 0 0 auto;
+  gap: 5px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 8px 4px;
+  background: #f4f7f9;
+}
+
+.toolbar-title-action {
+  display: inline-flex;
+  height: 26px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  color: #4c6578;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.toolbar-title-action-icon {
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+}
+
+.toolbar-title-action:hover {
+  color: #19445f;
+  background: rgba(255, 255, 255, 0.86);
+  border-color: #cedae3;
+}
+
+.toolbar-title-action svg {
+  flex: 0 0 auto;
 }
 
 .toolbar-workspace-tabs {
@@ -2163,6 +2282,11 @@ button {
 .tool-group {
   display: flex;
   height: var(--editor-toolbar-tools-height);
+  /* Groups and sections never shrink below their buttons. `min-width` below
+     overrides the automatic minimum size a flex item would otherwise get from
+     its contents, and without this that let a five-button section squeeze down
+     to its 88px floor with the buttons spilling over its neighbour. */
+  flex-shrink: 0;
   border-right: 1px solid #d7e0e8;
 }
 
@@ -2173,9 +2297,10 @@ button {
 .toolbar-section {
   position: relative;
   display: flex;
-  min-width: 88px;
+  min-width: var(--toolbar-section-min-width);
   height: var(--editor-toolbar-tools-height);
   flex-direction: column;
+  flex-shrink: 0;
   justify-content: flex-start;
   border-right: 1px solid rgba(203, 215, 226, 0.82);
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.1) 44%, rgba(210, 222, 232, 0.18));
@@ -2183,14 +2308,6 @@ button {
 
 .tool-group .toolbar-section:last-child {
   border-right: 0;
-}
-
-.toolbar-section.compact {
-  min-width: 78px;
-}
-
-.toolbar-visibility-section {
-  min-width: 92px;
 }
 
 .visibility-dropdown {
@@ -2558,11 +2675,11 @@ button {
 
 .toolbar-section-label {
   order: 1;
-  height: 24px;
-  padding: 6px 9px 0;
+  height: var(--toolbar-section-label-height);
+  padding: 6px var(--toolbar-section-label-padding) 0;
   color: #607589;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 12px;
+  font-size: var(--toolbar-section-label-size);
   font-weight: 800;
   line-height: 16px;
   text-align: center;
@@ -2576,7 +2693,7 @@ button {
 .toolbar-section-tools {
   order: 2;
   display: flex;
-  height: 52px;
+  height: calc(var(--editor-toolbar-tools-height) - var(--toolbar-section-label-height));
   align-items: center;
   justify-content: center;
   padding: 0 3px 1px;
@@ -2628,8 +2745,8 @@ button {
 
 .toolbar-icon {
   display: grid;
-  width: 43px;
-  height: 43px;
+  width: var(--toolbar-button-size);
+  height: var(--toolbar-button-size);
   place-items: center;
   color: #7890a4;
   background: transparent;
@@ -2664,8 +2781,8 @@ button {
 .toolbar-icon .toolbar-sprite-icon,
 .toolbar-icon .vector-toolbar-sprite-icon,
 .toolbar-icon .toolbar-command-icon {
-  width: 43px;
-  height: 43px;
+  width: var(--toolbar-icon-size);
+  height: var(--toolbar-icon-size);
 }
 
 .toolbar-command-icon {
@@ -2719,14 +2836,14 @@ button {
 }
 
 .toolbar-icon .toolbar-user-art-icon {
-  width: 43px;
-  height: 43px;
+  width: var(--toolbar-icon-size);
+  height: var(--toolbar-icon-size);
 }
 
 .toolbar-icon .toolbar-art-toolbar-chamfer,
 .toolbar-icon .toolbar-art-toolbar-fillet {
-  width: 34px;
-  height: 34px;
+  width: calc(var(--toolbar-icon-size) * 34 / 43);
+  height: calc(var(--toolbar-icon-size) * 34 / 43);
 }
 
 /* Drawn toolbar art carries its own colour, so a vector icon next to it has to
@@ -2783,7 +2900,6 @@ button {
 .toolbar-icon:not(.disabled) .toolbar-sprite-icon,
 .toolbar-icon:not(.disabled) .vector-toolbar-sprite-icon,
 .shape-menu-trigger .vector-toolbar-sprite-icon,
-.action-buttons button .vector-toolbar-sprite-icon,
 .inspector-header-icon .vector-toolbar-sprite-icon {
   filter: grayscale(0.35) sepia(0.12) saturate(1.7) hue-rotate(165deg) contrast(1.18) brightness(0.78) drop-shadow(0 0 1px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 3px rgba(0, 156, 222, 0.2));
   opacity: 0.94;
@@ -2793,7 +2909,6 @@ button {
 .toolbar-icon:not(.disabled):hover .vector-toolbar-sprite-icon,
 .shape-menu-trigger:hover .vector-toolbar-sprite-icon,
 .shape-menu-trigger.active .vector-toolbar-sprite-icon,
-.action-buttons button:hover .vector-toolbar-sprite-icon,
 .inspector-header-icon:hover .vector-toolbar-sprite-icon {
   filter: grayscale(0.1) sepia(0.22) saturate(2.1) hue-rotate(164deg) contrast(1.2) brightness(0.72) drop-shadow(0 0 1px rgba(255, 255, 255, 1)) drop-shadow(0 0 5px rgba(0, 156, 222, 0.38));
   opacity: 1;
@@ -2806,32 +2921,11 @@ button {
   opacity: 1;
 }
 
-.action-buttons {
-  order: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 52px;
-  padding: 0 6px 2px;
-}
-
-.toolbar-actions-section {
-  flex: 0 0 152px;
-  min-width: 152px;
-  border-left: 1px solid rgba(203, 215, 226, 0.82);
-  border-right: 0;
-}
-
-.toolbar-shapes-section {
-  min-width: 82px;
-}
-
 .shape-menu-trigger {
   position: relative;
   display: grid;
-  width: 45px;
-  height: 43px;
+  width: calc(var(--toolbar-button-size) + 2px);
+  height: var(--toolbar-button-size);
   place-items: center;
   color: #244057;
   background: transparent;
@@ -2849,16 +2943,17 @@ button {
 }
 
 .shape-menu-trigger .vector-toolbar-sprite-icon {
-  width: 43px;
-  height: 43px;
+  width: var(--toolbar-icon-size);
+  height: var(--toolbar-icon-size);
 }
 
+/* Anchored to the window, not to its section: the tools ribbon scrolls
+   sideways, and a menu laid out inside it would be clipped by that scroll box.
+   Its top and left come from `toolbarMenuAnchor`. */
 .shape-menu-dropdown {
-  position: absolute;
-  top: var(--editor-toolbar-tools-height);
-  left: 0;
+  position: fixed;
   z-index: 60;
-  width: 244px;
+  width: min(244px, calc(100vw - 24px));
   max-height: min(650px, calc(100vh - 92px));
   overflow: hidden;
   color: #253f57;
@@ -2941,65 +3036,6 @@ button {
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.action-buttons button {
-  box-sizing: border-box;
-  display: inline-flex;
-  width: 43px;
-  height: 43px;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 0;
-  color: #244057;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  text-transform: uppercase;
-  box-shadow: none;
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
-}
-
-.action-buttons button:hover {
-  background: rgba(255, 255, 255, 0.66);
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px rgba(185, 202, 216, 0.86);
-}
-
-.action-buttons .action-icon-button {
-  display: grid;
-  width: 43px;
-  place-items: center;
-  color: #244057;
-  text-transform: none;
-}
-
-.action-buttons button .vector-toolbar-sprite-icon {
-  width: 43px;
-  height: 43px;
-}
-
-.action-buttons .action-icon-button .vector-toolbar-sprite-icon {
-  width: 43px;
-  height: 43px;
-}
-
-.action-buttons .action-icon-button .toolbar-command-icon {
-  width: 43px;
-  height: 43px;
-  object-fit: contain;
-}
-
-.action-buttons .action-icon-button .toolbar-user-art-icon {
-  width: 43px;
-  height: 43px;
 }
 
 .top-dropdown {
@@ -7190,33 +7226,6 @@ button {
 }
 
 @media (max-width: 980px) {
-  .toolbar-mode-content.geometry,
-  .toolbar-mode-content.sketch {
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .toolbar-section {
-    min-width: auto;
-  }
-
-  .toolbar-section-label {
-    padding-inline: 7px;
-    font-size: 10px;
-  }
-
-  .toolbar-actions-section {
-    flex-basis: 152px;
-    min-width: 152px;
-  }
-
-  .shape-menu-dropdown {
-    position: fixed;
-    top: var(--editor-toolbar-height);
-    left: 10px;
-    width: min(264px, calc(100vw - 20px));
-  }
-
   .workspace-modal {
     padding-top: 18px;
   }
@@ -7308,17 +7317,6 @@ button {
   .mode-tabs,
   .collaborator {
     display: none;
-  }
-
-  .action-buttons button {
-    width: 43px;
-    min-width: 43px;
-    padding: 0;
-  }
-
-  .action-buttons .action-icon-button {
-    width: 43px;
-    min-width: 43px;
   }
 
   .view-cube {
@@ -7637,6 +7635,24 @@ html[data-theme="dark"] .sketch-toolbar-ribbon {
   background: #1a2630;
   border-color: #30424f;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+html[data-theme="dark"] .toolbar-title-actions {
+  background: #1a2630;
+}
+
+html[data-theme="dark"] .toolbar-title-action {
+  color: #b3c6d4;
+}
+
+html[data-theme="dark"] .toolbar-title-action:hover {
+  color: #eaf3f9;
+  background: #24323d;
+  border-color: #3b4f5d;
+}
+
+html[data-theme="dark"] .secondary-toolbar[data-toolbar-overflow="scroll"]::after {
+  background: linear-gradient(90deg, rgba(26, 38, 48, 0), rgba(26, 38, 48, 0.96));
 }
 
 html[data-theme="dark"] .toolbar-project-name-field {
@@ -8260,8 +8276,7 @@ html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-vector-art-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-user-art-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .vector-toolbar-sprite-icon,
-html[data-theme="dark"] .shape-menu-trigger .vector-toolbar-sprite-icon,
-html[data-theme="dark"] .action-buttons button .vector-toolbar-sprite-icon {
+html[data-theme="dark"] .shape-menu-trigger .vector-toolbar-sprite-icon {
   filter: grayscale(0.72) brightness(1.65) contrast(0.92) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55));
   opacity: 0.96;
 }
@@ -8280,13 +8295,6 @@ html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .vector-toolbar-sprite-icon,
 html[data-theme="dark"] .shape-menu-trigger:hover .vector-toolbar-sprite-icon {
   filter: grayscale(0.35) brightness(1.85) contrast(1) drop-shadow(0 0 5px rgba(62, 199, 235, 0.32));
-}
-
-html[data-theme="dark"] .action-buttons button {
-  color: #c9d9e4;
-  background: #1d2b34;
-  border-color: #435661;
-  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.3);
 }
 
 html[data-theme="dark"] .shape-menu-title,

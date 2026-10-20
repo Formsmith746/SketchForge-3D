@@ -1626,7 +1626,6 @@ function EditorLoadingSkeleton() {
     { className: "combine", controls: 3 },
     { className: "modify", controls: 5 },
     { className: "arrange", controls: 2 },
-    { className: "manage", controls: 3 },
   ];
 
   const renderToolbarSection = ({ className, controls }: { className: string; controls: number }) => (
@@ -1646,6 +1645,12 @@ function EditorLoadingSkeleton() {
         <div className="editor-loading-tabs">
           <span className="editor-skeleton-shimmer" />
           <span className="editor-skeleton-shimmer" />
+        </div>
+        {/* Import, Export and workspace settings, which live in the title row. */}
+        <div className="editor-loading-title-actions">
+          {Array.from({ length: 3 }, (_, index) => (
+            <span className="editor-loading-title-action editor-skeleton-shimmer" key={index} />
+          ))}
         </div>
         <div className="editor-loading-tool-groups">
           <div className="editor-loading-tool-cluster">
