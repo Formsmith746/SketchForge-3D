@@ -8,7 +8,7 @@ SketchForge uses a packaged container (format option B). A `.skf` file is a ZIP 
 
 This was selected over pure JSON because imported STL/STEP data and exact B-Rep can be large, Base64 would add size and parsing overhead, and an archive lets SketchForge validate and hash each asset independently. The editable model is still JSON and can be inspected by opening `project.json` from the package.
 
-## Version 1 layout
+## Version 2 layout
 
 ```text
 project.skf
@@ -17,7 +17,8 @@ project.skf
     ├── source/          Original imported STL, SVG, or STEP files
     ├── derived-mesh/    Exact caches for baked operations or legacy imports
     ├── brep/            Exact STEP/B-Rep payloads
-    └── image/           Deduplicated sketch/reference images
+    ├── image/           Deduplicated sketch/reference images
+    └── display-edges/   Shared CAD display-edge arrays (JSON)
 ```
 
 `project.json` contains these top-level sections:
@@ -35,6 +36,8 @@ project.skf
 - `editor`: workspace dimensions, units, snap grid, and selected workplane elevation
 
 Object nodes keep stable SketchForge object IDs. Groups refer to child node IDs instead of array positions. Fillet/chamfer history refers to explicit “before” nodes. Feature dependencies are explicit and checked for cycles.
+
+Nodes reference display edges through `cadDisplayEdgesAssetId`; the edge version remains in the shape definition. Each distinct edge array is stored once, including references from groups and reversible edge-treatment history. Mesh coordinate arrays, B-Rep strings, and image data URLs are encoded and hashed once per immutable resource. Weak caches and a bounded text cache reuse this work on subsequent saves. Import restores shared mesh and edge objects across undo states. Long node traversals yield to the event loop between batches.
 
 ## What is preserved
 
@@ -55,11 +58,11 @@ SketchForge inspects ZIP metadata before expansion and validates the entire proj
 
 Opening a valid `.skf` creates a new local project. It does not overwrite the project that is currently open. The imported project is then saved through the existing dashboard, thumbnail, IndexedDB, history, and editor lifecycle.
 
-Current safety limits are 512 MB compressed, 1 GB expanded, 256 MB per asset, 32 MB for `project.json`, 4,096 archive entries, 100,000 object nodes per state, and 5,001 distinct states. The live editor retains at most 5,000 history entries and 64 MB of serialized history, so Unlimited means all history currently available inside those safety limits.
+Current safety limits are 512 MB compressed, 1 GB expanded, 256 MB per asset, 64 MB for `project.json`, 4,096 archive entries, 100,000 object nodes per state, and 5,001 distinct states. The live editor retains at most 5,000 history entries and 64 MB of serialized history, so Unlimited means all history currently available inside those safety limits.
 
 ## Compatibility and migrations
 
-The current format is version 1. Readers refuse a higher `formatVersion` or `minimumReaderVersion` instead of partially loading it. The importer also contains an explicit migration for the documented version 0 pure-JSON prototype and preserves its object IDs and valid history.
+New saves use format version 2 and minimum reader version 2. Older applications reject these files rather than dropping shared display edges. The current reader accepts version 1 packages with inline display edges, interns those resources on import, and writes version 2 on the next save. The importer also contains an explicit migration for the documented version 0 pure-JSON prototype and preserves its object IDs and valid history.
 
 Future schema changes should add a version-to-version migration, run validation after every migration, and never mutate the user's original file.
 

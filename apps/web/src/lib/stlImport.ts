@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { createLocalId } from "@/lib/localIds";
+import { zUpToSketchForge } from "@/lib/meshCoordinates";
 import type { WorkplaneShape } from "@/types/sketchforge";
 
 const stlLoader = new STLLoader();
@@ -8,6 +9,34 @@ const SUPPORTED_IMPORT_EXTENSIONS = new Set(["stl", "svg"]);
 
 function fileExtension(fileName: string) {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function stlHeader(buffer: ArrayBuffer) {
+  return new TextDecoder("ascii").decode(new Uint8Array(buffer, 0, Math.min(80, buffer.byteLength))).toLowerCase();
+}
+
+function stlUsesSketchForgeYUp(buffer: ArrayBuffer, position: THREE.BufferAttribute | THREE.InterleavedBufferAttribute) {
+  // SketchForge's older ASCII STL exports were already Y-up. Preserve those,
+  // including tall models where geometry alone cannot reveal an up axis.
+  if (stlHeader(buffer).includes("sketchforge")) return true;
+
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let minZ = Number.POSITIVE_INFINITY;
+  let maxZ = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < position.count; i += 1) {
+    minY = Math.min(minY, position.getY(i));
+    maxY = Math.max(maxY, position.getY(i));
+    minZ = Math.min(minZ, position.getZ(i));
+    maxZ = Math.max(maxZ, position.getZ(i));
+  }
+
+  const ySpan = maxY - minY;
+  const zSpan = maxZ - minZ;
+  // Some legacy/model-library STLs (including the Raspberry Pi fixture) are
+  // unmistakably flat on Y. Keep that established orientation; ambiguous STL
+  // files follow the slicer-standard Z-up convention.
+  return Number.isFinite(ySpan) && Number.isFinite(zSpan) && ySpan <= zSpan * 0.55;
 }
 
 export function importedShapeFromTriangleSoup(
@@ -97,11 +126,14 @@ export function importedShapeFromStl(fileName: string, buffer: ArrayBuffer): Wor
   const normal = geometry.getAttribute("normal");
   const rawPositions: number[] = [];
   const rawNormals: number[] = [];
+  const usesSketchForgeYUp = stlUsesSketchForgeYUp(buffer, position);
 
   for (let i = 0; i < position.count; i += 1) {
-    rawPositions.push(position.getX(i), position.getY(i), position.getZ(i));
+    const sourcePosition: [number, number, number] = [position.getX(i), position.getY(i), position.getZ(i)];
+    rawPositions.push(...(usesSketchForgeYUp ? sourcePosition : zUpToSketchForge(sourcePosition)));
     if (normal) {
-      rawNormals.push(normal.getX(i), normal.getY(i), normal.getZ(i));
+      const sourceNormal: [number, number, number] = [normal.getX(i), normal.getY(i), normal.getZ(i)];
+      rawNormals.push(...(usesSketchForgeYUp ? sourceNormal : zUpToSketchForge(sourceNormal)));
     }
   }
 

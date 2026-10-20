@@ -44,6 +44,30 @@ export type GridSize = "Off" | "0.1 mm" | "0.25 mm" | "0.5 mm" | "1.0 mm" | "2.0
 export type MeasurementAccuracy = 1 | 2 | 3;
 export type HistoryRetentionLimit = "unlimited" | number;
 
+export type ShapeCustomization = {
+  width?: number;
+  depth?: number;
+  height?: number;
+  maxDimension?: number;
+  steps?: number;
+  sides?: number;
+  bevel?: number;
+  segments?: number;
+  topRadius?: number;
+  baseRadius?: number;
+  teeth?: number;
+  toothSize?: number;
+  toothWidth?: number;
+  centerHoleSize?: number;
+  gearType?: GearType;
+  helixAngle?: number;
+  helixQuality?: number;
+  text?: string;
+  font?: string;
+};
+
+export type ShapeCustomizationMap = Partial<Record<ShapeKind, ShapeCustomization>>;
+
 export type WorkplaneWorkspaceSettings = {
   width: number;
   depth: number;
@@ -55,11 +79,13 @@ export type WorkplaneWorkspaceSettings = {
   showShadows: boolean;
   showGrid: boolean;
   cruiseShapes: boolean;
+  selectBeforeMove: boolean;
   zoomSpeed: number;
   units: string;
   scale: string;
   accuracy: MeasurementAccuracy;
   historyLimit: HistoryRetentionLimit;
+  shapeCustomizations: ShapeCustomizationMap;
 };
 
 export type AlignAxis = "x" | "y" | "z";
@@ -101,6 +127,7 @@ export type SketchImage = {
   depth: number;
   opacity?: number;
   lockAspect?: boolean;
+  locked?: boolean;
 };
 
 export type SketchProfile = {
@@ -118,7 +145,6 @@ export type SketchRevolveSettings = {
   sweepAngle: number;
   sides: number;
   quality: number;
-  thickness: number;
 };
 
 export type EdgeTreatmentFeature = {
@@ -197,6 +223,13 @@ export type WorkplaneShape = {
   segments?: number;
   topRadius?: number;
   baseRadius?: number;
+  taperTopWidth?: number;
+  taperTopDepth?: number;
+  taperBottomWidth?: number;
+  taperBottomDepth?: number;
+  /** Legacy local-dev taper fields kept for compatibility with in-progress projects. */
+  taperTopScale?: number;
+  taperBottomScale?: number;
   teeth?: number;
   toothSize?: number;
   toothWidth?: number;

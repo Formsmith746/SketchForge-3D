@@ -2,7 +2,7 @@
   <table>
     <tr>
       <td width="145" align="center">
-        <img src="apps/web/public/assets/sketchforge/sketchforge-logo-transparent.png" width="120" alt="SketchForge logo">
+        <img src="https://sketchforge3d.com/assets/sketchforge/sketchforge-logo-transparent.png" width="120" alt="SketchForge logo">
       </td>
       <td>
         <h1 align="right">SketchForge</h1>
@@ -15,15 +15,15 @@
   </table>
 
   <p>
-    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-16a34a"></a>
-    <a href="https://github.com/Formsmith746/SketchForge-3D/stargazers"><img alt="Star SketchForge on GitHub" src="docs/media/badges/github-star.svg"></a>
-    <a href="https://github.com/sponsors/Formsmith746"><img alt="Sponsor SketchForge on GitHub" src="docs/media/badges/github-sponsor.svg"></a>
+    <a href="LICENSE"><img alt="GNU AGPLv3 license" src="https://img.shields.io/badge/license-AGPLv3-663399"></a>
+    <a href="https://github.com/Formsmith746/SketchForge-3D/stargazers"><img alt="Star SketchForge on GitHub" src="https://img.shields.io/github/stars/Formsmith746/SketchForge-3D?style=flat&logo=github"></a>
+    <a href="https://github.com/sponsors/Formsmith746"><img alt="Sponsor SketchForge on GitHub" src="https://img.shields.io/badge/GitHub-Sponsor-ea4aaa?logo=githubsponsors&logoColor=white"></a>
     <img alt="Local first" src="https://img.shields.io/badge/local--first-no%20account-0ea5e9">
-    <img alt="Version v0.9.0" src="https://img.shields.io/badge/version-v0.9.0-2563eb">
+    <img alt="Version v1.0.9" src="https://img.shields.io/badge/version-v1.0.9-2563eb">
   </p>
 </div>
 
-![SketchForge editor showing a selected box on the workplane](docs/media/sketchforge-editor-v0.8.0.png)
+![SketchForge editor showing a selected model on the workplane](https://sketchforge3d.com/assets/landing/editor-phone-stand.png)
 
 ## Why SketchForge
 
@@ -52,7 +52,7 @@ Press **O** in the editor to switch between perspective and orthographic project
 
 ## Demo
 
-![SketchForge editor demo preview](docs/media/videos/01-create-and-edit-block-preview.gif)
+![SketchForge projects dashboard](https://sketchforge3d.com/assets/landing/project-dashboard.png)
 
 ## Getting Started
 
@@ -64,6 +64,35 @@ There are two common ways to run SketchForge. If you are not sure which one to c
 | Local development | Developers who want to edit the code | Medium |
 
 SketchForge is local-first in both modes. The app files may be served from a computer or server, but projects stay in each user's browser storage. STL and OBJ exports download through the user's browser. SketchForge does not upload models to a SketchForge cloud service.
+
+## macOS Desktop Release
+
+GitHub releases include macOS DMG files for Intel (`x64`) and Apple Silicon (`arm64`) Macs. Choose the file that matches your Mac.
+
+1. Open the downloaded DMG file.
+2. Drag `SketchForge.app` to the `Applications` folder.
+3. Eject the DMG file.
+4. Control-click `SketchForge.app` in `Applications`.
+5. Select **Open**, then select **Open** again.
+
+Unsigned releases have `-unsigned` in the file name. macOS shows a Gatekeeper warning for these releases. If macOS does not show the **Open** option, run this command in Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/SketchForge.app
+open /Applications/SketchForge.app
+```
+
+Do not open the app from Safari's Downloads folder or directly from the mounted DMG. Copy it to `Applications` first.
+
+### macOS Virtual Machines
+
+Some macOS virtual machines do not provide hardware WebGL. Launch SketchForge with software WebGL in that case:
+
+```bash
+/Applications/SketchForge.app/Contents/MacOS/SketchForge \
+  --use-angle=swiftshader \
+  --enable-unsafe-swiftshader
+```
 
 ### Download the Project
 
@@ -138,7 +167,7 @@ The container listens on port `3000`. It also accepts connections on port `80` f
 
 ### Shared Docker Projects
 
-Docker deployments include a shared `.skf` project library. Private projects still autosave in each user's browser. The **Shared** dashboard section lists files stored in `/data/projects`, and **Export → SKF → Save to shared** writes the current project there.
+Docker deployments include a shared `.skf` project library. Private projects still autosave in each user's browser. The **Shared** dashboard section lists files stored in `/data/projects`, and **Export → SKF → Save to shared** writes the current project there. Revision-matched PNG previews are stored beside the library in `/data/projects/.thumbnails` and appear on shared project cards.
 
 Compose uses the persistent `sketchforge-shared-projects` volume by default. To use a directory on the Docker host instead, set `SKETCHFORGE_SHARED_PROJECTS_VOLUME` before starting Compose:
 
@@ -212,11 +241,20 @@ docker compose -f deploy/docker/compose.yaml down
 
 ### Update SketchForge Later
 
-If you used Git:
+The home dashboard's **Settings** panel checks the official version and displays an update prompt when a newer version is available. It never installs an update automatically. Choosing **Not now** dismisses only that version, so a later release will be offered again.
+
+If you used Git, update the existing checkout in place. You do not need to remove or download the repository again:
 
 ```bash
 git pull
 docker compose -f deploy/docker/compose.yaml up --build -d
+```
+
+If you use the prebuilt GHCR Compose file:
+
+```bash
+docker compose -f deploy/docker/compose-ghcr.yaml pull sketchforge
+docker compose -f deploy/docker/compose-ghcr.yaml up -d --no-deps sketchforge
 ```
 
 If you downloaded the ZIP, download the newest ZIP, extract it, and run:
@@ -224,6 +262,16 @@ If you downloaded the ZIP, download the newest ZIP, extract it, and run:
 ```bash
 docker compose -f deploy/docker/compose.yaml up --build -d
 ```
+
+Application updates do not clear private projects stored in the browser. Docker shared projects remain in the existing `sketchforge-shared-projects` volume or the host directory configured with `SKETCHFORGE_SHARED_PROJECTS_VOLUME`. Never add `--volumes` or `-v` to an update command.
+
+For an administrator-managed one-click installation, configure all of the following server variables:
+
+- `SKETCHFORGE_UPDATE_TRIGGER_URL`: an internal HTTPS endpoint that pulls/recreates only the SketchForge application while retaining its existing project volume.
+- `SKETCHFORGE_UPDATE_ADMIN_KEY`: the key the administrator must enter in the confirmation dialog.
+- `SKETCHFORGE_UPDATE_TRIGGER_TOKEN` (optional): a bearer token SketchForge sends only to the internal update service.
+
+Without an administrator-managed trigger, the confirmation opens these safe update instructions instead of granting the web container access to the Docker socket.
 
 ### Docker Troubleshooting
 
@@ -326,7 +374,11 @@ Please do not open public issues for security-sensitive reports. Read [.github/S
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Copyright © 2026 SketchForge contributors.
+
+SketchForge is licensed under the **GNU Affero General Public License v3.0 only** (`AGPL-3.0-only`). If you modify SketchForge and let users interact with the modified version over a network, you must offer those users the corresponding source code under the same license. See [LICENSE](LICENSE).
+
+The application exposes a **Source** link in the dashboard. Operators distributing or hosting a modified build should set `NEXT_PUBLIC_SOURCE_CODE_URL` at build time to the public URL containing that build's complete corresponding source code.
 
 ## SketchForge MCP Skill
 

@@ -1,0 +1,329 @@
+name: Desktop Release
+run-name: Desktop Release ${{ inputs.version || github.ref_name }}
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (for example 1.0.6)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} desktop
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-latest
+            artifact: desktop-windows
+          - platform: linux
+            runner: ubuntu-latest
+            artifact: desktop-linux
+          - platform: macos
+            runner: macos-15-intel
+            artifact: desktop-macos-x64
+            arch: x64
+          - platform: macos
+            runner: macos-14
+            artifact: desktop-macos-arm64
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            version="${INPUT_VERSION#v}"
+          else
+            version="${TAG_NAME#v}"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set package version
+        id: package
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - uses: ./.github/actions/build-mac
+        if: matrix.platform == 'macos'
+        with:
+          version: ${{ steps.package.outputs.version }}
+          artifact-name: ${{ matrix.artifact }}
+          arch: ${{ matrix.arch }}
+          csc-link: ${{ secrets.CSC_LINK }}
+          csc-key-password: ${{ secrets.CSC_KEY_PASSWORD }}
+          apple-api-key: ${{ secrets.APPLE_API_KEY }}
+          apple-api-key-id: ${{ secrets.APPLE_API_KEY_ID }}
+          apple-api-issuer: ${{ secrets.APPLE_API_ISSUER }}
+
+      - uses: ./.github/actions/build-linux
+        if: matrix.platform == 'linux'
+        with:
+          version: ${{ steps.package.outputs.version }}
+          artifact-name: ${{ matrix.artifact }}
+
+      - uses: ./.github/actions/build-win32
+        if: matrix.platform == 'windows'
+        with:
+          version: ${{ steps.package.outputs.version }}
+          artifact-name: ${{ matrix.artifact }}
+
+  attach:
+    name: Attach packages to release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Resolve release metadata
+        id: version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            version="${INPUT_VERSION#v}"
+            tag="v$version"
+          else
+            tag="$TAG_NAME"
+            version="${tag#v}"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Normalize package version
+        id: package
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure release tag exists
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git fetch --tags --force
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            tag_sha=$(git rev-list -n 1 "$TAG")
+            source_sha=$(git rev-parse "$SOURCE_SHA^{commit}")
+            if [[ "$tag_sha" != "$source_sha" ]]; then
+              echo "$TAG already points to $tag_sha instead of $source_sha." >&2
+              exit 1
+            fi
+          else
+            git tag "$TAG" "$SOURCE_SHA"
+            git push origin "$TAG"
+          fi
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-windows
+          path: dist/release
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux
+          path: dist/release
+
+      - name: Download macOS x64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-macos-x64
+          path: dist/release/macos-x64
+
+      - name: Download macOS arm64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-macos-arm64
+          path: dist/release/macos-arm64
+
+      - name: Merge macOS update manifests
+        shell: bash
+        run: |
+          npm ci --ignore-scripts
+          node <<'NODE'
+          const fs = require("node:fs");
+          const yaml = require("js-yaml");
+          const paths = [
+            "dist/release/macos-x64/latest-mac-x64.yml",
+            "dist/release/macos-arm64/latest-mac-arm64.yml",
+          ];
+          const existingPaths = paths.filter((file) => fs.existsSync(file));
+          if (existingPaths.length === 1) {
+            throw new Error("Only one macOS architecture produced an updater manifest.");
+          }
+          if (existingPaths.length === 2) {
+            const manifests = existingPaths.map((file) => yaml.load(fs.readFileSync(file, "utf8")));
+            const versions = new Set(manifests.map((manifest) => manifest.version));
+            if (versions.size !== 1) {
+              throw new Error("macOS updater manifests have different versions.");
+            }
+            const merged = {
+              ...manifests[0],
+              files: manifests.flatMap((manifest) => manifest.files || []),
+            };
+            delete merged.path;
+            delete merged.sha512;
+            fs.writeFileSync("dist/release/latest-mac.yml", yaml.dump(merged, { noRefs: true }));
+          }
+          for (const directory of ["macos-x64", "macos-arm64"]) {
+            for (const file of fs.readdirSync(`dist/release/${directory}`)) {
+              if (file === "latest-mac-x64.yml" || file === "latest-mac-arm64.yml") continue;
+              fs.renameSync(`dist/release/${directory}/${file}`, `dist/release/${file}`);
+            }
+            fs.rmSync(`dist/release/${directory}`, { recursive: true, force: true });
+          }
+          NODE
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          existing=$(gh release view "$TAG" --json isDraft 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            is_draft=$(jq -r '.isDraft' <<< "$existing")
+            if [ "$is_draft" != "true" ]; then
+              echo "Release $TAG is already published. Refusing to replace it." >&2
+              exit 1
+            fi
+            echo "Using existing draft release $TAG."
+          else
+            gh release create "$TAG" --draft --verify-tag \
+              --title "SketchForge $VERSION" \
+              --notes "SketchForge desktop $VERSION"
+          fi
+
+      - name: Upload desktop packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          while IFS= read -r asset; do
+            case "$asset" in
+              SketchForge-*|latest.yml|latest-linux.yml|latest-mac.yml)
+                gh release delete-asset "$TAG" "$asset" --yes
+                ;;
+            esac
+          done < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+          gh release upload "$TAG" dist/release/*
+
+      - name: Verify release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.package.outputs.version }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          assets=$(gh release view "$TAG" --json isDraft,assets)
+          test "$(jq -r '.isDraft' <<< "$assets")" = "true"
+          names=$(jq -r '.assets[].name' <<< "$assets")
+          suffix=""
+          if [[ -z "$CSC_LINK" || -z "$CSC_KEY_PASSWORD" || -z "$APPLE_API_KEY" || -z "$APPLE_API_KEY_ID" || -z "$APPLE_API_ISSUER" ]]; then
+            suffix="-unsigned"
+          fi
+          for expected in \
+            "SketchForge-Setup-$VERSION-x64.exe" \
+            "SketchForge-Setup-$VERSION-x64.exe.blockmap" \
+            "latest.yml" \
+            "SketchForge-$VERSION-x86_64.AppImage" \
+            "latest-linux.yml" \
+            "SketchForge-$VERSION-x64${suffix}.dmg" \
+            "SketchForge-$VERSION-x64${suffix}.zip" \
+            "SketchForge-$VERSION-arm64${suffix}.dmg" \
+            "SketchForge-$VERSION-arm64${suffix}.zip"; do
+            grep -Fxq "$expected" <<< "$names" || {
+              echo "GitHub release is missing $expected" >&2
+              exit 1
+            }
+          done
+          if [[ -z "$suffix" ]]; then
+            grep -Fxq "latest-mac.yml" <<< "$names" || {
+              echo "GitHub release is missing latest-mac.yml" >&2
+              exit 1
+            }
+          elif grep -Fxq "latest-mac.yml" <<< "$names"; then
+            echo "Unsigned macOS builds must not publish latest-mac.yml" >&2
+            exit 1
+          fi
+
+      - name: Publish release as latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false --latest

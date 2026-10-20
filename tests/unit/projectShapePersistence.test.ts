@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { editorHistoryEntry } from "@/lib/editorHistory";
-import { compactProjectShapeState, hydrateProjectShapeState } from "@/lib/projectShapePersistence";
+import { compactProjectShapeState, hydrateProjectShapeState, reconcileLoadedProjectShapeCacheEntry } from "@/lib/projectShapePersistence";
 import type { WorkplaneShape } from "@/types/sketchforge";
 
 function importedShape(): WorkplaneShape {
@@ -30,6 +30,27 @@ function importedShape(): WorkplaneShape {
 }
 
 describe("project shape persistence resources", () => {
+  it("preserves a newer live cache entry when an older IndexedDB read finishes late", () => {
+    const live = { revision: 20, shapes: [importedShape()] };
+    const staleLoaded = { revision: 30, shapes: [] as WorkplaneShape[] };
+
+    const reconciled = reconcileLoadedProjectShapeCacheEntry(live, staleLoaded, 10);
+
+    expect(reconciled.revision).toBe(30);
+    expect(reconciled.shapes).toHaveLength(1);
+    expect(reconciled.shapes[0]?.id).toBe("mesh-1");
+  });
+
+  it("accepts persisted shapes when the IndexedDB record is newer than the live cache", () => {
+    const live = { revision: 20, shapes: [] as WorkplaneShape[] };
+    const loaded = { revision: 40, shapes: [importedShape()] };
+
+    const reconciled = reconcileLoadedProjectShapeCacheEntry(live, loaded, 40);
+
+    expect(reconciled).toBe(loaded);
+    expect(reconciled.shapes[0]?.id).toBe("mesh-1");
+  });
+
   it("stores one immutable mesh resource across current shapes and history", () => {
     const mesh = importedShape();
     const group: WorkplaneShape = {

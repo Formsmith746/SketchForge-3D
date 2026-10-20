@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendEditorHistorySnapshot, boundedEditorHistory, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, projectShapesFingerprint } from "@/lib/editorHistory";
+import { appendEditorHistorySnapshot, boundedEditorHistory, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, immutableResourceFingerprint, projectShapesFingerprint } from "@/lib/editorHistory";
 import type { WorkplaneShape } from "@/types/sketchforge";
 
 function box(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
@@ -91,6 +91,63 @@ describe("editor history snapshots", () => {
       ...shape,
       importedMesh: { ...shape.importedMesh!, positions: [...positions] },
     }])).toBe(baseline);
+  });
+
+  it("stream-hashes large mesh arrays and detects changes at the end", () => {
+    const positions = Array.from({ length: 10_001 }, (_, index) => Math.fround(Math.sin(index) * 100));
+    const resource = {
+      positions,
+      normals: positions.map((value) => Math.fround(value / 100)),
+      baseWidth: 200,
+      baseDepth: 150,
+      baseHeight: 80,
+      triangleCount: Math.floor(positions.length / 9),
+      sourceFormat: "stl",
+    };
+    const changedPositions = [...positions];
+    changedPositions[changedPositions.length - 1] += 1;
+
+    expect(immutableResourceFingerprint({ ...resource, positions: [...positions], normals: [...resource.normals] }))
+      .toBe(immutableResourceFingerprint(resource));
+    expect(immutableResourceFingerprint({ ...resource, positions: changedPositions }))
+      .not.toBe(immutableResourceFingerprint(resource));
+  });
+
+  it("reuses geometry signatures inside newly restored edge-treatment history wrappers", () => {
+    let coordinateReads = 0;
+    const points = new Proxy([0, 0, 0, 1, 2, 3], {
+      get(target, property, receiver) {
+        if (typeof property === "string" && /^\d+$/.test(property)) coordinateReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const before = box({ cadDisplayEdges: [{ points }] });
+    const entry = { id: "fillet-before", createdAt: 123, feature: { kind: "fillet" as const, amount: 1, edgeCount: 1 }, before };
+    const baseline = projectShapesFingerprint([box({ edgeTreatmentHistory: [entry] })]);
+    expect(coordinateReads).toBeGreaterThan(0);
+    coordinateReads = 0;
+    expect(projectShapesFingerprint([box({ edgeTreatmentHistory: [{ ...entry, before: { ...before } }] })])).toBe(baseline);
+    expect(coordinateReads).toBe(0);
+    expect(projectShapesFingerprint([box({ edgeTreatmentHistory: [{ ...entry, before: { ...before, x: 5 } }] })])).not.toBe(baseline);
+  });
+
+  it("preserves normalized reversible-history references across transform snapshots", () => {
+    const original = editorHistoryEntry([box({ edgeTreatmentHistory: [{
+      id: "edge-before", createdAt: 123, feature: { kind: "fillet", amount: 1, edgeCount: 1 }, before: box(),
+    }] })], []);
+    const moved = editorHistoryEntry([{ ...original.shapes[0], x: 5 }], []);
+    expect(moved.shapes[0].edgeTreatmentHistory).toBe(original.shapes[0].edgeTreatmentHistory);
+  });
+
+  it("falls back to direct field hashing when serialization exceeds the string limit", () => {
+    const resource = {
+      positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+      toJSON() {
+        throw new RangeError("Invalid string length");
+      },
+    };
+
+    expect(immutableResourceFingerprint(resource)).toMatch(/^stream-v1:/);
   });
 
   it("keeps unlimited history and applies preset or custom action limits", () => {

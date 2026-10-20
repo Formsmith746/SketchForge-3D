@@ -54,6 +54,37 @@ describe("shape catalog", () => {
     });
   });
 
+  it("applies only explicitly customized creation dimensions", () => {
+    const asset: ShapeAsset = { id: "cone", name: "Cone", src: "cone.png", kind: "cone", color: "#6e2786" };
+    const appDefault = makeShapeFromAsset(asset);
+    const customized = makeShapeFromAsset(asset, undefined, { width: 320, depth: 240, height: 180 });
+
+    expect(appDefault).toMatchObject({ width: 20, depth: 20, height: 20, baseRadius: 10 });
+    expect(customized).toMatchObject({ width: 320, depth: 240, height: 180, size: 320, baseRadius: 160 });
+  });
+
+  it("applies shape-specific creation defaults only when customized", () => {
+    const cone = makeShapeFromAsset(
+      { id: "cone", name: "Cone", src: "cone.png", kind: "cone", color: "#6e2786" },
+      undefined,
+      { topRadius: 3, baseRadius: 18, sides: 48 },
+    );
+    const text = makeShapeFromAsset(
+      { id: "text", name: "Text", src: "text.png", kind: "text", color: "#cf101b" },
+      undefined,
+      { text: "HELLO", font: "Serif", bevel: 2, segments: 6 },
+    );
+    const gear = makeShapeFromAsset(
+      { id: "gear", name: "Gear", src: "gear.svg", kind: "gear", color: "#6f7f8d" },
+      undefined,
+      { gearType: "helical", teeth: 24, toothSize: 3, toothWidth: 2, centerHoleSize: 10, helixAngle: 30, helixQuality: 24 },
+    );
+
+    expect(cone).toMatchObject({ topRadius: 3, baseRadius: 18, sides: 48 });
+    expect(text).toMatchObject({ text: "HELLO", font: "Serif", bevel: 2, segments: 6 });
+    expect(gear).toMatchObject({ gearType: "helical", teeth: 24, toothSize: 3, toothWidth: 2, centerHoleSize: 10, helixAngle: 30, helixQuality: 24 });
+  });
+
   it("creates canonical scene shapes with stable defaults", () => {
     const created = sceneShape({
       name: "Part",

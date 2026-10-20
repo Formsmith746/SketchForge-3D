@@ -1,8 +1,15 @@
 {
   "name": "sketchforge",
-  "version": "0.9.0",
+  "version": "1.0.9",
   "private": true,
-  "license": "MIT",
+  "description": "A local-first 3D design editor.",
+  "author": {
+    "name": "SketchForge contributors"
+  },
+  "homepage": "https://sketchforge3d.com",
+  "desktopName": "sketchforge",
+  "main": "apps/desktop/main.cjs",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "copy:occt": "node scripts/copy-occt-wasm.mjs",
     "predev": "npm run copy:occt",
@@ -22,6 +29,10 @@
     "docker:run": "docker run --rm -p 3000:3000 -e SKETCHFORGE_SHARED_PROJECTS_DIR=/data/projects -v sketchforge-shared-projects:/data/projects sketchforge:local",
     "docker:up": "docker compose -f deploy/docker/compose.yaml up --build -d",
     "docker:down": "docker compose -f deploy/docker/compose.yaml down",
+    "desktop:dev": "node apps/desktop/dev.mjs",
+    "desktop:web:build": "node apps/desktop/build-web.mjs",
+    "desktop:pack": "npm run desktop:web:build && electron-builder --dir --config apps/desktop/electron-builder.yml",
+    "desktop:dist": "npm run desktop:web:build && electron-builder --config apps/desktop/electron-builder.yml",
     "mcp:sketchforge": "node scripts/sketchforge-mcp-server.mjs"
   },
   "dependencies": {
@@ -29,6 +40,7 @@
     "@types/three": "^0.184.1",
     "brepjs": "^18.118.0",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.9",
     "fflate": "^0.8.2",
     "lucide-react": "^0.511.0",
     "manifold-3d": "^3.5.0",
@@ -47,6 +59,9 @@
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
+    "js-yaml": "^4.3.1",
     "typescript": "^5.8.3",
     "vitest": "^4.1.8"
   }

@@ -22,8 +22,11 @@ type ResourceSignature = {
 };
 
 const resourceSignatureCache = new WeakMap<object, ResourceSignature>();
+const resourcesBeingSigned = new WeakSet<object>();
 const stringSignatureCache = new Map<string, ResourceSignature>();
 const MAX_CACHED_STRING_SIGNATURES = 64;
+const STREAMED_NUMERIC_ARRAY_LENGTH = 10_000;
+const STREAMED_NUMERIC_ARRAY_MARKER = "$sketchforgeFloat64Array";
 const COMPACT_RESOURCE_KEYS = new Set([
   "cadDisplayEdges",
   "edgeTreatmentHistory",
@@ -47,10 +50,155 @@ function signatureFromSerialized(serialized: string): ResourceSignature {
   };
 }
 
+type StreamingHashState = {
+  hashA: number;
+  hashB: number;
+  units: number;
+  estimatedBytes: number;
+};
+
+function streamingHashState(): StreamingHashState {
+  return { hashA: 2166136261, hashB: 5381, units: 0, estimatedBytes: 0 };
+}
+
+function appendHashUnit(state: StreamingHashState, unit: number) {
+  state.hashA = Math.imul(state.hashA ^ unit, 16777619);
+  state.hashB = Math.imul(state.hashB, 33) ^ unit;
+  state.units += 1;
+}
+
+function appendHashText(state: StreamingHashState, value: string) {
+  for (let index = 0; index < value.length; index += 1) {
+    appendHashUnit(state, value.charCodeAt(index));
+  }
+  state.estimatedBytes += value.length * 2;
+}
+
+function appendHashNumber(state: StreamingHashState, value: number, view: DataView) {
+  view.setFloat64(0, value, true);
+  appendHashUnit(state, view.getUint32(0, true));
+  appendHashUnit(state, view.getUint32(4, true));
+  state.estimatedBytes += 8;
+}
+
+function signatureFromStreamingState(state: StreamingHashState, prefix: string): ResourceSignature {
+  return {
+    fingerprint: `${prefix}:${state.units}:${state.hashA >>> 0}:${state.hashB >>> 0}`,
+    estimatedBytes: state.estimatedBytes,
+  };
+}
+
+function largeNumericArraySignature(value: unknown) {
+  if (!Array.isArray(value) || value.length <= STREAMED_NUMERIC_ARRAY_LENGTH) return null;
+  const state = streamingHashState();
+  const view = new DataView(new ArrayBuffer(8));
+  appendHashText(state, `float64-array:${value.length}:`);
+  for (let index = 0; index < value.length; index += 1) {
+    const number = value[index];
+    if (typeof number !== "number") return null;
+    appendHashNumber(state, number, view);
+  }
+  return signatureFromStreamingState(state, "float64-v1");
+}
+
+function signatureFromStreamedValue(resource: object) {
+  const state = streamingHashState();
+  const view = new DataView(new ArrayBuffer(8));
+  const active = new WeakSet<object>();
+
+  const appendValue = (value: unknown, arrayValue = false): void => {
+    if (value === null || (arrayValue && (value === undefined || typeof value === "function" || typeof value === "symbol"))) {
+      appendHashText(state, "null;");
+      return;
+    }
+    if (typeof value === "string") {
+      appendHashText(state, `string:${value.length}:`);
+      appendHashText(state, value);
+      return;
+    }
+    if (typeof value === "number") {
+      appendHashText(state, "number:");
+      appendHashNumber(state, value, view);
+      return;
+    }
+    if (typeof value === "boolean") {
+      appendHashText(state, value ? "true;" : "false;");
+      return;
+    }
+    if (typeof value === "bigint") {
+      throw new TypeError("Cannot serialize a BigInt resource");
+    }
+    if (value === undefined || typeof value === "function" || typeof value === "symbol") {
+      appendHashText(state, "undefined;");
+      return;
+    }
+
+    if (active.has(value)) throw new TypeError("Cannot fingerprint a circular resource");
+    active.add(value);
+    if (Array.isArray(value)) {
+      appendHashText(state, `array:${value.length}:`);
+      for (let index = 0; index < value.length; index += 1) appendValue(value[index], true);
+    } else {
+      const record = value as Record<string, unknown>;
+      const keys = Object.keys(record).filter((key) => {
+        const item = record[key];
+        return item !== undefined && typeof item !== "function" && typeof item !== "symbol";
+      });
+      appendHashText(state, `object:${keys.length}:`);
+      for (const key of keys) {
+        appendHashText(state, `key:${key.length}:`);
+        appendHashText(state, key);
+        appendValue(record[key]);
+      }
+    }
+    active.delete(value);
+  };
+
+  appendValue(resource);
+  return signatureFromStreamingState(state, "stream-v1");
+}
+
+function signatureWithStreamedNumericArrays(resource: object) {
+  let streamedBytes = 0;
+  const countedResources = new Set<object | string>();
+  const serialized = JSON.stringify(resource, (key, value: unknown) => {
+    // A reversible operation embeds a before-shape, which can itself contain
+    // large immutable geometry. Reuse those signatures across history wrappers.
+    const nestedSignature = key && COMPACT_RESOURCE_KEYS.has(key) && value !== null && typeof value === "object"
+      ? objectResourceSignature(value)
+      : COMPACT_STRING_KEYS.has(key) && typeof value === "string" && value.length > 0
+        ? stringResourceSignature(value)
+        : undefined;
+    if (nestedSignature) {
+      if (!countedResources.has(value as object | string)) {
+        countedResources.add(value as object | string);
+        streamedBytes += nestedSignature.estimatedBytes;
+      }
+      return { $resource: key, fingerprint: nestedSignature.fingerprint };
+    }
+    const signature = largeNumericArraySignature(value);
+    if (!signature) return value;
+    streamedBytes += signature.estimatedBytes;
+    return { [STREAMED_NUMERIC_ARRAY_MARKER]: signature.fingerprint };
+  });
+  const signature = signatureFromSerialized(serialized);
+  return { ...signature, estimatedBytes: signature.estimatedBytes + streamedBytes };
+}
+
 function objectResourceSignature(resource: object) {
   const cached = resourceSignatureCache.get(resource);
   if (cached) return cached;
-  const signature = signatureFromSerialized(JSON.stringify(resource));
+  if (resourcesBeingSigned.has(resource)) throw new TypeError("Cannot fingerprint a circular resource");
+  resourcesBeingSigned.add(resource);
+  let signature: ResourceSignature;
+  try {
+    signature = signatureWithStreamedNumericArrays(resource);
+  } catch (error) {
+    if (!(error instanceof RangeError) || !/string length/i.test(error.message)) throw error;
+    signature = signatureFromStreamedValue(resource);
+  } finally {
+    resourcesBeingSigned.delete(resource);
+  }
   resourceSignatureCache.set(resource, signature);
   return signature;
 }

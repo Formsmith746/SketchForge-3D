@@ -1,0 +1,114 @@
+name: Build macOS desktop
+
+description: Build and store the macOS desktop package.
+
+inputs:
+  version:
+    description: Package version.
+    required: true
+  artifact-name:
+    description: GitHub Actions artifact name.
+    required: true
+  arch:
+    description: macOS architecture.
+    required: true
+  csc-link:
+    description: Developer ID Application certificate.
+    required: false
+  csc-key-password:
+    description: Developer ID Application certificate password.
+    required: false
+  apple-api-key:
+    description: App Store Connect API private key contents, base64, or path.
+    required: false
+  apple-api-key-id:
+    description: App Store Connect API key ID.
+    required: false
+  apple-api-issuer:
+    description: App Store Connect API issuer ID.
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve macOS signing state
+      id: signing
+      shell: bash
+      env:
+        CSC_LINK: ${{ inputs.csc-link }}
+        CSC_KEY_PASSWORD: ${{ inputs.csc-key-password }}
+        APPLE_API_KEY: ${{ inputs.apple-api-key }}
+        APPLE_API_KEY_ID: ${{ inputs.apple-api-key-id }}
+        APPLE_API_ISSUER: ${{ inputs.apple-api-issuer }}
+      run: |
+        suffix=""
+        signing_enabled=true
+        if [[ -z "$CSC_LINK" || -z "$CSC_KEY_PASSWORD" || -z "$APPLE_API_KEY" || -z "$APPLE_API_KEY_ID" || -z "$APPLE_API_ISSUER" ]]; then
+          suffix="-unsigned"
+          signing_enabled=false
+        fi
+        echo "artifact_suffix=$suffix" >> "$GITHUB_OUTPUT"
+        echo "signing_enabled=$signing_enabled" >> "$GITHUB_OUTPUT"
+
+    - name: Build macOS package
+      shell: bash
+      env:
+        CSC_LINK: ${{ inputs.csc-link }}
+        CSC_KEY_PASSWORD: ${{ inputs.csc-key-password }}
+        APPLE_API_KEY_INPUT: ${{ inputs.apple-api-key }}
+        APPLE_API_KEY_ID: ${{ inputs.apple-api-key-id }}
+        APPLE_API_ISSUER: ${{ inputs.apple-api-issuer }}
+        CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.signing.outputs.signing_enabled }}
+      run: |
+        if [[ "${{ steps.signing.outputs.signing_enabled }}" == "false" ]]; then
+          unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER
+        else
+          if [[ -f "$APPLE_API_KEY_INPUT" ]]; then
+            export APPLE_API_KEY="$APPLE_API_KEY_INPUT"
+          else
+            export APPLE_API_KEY="$RUNNER_TEMP/sketchforge-notary-${{ inputs.arch }}.p8"
+            node <<'NODE'
+            const fs = require("node:fs");
+            const input = process.env.APPLE_API_KEY_INPUT || "";
+            const output = process.env.APPLE_API_KEY;
+            const decoded = input.includes("BEGIN PRIVATE KEY")
+              ? input
+              : Buffer.from(input, "base64").toString("utf8");
+            if (!decoded.includes("BEGIN PRIVATE KEY")) {
+              throw new Error("APPLE_API_KEY must be a .p8 path, key contents, or base64-encoded key contents.");
+            }
+            fs.writeFileSync(output, decoded, { mode: 0o600 });
+            NODE
+          fi
+        fi
+        npm run desktop:dist -- --publish never --mac --${{ inputs.arch }} \
+          "-c.mac.artifactName=\${productName}-\${version}-\${arch}${{ steps.signing.outputs.artifact_suffix }}.\${ext}"
+
+    - name: Verify macOS artifacts
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        suffix="${{ steps.signing.outputs.artifact_suffix }}"
+        test -f "dist/desktop/SketchForge-$VERSION-${{ inputs.arch }}${suffix}.dmg"
+        test -f "dist/desktop/SketchForge-$VERSION-${{ inputs.arch }}${suffix}.zip"
+        if [[ "${{ steps.signing.outputs.signing_enabled }}" == "true" ]]; then
+          test -f dist/desktop/latest-mac.yml
+        else
+          rm -f dist/desktop/latest-mac.yml
+        fi
+
+    - name: Rename macOS update manifest
+      if: steps.signing.outputs.signing_enabled == 'true'
+      shell: bash
+      run: mv dist/desktop/latest-mac.yml "dist/desktop/latest-mac-${{ inputs.arch }}.yml"
+
+    - name: Store macOS artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          dist/desktop/SketchForge-*-${{ inputs.arch }}*.dmg
+          dist/desktop/SketchForge-*-${{ inputs.arch }}*.zip
+          dist/desktop/latest-mac-${{ inputs.arch }}.yml
+        if-no-files-found: error

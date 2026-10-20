@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WorkplaneShape } from "@/types/sketchforge";
 import {
   canonicalizeShape,
+  cloneWorkplaneShapeTreeWithFreshIds,
   cleanNearZero,
   cleanRotationDegrees,
   fallbackSolidColor,
@@ -16,6 +17,11 @@ import {
   resizedShapeSize,
   serializeShapesForSync,
   shapeDepth,
+  shapeHasTaper,
+  shapeOverallFootprintDimensions,
+  shapeTransformShouldRemainEditable,
+  shapeTaperDimensions,
+  shapeTaperScaleAt,
   shapeWidth,
   withHoleMode,
   workplaneShapesEqual,
@@ -77,6 +83,32 @@ describe("workplane shape helpers", () => {
     expect(proportionalResizeScale(50, 100, 25, 80)).toBe(0.5);
   });
 
+  it("interpolates actual top and bottom taper dimensions while excluding gears", () => {
+    const tapered = shape({
+      taperBottomWidth: 10,
+      taperBottomDepth: 5,
+      taperTopWidth: 30,
+      taperTopDepth: 40,
+    });
+    expect(shapeTaperDimensions(tapered)).toEqual({ topWidth: 30, topDepth: 40, bottomWidth: 10, bottomDepth: 5 });
+    expect(shapeOverallFootprintDimensions(tapered)).toEqual({ width: 30, depth: 40 });
+    expect(shapeHasTaper(tapered)).toBe(true);
+    expect(shapeTaperScaleAt(tapered, 0, "width")).toBe(0.5);
+    expect(shapeTaperScaleAt(tapered, 0.5, "width")).toBe(1);
+    expect(shapeTaperScaleAt(tapered, 1, "width")).toBe(1.5);
+    expect(shapeTaperScaleAt(tapered, 0, "depth")).toBe(0.25);
+    expect(shapeTaperScaleAt(tapered, 0.5, "depth")).toBe(1.125);
+    expect(shapeTaperScaleAt(tapered, 1, "depth")).toBe(2);
+
+    const legacy = shape({ taperBottomScale: 0.5, taperTopScale: 1.5 });
+    expect(shapeTaperDimensions(legacy)).toEqual({ topWidth: 30, topDepth: 30, bottomWidth: 10, bottomDepth: 10 });
+
+    const gear = shape({ kind: "gear", taperBottomWidth: 10, taperTopWidth: 30 });
+    expect(shapeHasTaper(gear)).toBe(false);
+    expect(shapeTaperScaleAt(gear, 0.5, "width")).toBe(1);
+    expect(shapeTaperScaleAt(gear, 0.5, "depth")).toBe(1);
+  });
+
   it("canonicalizes mirror flags and nested group rotations", () => {
     const canonical = canonicalizeShape(
       shape({
@@ -96,6 +128,61 @@ describe("workplane shape helpers", () => {
     expect(canonical.mirrorY).toBe(true);
     expect(canonical.groupedShapes?.[0].rotation).toBe(0);
     expect(canonical.groupedShapes?.[0].mirrorZ).toBeUndefined();
+  });
+
+  it("keeps rotated groups editable so they can still be ungrouped", () => {
+    const child = shape({ id: "child" });
+    const group = shape({
+      id: "group",
+      kind: "mesh",
+      rotation: 45,
+      groupedBaseWidth: 20,
+      groupedBaseDepth: 20,
+      groupedBaseHeight: 20,
+      groupedShapes: [child],
+    });
+
+    expect(shapeTransformShouldRemainEditable(group)).toBe(true);
+    expect(shapeTransformShouldRemainEditable(shape({ rotation: 45 }))).toBe(false);
+    expect(canonicalizeShape(group)).toMatchObject({
+      rotation: 45,
+      groupedBaseWidth: 20,
+      groupedBaseDepth: 20,
+      groupedBaseHeight: 20,
+      groupedShapes: [{ id: "child" }],
+    });
+  });
+
+  it("assigns fresh object IDs throughout duplicated group trees", () => {
+    const original = shape({
+      id: "outer-group",
+      kind: "mesh",
+      x: 14,
+      z: -9,
+      elevation: 3,
+      groupedShapes: [
+        shape({ id: "round-roof-child", kind: "roundRoof" }),
+        shape({
+          id: "nested-group",
+          kind: "mesh",
+          groupedShapes: [shape({ id: "nested-box" })],
+        }),
+      ],
+    });
+
+    const duplicate = cloneWorkplaneShapeTreeWithFreshIds(original, "copy");
+    const collectIds = (entry: WorkplaneShape): string[] => [
+      entry.id,
+      ...(entry.groupedShapes ?? []).flatMap(collectIds),
+    ];
+    const originalIds = collectIds(original);
+    const duplicateIds = collectIds(duplicate);
+
+    expect(new Set(duplicateIds).size).toBe(duplicateIds.length);
+    expect(duplicateIds.every((id) => !originalIds.includes(id))).toBe(true);
+    expect(duplicate).toMatchObject({ x: 14, z: -9, elevation: 3 });
+    expect(original.groupedShapes?.[0].id).toBe("round-roof-child");
+    expect(duplicate.groupedShapes?.[0].kind).toBe("roundRoof");
   });
 
   it("keeps shallow equality strict for shape payload references", () => {

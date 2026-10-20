@@ -1,9 +1,12 @@
 "use client";
 
-import { Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, HomeIcon, List, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, HomeIcon, List, Palette, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SketchForgeEditor, importedShapeFromStl, importedShapeFromSvg } from "@/components/SketchForgeEditor";
+import { SketchForgeEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/SketchForgeEditor";
+import ChallengesDashboard from "@/components/official/ChallengesDashboard";
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
+import type { AppUpdateStatus } from "@/lib/appUpdates";
+import { isChallengeTutorialId, type ChallengeTutorialId } from "@/lib/challenges";
 import { hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { createLocalId } from "@/lib/localIds";
 import {
@@ -13,15 +16,15 @@ import {
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
 import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
-import { hydrateProjectShapeState, type ImportedMeshResource } from "@/lib/projectShapePersistence";
+import { hydrateProjectShapeState, reconcileLoadedProjectShapeCacheEntry, type ImportedMeshResource } from "@/lib/projectShapePersistence";
 import { exportSkfProject, importSkfProject, SKF_CREATED_WITH_VERSION } from "@/lib/skfProject";
-import { importExtensionSupported } from "@/lib/stlImport";
+import { importExtensionSupported } from "@/lib/importExtensions";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import type { GridSize, ProjectAsset, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/sketchforge";
 
 type AppView = "dashboard" | "editor";
 type ViewMode = "grid" | "list";
-type DashboardSection = "home" | "shared" | "challenges";
+type DashboardSection = "home" | "shared" | "challenges" | "customization";
 type DownloadMode = "browser" | "folder";
 
 type DashboardProject = {
@@ -48,6 +51,7 @@ type SharedProject = {
   updatedAt: number;
   size: number;
   revision: string;
+  thumbnailUrl?: string;
 };
 
 type StoredDashboardProject = Partial<DashboardProject> & {
@@ -107,8 +111,12 @@ const PROJECT_SHAPES_STORE_NAME = "projectShapes";
 const PROJECT_SHAPE_RESOURCES_STORE_NAME = "projectShapeResources";
 const DOWNLOAD_MODE_STORAGE_KEY = "sketchForge.downloadMode";
 const DOWNLOAD_FOLDER_STORAGE_KEY = "sketchForge.downloadFolder";
+const PROJECT_NAME_TOOLBAR_STORAGE_KEY = "sketchForge.showProjectNameInToolbar";
+const ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY = "sketchForge.activeChallengeTutorial";
+const DISMISSED_UPDATE_VERSION_STORAGE_KEY = "sketchForge.dismissedUpdateVersion";
 const PROJECT_ACCENTS: DashboardProject["accent"][] = ["cyan", "green", "gold", "red"];
 const STATIC_EXPORT_BUILD = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
+const SOURCE_CODE_URL = process.env.NEXT_PUBLIC_SOURCE_CODE_URL?.trim() || "https://github.com/Formsmith746/SketchForge-3D";
 const EDITOR_SKELETON_MIN_DURATION_MS = 320;
 const knownProjectResourceKeys = new Map<string, Set<string>>();
 
@@ -503,10 +511,12 @@ export default function Home() {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedAppTheme>("light");
   const [downloadMode, setDownloadMode] = useState<DownloadMode>("browser");
   const [downloadFolder, setDownloadFolder] = useState("");
+  const [showProjectNameInToolbar, setShowProjectNameInToolbar] = useState(true);
   const [dashboardNotice, setDashboardNotice] = useState("");
   const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
   const [sharedProjectsEnabled, setSharedProjectsEnabled] = useState(false);
   const [sharedProjectsLoading, setSharedProjectsLoading] = useState(false);
+  const [activeChallengeTutorial, setActiveChallengeTutorial] = useState<ChallengeTutorialId | null>(null);
   const [projectShapesById, setProjectShapesById] = useState<Record<string, ProjectShapeCacheEntry>>({});
   const projectsJsonRef = useRef("");
   const dashboardImportInputRef = useRef<HTMLInputElement | null>(null);
@@ -556,12 +566,21 @@ export default function Home() {
     }
     setDownloadMode(!STATIC_EXPORT_BUILD && window.localStorage.getItem(DOWNLOAD_MODE_STORAGE_KEY) === "folder" ? "folder" : "browser");
     setDownloadFolder(window.localStorage.getItem(DOWNLOAD_FOLDER_STORAGE_KEY) ?? "");
+    setShowProjectNameInToolbar(window.localStorage.getItem(PROJECT_NAME_TOOLBAR_STORAGE_KEY) !== "false");
 
     const params = new URLSearchParams(window.location.search);
     if (params.has("codexBooleanCase") || params.get("editor") === "1") {
       const requestedProjectId = params.get("project");
       if (requestedProjectId && storedProjects.some((project) => project.id === requestedProjectId)) {
         setActiveProjectId(requestedProjectId);
+        try {
+          const storedChallenge = JSON.parse(window.localStorage.getItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY) ?? "null") as { projectId?: string; tutorial?: ChallengeTutorialId } | null;
+          if (storedChallenge?.projectId === requestedProjectId && isChallengeTutorialId(storedChallenge.tutorial)) {
+            setActiveChallengeTutorial(storedChallenge.tutorial);
+          }
+        } catch {
+          window.localStorage.removeItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY);
+        }
       }
       startEditorTransition();
       setEditorStarted(true);
@@ -644,14 +663,27 @@ export default function Home() {
     void loadProjectShapes(activeProjectId)
       .then((record) => {
         if (canceled) return;
-        const revision = activeProject.revision ?? record?.revision ?? Date.now();
-        const entry = projectShapeCacheEntry(revision, record?.shapes ?? [], record?.history, record?.historyIndex, record?.assets);
-        setProjectShapesById((current) => ({
-          ...current,
-          [activeProjectId]: entry,
-        }));
-        if (record && !record.skfPackage) {
-          void saveProjectShapesWhenIdle(activeProjectId, entry, projectShapeSaveContext(activeProject)).catch(() => {
+        const loadedRevision = record?.revision ?? 0;
+        const revision = Math.max(activeProject.revision ?? 0, loadedRevision, 1);
+        const loadedEntry = projectShapeCacheEntry(Math.max(loadedRevision, 1), record?.shapes ?? [], record?.history, record?.historyIndex, record?.assets);
+        const entry = loadedEntry.revision === revision ? loadedEntry : { ...loadedEntry, revision };
+        setProjectShapesById((current) => {
+          // IndexedDB reads are asynchronous. A local edit/import can update the live
+          // cache while this older read is still in flight; never let that stale read
+          // replace newer in-memory shapes. Bump the preserved entry to the requested
+          // project revision so this effect does not immediately retry the same load.
+          const existing = current[activeProjectId];
+          const reconciled = reconcileLoadedProjectShapeCacheEntry(existing, entry, loadedRevision);
+          if (reconciled === existing) return current;
+          return {
+            ...current,
+            [activeProjectId]: reconciled,
+          };
+        });
+        if (record && !record.skfPackage && loadedRevision > 0) {
+          // Migrate the data at the revision it was actually read from disk. Using the
+          // newer project metadata revision here can let stale shapes outrank a live edit.
+          void saveProjectShapesWhenIdle(activeProjectId, loadedEntry, projectShapeSaveContext(activeProject)).catch(() => {
             // The legacy record remains readable and migration can retry on the next load.
           });
         }
@@ -659,10 +691,15 @@ export default function Home() {
       .catch((error) => {
         if (!canceled) {
           setDashboardNotice(error instanceof Error ? error.message : "Could not load project shapes");
-          setProjectShapesById((current) => ({
-            ...current,
-            [activeProjectId]: projectShapeCacheEntry(activeProject.revision ?? Date.now(), []),
-          }));
+          setProjectShapesById((current) => {
+            // A failed background read must not erase a project that has already
+            // received live editor changes while the read was pending.
+            if (current[activeProjectId]) return current;
+            return {
+              ...current,
+              [activeProjectId]: projectShapeCacheEntry(activeProject.revision ?? Date.now(), []),
+            };
+          });
         }
       });
     return () => {
@@ -690,7 +727,8 @@ export default function Home() {
     if (!mounted) return;
     window.localStorage.setItem(DOWNLOAD_MODE_STORAGE_KEY, downloadMode);
     window.localStorage.setItem(DOWNLOAD_FOLDER_STORAGE_KEY, downloadFolder);
-  }, [downloadFolder, downloadMode, mounted]);
+    window.localStorage.setItem(PROJECT_NAME_TOOLBAR_STORAGE_KEY, String(showProjectNameInToolbar));
+  }, [downloadFolder, downloadMode, mounted, showProjectNameInToolbar]);
 
   const visibleProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -704,7 +742,7 @@ export default function Home() {
     return sortMode === "name" ? [...filtered].sort((a, b) => a.name.localeCompare(b.name)) : [...filtered].sort((a, b) => b.updatedAt - a.updatedAt);
   }, [query, sharedProjects, sortMode]);
 
-  const openEditor = (projectId: string | null, options: { allowMissingFromStorage?: boolean } = {}) => {
+  const openEditor = (projectId: string | null, options: { allowMissingFromStorage?: boolean; challengeTutorial?: ChallengeTutorialId | null } = {}) => {
     if (projectId && typeof window !== "undefined" && !options.allowMissingFromStorage) {
       const storedProjects = readProjects();
       const storedProject = storedProjects.find((project) => project.id === projectId);
@@ -720,6 +758,25 @@ export default function Home() {
       setProjects((current) => current.map((project) => (project.id === projectId ? { ...project, updatedAt: Date.now() } : project)));
     }
     startEditorTransition();
+    let nextChallengeTutorial = options.challengeTutorial ?? null;
+    if (typeof window !== "undefined" && projectId) {
+      if (nextChallengeTutorial) {
+        window.localStorage.setItem(
+          ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY,
+          JSON.stringify({ projectId, tutorial: nextChallengeTutorial }),
+        );
+      } else {
+        try {
+          const storedChallenge = JSON.parse(window.localStorage.getItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY) ?? "null") as { projectId?: string; tutorial?: ChallengeTutorialId } | null;
+          if (storedChallenge?.projectId === projectId && isChallengeTutorialId(storedChallenge.tutorial)) {
+            nextChallengeTutorial = storedChallenge.tutorial;
+          }
+        } catch {
+          window.localStorage.removeItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY);
+        }
+      }
+    }
+    setActiveChallengeTutorial(nextChallengeTutorial);
     setActiveProjectId(projectId);
     setEditorStarted(true);
     setView("editor");
@@ -729,8 +786,9 @@ export default function Home() {
     }
   };
 
-  const updateProjectSnapshot = useCallback((snapshot: { image: string; projectId: string; shapes: number }) => {
+  const updateProjectSnapshot = useCallback(async (snapshot: { image: string; projectId: string; shapes: number }, signal?: AbortSignal) => {
     const version = Date.now();
+    if (signal?.aborted) throw new DOMException("Thumbnail upload aborted", "AbortError");
     if (STATIC_EXPORT_BUILD) {
       setProjects((current) =>
         current.map((project) =>
@@ -745,28 +803,35 @@ export default function Home() {
     setProjects((current) =>
       current.map((project) => (project.id === snapshot.projectId ? { ...project, shapes: snapshot.shapes, updatedAt: version } : project)),
     );
-    void fetch("/api/project-thumbnail", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dataUrl: snapshot.image, projectId: snapshot.projectId }),
-    })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { version?: number } | null) => {
-        const nextVersion = payload?.version ?? Date.now();
-        const thumbnailUrl = `/api/project-thumbnail?projectId=${encodeURIComponent(snapshot.projectId)}&v=${nextVersion}`;
-        setProjects((current) =>
-          current.map((project) =>
-            project.id === snapshot.projectId
-              ? { ...project, shapes: snapshot.shapes, thumbnailUrl, thumbnailVersion: nextVersion, updatedAt: nextVersion }
-              : project,
-          ),
-        );
-      })
-      .catch(() => {
-        setProjects((current) =>
-          current.map((project) => (project.id === snapshot.projectId ? { ...project, shapes: snapshot.shapes, updatedAt: version } : project)),
-        );
+    try {
+      const response = await fetch("/api/project-thumbnail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: snapshot.image, projectId: snapshot.projectId }),
+        signal,
       });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Could not save project thumbnail");
+      }
+      const payload = await response.json() as { version?: number };
+      if (signal?.aborted) throw new DOMException("Thumbnail upload aborted", "AbortError");
+      const nextVersion = payload?.version ?? Date.now();
+      const thumbnailUrl = `/api/project-thumbnail?projectId=${encodeURIComponent(snapshot.projectId)}&v=${nextVersion}`;
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === snapshot.projectId
+            ? { ...project, shapes: snapshot.shapes, thumbnailUrl, thumbnailVersion: nextVersion, updatedAt: nextVersion }
+            : project,
+        ),
+      );
+    } catch (error) {
+      if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) throw error;
+      setProjects((current) =>
+        current.map((project) => (project.id === snapshot.projectId ? { ...project, shapes: snapshot.shapes, updatedAt: version } : project)),
+      );
+      throw error;
+    }
   }, []);
 
   const updateProjectShapes = useCallback((snapshot: {
@@ -860,6 +925,9 @@ export default function Home() {
         )}:${project.placementElevation ?? 0}:${placementWorkplaneFingerprint(normalizePlacementWorkplane(project.placementWorkplane, project.placementElevation))}:${placementWorkplaneFingerprint(normalizePlacementWorkplane(project.sketchPlacementWorkplane))}`;
         if (currentFingerprint === nextFingerprint) return project;
         changed = true;
+        // `revision` tracks the IndexedDB shape snapshot. Advancing it for a
+        // workspace-only change can make the loader replace newer live shapes
+        // with an older persisted snapshot while autosave is still pending.
         return {
           ...project,
           workspace,
@@ -868,7 +936,6 @@ export default function Home() {
           placementWorkplane,
           sketchPlacementWorkplane,
           updatedAt: version,
-          revision: version,
         };
       });
       if (!changed) return current;
@@ -884,7 +951,7 @@ export default function Home() {
     });
   }, []);
 
-  const createAndOpenProject = (name?: string) => {
+  const createAndOpenProject = (name?: string, challengeTutorial: ChallengeTutorialId | null = null) => {
     const project = newProject(name ?? `Untitled design ${projects.length + 1}`, projects.length);
     setProjectShapesById((current) => ({
       ...current,
@@ -898,7 +965,7 @@ export default function Home() {
       setDashboardNotice("Could not prepare project shape storage");
     });
     setProjects((current) => [project, ...current]);
-    openEditor(project.id, { allowMissingFromStorage: true });
+    openEditor(project.id, { allowMissingFromStorage: true, challengeTutorial });
   };
 
   const openSkfProjectFromFile = useCallback(async (file: File, sharedProject?: SharedProject) => {
@@ -948,7 +1015,26 @@ export default function Home() {
     }
   }, [openSkfProjectFromFile]);
 
-  const saveActiveProjectToShared = useCallback(async ({ exportName, bytes }: { exportName: string; bytes: Uint8Array }) => {
+  const deleteSharedProject = useCallback(async (sharedProject: SharedProject) => {
+    setDashboardNotice(`Deleting shared project ${sharedProject.name}`);
+    try {
+      const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(sharedProject.fileName)}`, {
+        method: "DELETE",
+        headers: { "If-Match": `"${sharedProject.revision}"` },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error ?? "Could not delete shared project");
+      }
+      setSharedProjects((current) => current.filter((project) => project.fileName !== sharedProject.fileName));
+      setDashboardNotice(`Deleted shared project ${sharedProject.name}`);
+    } catch (error) {
+      setDashboardNotice(error instanceof Error ? error.message : "Could not delete shared project");
+      await refreshSharedProjects();
+    }
+  }, [refreshSharedProjects]);
+
+  const saveActiveProjectToShared = useCallback(async ({ exportName, bytes, thumbnailDataUrl }: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string }) => {
     const activeProject = projects.find((project) => project.id === activeProjectId);
     if (!activeProject) throw new Error("Open a local project before saving it to the shared space");
     const normalizedExportName = exportName.trim() || activeProject.name;
@@ -956,11 +1042,17 @@ export default function Home() {
     const fileName = saveBackToSource && activeProject.sharedProject
       ? activeProject.sharedProject.fileName
       : `${normalizedExportName.replace(/\.skf$/i, "")}.skf`;
-    const headers: Record<string, string> = { "Content-Type": "application/vnd.sketchforge.project+zip" };
+    const headers: Record<string, string> = {};
     if (saveBackToSource && activeProject.sharedProject) headers["If-Match"] = `"${activeProject.sharedProject.revision}"`;
     else headers["If-None-Match"] = "*";
     const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-    const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(fileName)}`, { method: "POST", headers, body });
+    const thumbnailResponse = await fetch(thumbnailDataUrl);
+    const thumbnail = await thumbnailResponse.blob();
+    if (thumbnail.type !== "image/png" || thumbnail.size === 0) throw new Error("Could not prepare the shared project thumbnail");
+    const formData = new FormData();
+    formData.append("project", new Blob([body], { type: "application/vnd.sketchforge.project+zip" }), fileName);
+    formData.append("thumbnail", thumbnail, `${fileName}.png`);
+    const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(fileName)}`, { method: "POST", headers, body: formData });
     const payload = await response.json().catch(() => ({})) as { error?: string; project?: SharedProject };
     if (!response.ok || !payload.project) throw new Error(payload.error ?? "Could not save the shared project");
     const savedProject = payload.project;
@@ -977,7 +1069,7 @@ export default function Home() {
       const projectFiles = files.filter((file) => /\.skf$/i.test(file.name));
       if (projectFiles.length) {
         if (files.length !== 1) {
-          setDashboardNotice("Open one .skf project at a time; import STL, STEP, and SVG geometry separately");
+          setDashboardNotice("Open one .skf project at a time; import STL, OBJ, STEP, and SVG geometry separately");
           return;
         }
         await openSkfProjectFromFile(projectFiles[0]);
@@ -991,9 +1083,10 @@ export default function Home() {
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index];
         const sourceFormat = sourceFormatForFileName(file.name) ?? (file.type === "image/svg+xml" ? "svg" : null);
+        const isObj = sourceFormat === "obj";
         const isSvg = sourceFormat === "svg";
         const isStep = sourceFormat === "step";
-        if (!sourceFormat || sourceFormat === "obj" || (!isSvg && !isStep && !importExtensionSupported(file.name))) {
+        if (!sourceFormat || (!isSvg && !isStep && !importExtensionSupported(file.name))) {
           failures.push({ fileName: file.name, reason: "Unsupported file type" });
           continue;
         }
@@ -1004,9 +1097,11 @@ export default function Home() {
           const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
           const parsedShape = isStep
             ? await import("@/lib/stepImport").then(({ importedShapeFromStep }) => importedShapeFromStep(file.name, buffer))
-            : isSvg
-              ? importedShapeFromSvg(file.name, new TextDecoder().decode(bytes))
-              : importedShapeFromStl(file.name, buffer);
+            : isObj
+              ? importedShapeFromObj(file.name, new TextDecoder().decode(bytes))
+              : isSvg
+                ? importedShapeFromSvg(file.name, new TextDecoder().decode(bytes))
+                : importedShapeFromStl(file.name, buffer);
           const asset = await projectAssetFromBytes(file.name, sourceFormat, bytes, file.type);
           importedShapes.push(attachProjectAsset(parsedShape, asset.id));
           importedAssets.push(asset);
@@ -1072,6 +1167,7 @@ export default function Home() {
       setProjects((current) => current.map((project) => (project.id === activeProjectId ? { ...project, updatedAt: Date.now() } : project)));
     }
     setDashboardSection("home");
+    setActiveChallengeTutorial(null);
     setEditorLoading(false);
     setView("dashboard");
     if (typeof window !== "undefined") {
@@ -1132,7 +1228,7 @@ export default function Home() {
         className="hidden-file-input"
         type="file"
         multiple
-        accept=".skf,.stl,.step,.stp,.svg,image/svg+xml"
+        accept=".skf,.stl,.obj,.step,.stp,.svg,image/svg+xml"
         onChange={(event) => {
           const files = event.currentTarget.files ? Array.from(event.currentTarget.files) : [];
           if (files.length) {
@@ -1158,12 +1254,18 @@ export default function Home() {
           viewMode={viewMode}
           onCloseSettings={() => setSettingsOpen(false)}
           onCreate={() => createAndOpenProject()}
+          onStartChallenge={(challenge) => createAndOpenProject(challenge === "nameplate" ? "Personalized Nameplate" : "Key Tag", challenge)}
           onDeleteProject={deleteProject}
+          onDeleteSharedProject={(project) => void deleteSharedProject(project)}
           onDownloadFolderChange={setDownloadFolder}
           onDownloadModeChange={setDownloadMode}
           onImportFile={() => dashboardImportInputRef.current?.click()}
           onChallenges={() => {
             setDashboardSection("challenges");
+            setDashboardNotice("");
+          }}
+          onCustomization={() => {
+            setDashboardSection("customization");
             setDashboardNotice("");
           }}
           onDashboardHome={() => setDashboardSection("home")}
@@ -1200,12 +1302,22 @@ export default function Home() {
             onProjectShapesChange={updateProjectShapes}
             onProjectSnapshot={updateProjectSnapshot}
             onProjectWorkspaceChange={updateProjectWorkspace}
+            onProjectNameChange={(name) => {
+              if (activeProjectId) renameProject(activeProjectId, name);
+            }}
             projectId={activeProjectId}
             projectName={activeProject?.name}
+            showProjectNameInToolbar={showProjectNameInToolbar}
+            onShowProjectNameInToolbarChange={setShowProjectNameInToolbar}
             projectCreatedAt={activeProject?.createdAt}
             projectModifiedAt={activeProject?.updatedAt}
             projectRevision={activeProjectShapeEntry?.revision ?? activeProject?.revision ?? 0}
             sharedProjectsEnabled={sharedProjectsEnabled}
+            challengeTutorial={activeChallengeTutorial}
+            onChallengeTutorialFinish={() => {
+              setActiveChallengeTutorial(null);
+              window.localStorage.removeItem(ACTIVE_CHALLENGE_TUTORIAL_STORAGE_KEY);
+            }}
             themePreference={themePreference}
             resolvedTheme={resolvedTheme}
             onThemePreferenceChange={setThemePreference}
@@ -1302,11 +1414,14 @@ function Dashboard({
   viewMode,
   onCloseSettings,
   onCreate,
+  onStartChallenge,
   onDeleteProject,
+  onDeleteSharedProject,
   onDownloadFolderChange,
   onDownloadModeChange,
   onImportFile,
   onChallenges,
+  onCustomization,
   onDashboardHome,
   onOpenSharedProject,
   onOpenProject,
@@ -1334,11 +1449,14 @@ function Dashboard({
   viewMode: ViewMode;
   onCloseSettings: () => void;
   onCreate: () => void;
+  onStartChallenge: (challenge: ChallengeTutorialId) => void;
   onDeleteProject: (projectId: string) => void;
+  onDeleteSharedProject: (project: SharedProject) => void;
   onDownloadFolderChange: (value: string) => void;
   onDownloadModeChange: (value: DownloadMode) => void;
   onImportFile: () => void;
   onChallenges: () => void;
+  onCustomization: () => void;
   onDashboardHome: () => void;
   onOpenSharedProject: (project: SharedProject) => void;
   onOpenProject: (projectId: string) => void;
@@ -1352,11 +1470,30 @@ function Dashboard({
   onWorkspace: () => void;
 }) {
   const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
+  const [openSharedProjectMenuFileName, setOpenSharedProjectMenuFileName] = useState<string | null>(null);
   const [projectPendingDeleteId, setProjectPendingDeleteId] = useState<string | null>(null);
+  const [sharedProjectPendingDeleteFileName, setSharedProjectPendingDeleteFileName] = useState<string | null>(null);
   const [projectPendingRenameId, setProjectPendingRenameId] = useState<string | null>(null);
   const [projectNameDraft, setProjectNameDraft] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<AppUpdateStatus | null>(null);
+  const [desktopAppVersion, setDesktopAppVersion] = useState<string | null>(null);
+  const [desktopUpdaterConnected, setDesktopUpdaterConnected] = useState(false);
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const [updatePromptOpen, setUpdatePromptOpen] = useState(false);
+  const [updateKey, setUpdateKey] = useState("");
+  const [updateStarting, setUpdateStarting] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState("");
+  const updateCheckedRef = useRef(false);
   const projectPendingDelete = projects.find((project) => project.id === projectPendingDeleteId) ?? null;
+  const sharedProjectPendingDelete = sharedProjects.find((project) => project.fileName === sharedProjectPendingDeleteFileName) ?? null;
   const projectPendingRename = projects.find((project) => project.id === projectPendingRenameId) ?? null;
+
+  useEffect(() => {
+    const desktop = window.sketchforgeDesktop;
+    if (!desktop) return;
+    setDesktopUpdaterConnected(true);
+    void desktop.getVersion().then(setDesktopAppVersion).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!projectPendingDeleteId) return;
@@ -1364,10 +1501,22 @@ function Dashboard({
     setProjectPendingDeleteId(null);
   }, [projectPendingDeleteId, projects]);
 
+  useEffect(() => {
+    if (!sharedProjectPendingDeleteFileName) return;
+    if (sharedProjects.some((project) => project.fileName === sharedProjectPendingDeleteFileName)) return;
+    setSharedProjectPendingDeleteFileName(null);
+  }, [sharedProjectPendingDeleteFileName, sharedProjects]);
+
   const confirmProjectDelete = () => {
     if (!projectPendingDelete) return;
     onDeleteProject(projectPendingDelete.id);
     setProjectPendingDeleteId(null);
+  };
+
+  const confirmSharedProjectDelete = () => {
+    if (!sharedProjectPendingDelete) return;
+    onDeleteSharedProject(sharedProjectPendingDelete);
+    setSharedProjectPendingDeleteFileName(null);
   };
 
   const startProjectRename = (project: DashboardProject) => {
@@ -1385,6 +1534,161 @@ function Dashboard({
     if (!projectPendingRename || !projectNameDraft.trim()) return;
     onRenameProject(projectPendingRename.id, projectNameDraft);
     closeProjectRename();
+  };
+
+  const checkForUpdates = useCallback(async (force: boolean, alwaysPrompt: boolean) => {
+    if (staticExportBuild) return;
+    setUpdateChecking(true);
+    setUpdateMessage("");
+    try {
+      const desktop = window.sketchforgeDesktop;
+      if (desktop) {
+        setDesktopUpdaterConnected(true);
+        const result = await desktop.checkForUpdates();
+        setDesktopAppVersion(result.currentVersion);
+        if (result.error) throw new Error(result.error);
+        const payload: AppUpdateStatus = {
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+          updateAvailable: result.updateAvailable,
+          checkedAt: result.checkedAt,
+          updateUrl: "",
+          installationReady: true,
+          requiresUpdateKey: false,
+          updateMode: "desktop",
+        };
+        setUpdateStatus(payload);
+        if (result.updateAvailable && result.latestVersion) {
+          setUpdateMessage(
+            result.downloaded
+              ? `SketchForge ${result.latestVersion} is ready to install.`
+              : `SketchForge ${result.latestVersion} is available. Press Update to download, install, and restart.`,
+          );
+        } else if (alwaysPrompt) {
+          setUpdateMessage("SketchForge is up to date.");
+        }
+        return;
+      }
+
+      const response = await fetch(`/api/app-update${force ? "?force=1" : ""}`, { cache: "no-store" });
+      const payload = await response.json() as AppUpdateStatus & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not check for updates");
+      setUpdateStatus(payload);
+      if (payload.updateAvailable && payload.latestVersion) {
+        const dismissedVersion = window.localStorage.getItem(DISMISSED_UPDATE_VERSION_STORAGE_KEY);
+        if (alwaysPrompt || dismissedVersion !== payload.latestVersion) {
+          onCloseSettings();
+          setUpdatePromptOpen(true);
+        }
+      } else if (alwaysPrompt && !payload.checkError) {
+        setUpdateMessage("SketchForge is up to date.");
+      }
+    } catch (error) {
+      setUpdateMessage(error instanceof Error ? error.message : "Could not check for updates");
+    } finally {
+      setUpdateChecking(false);
+    }
+  }, [onCloseSettings, staticExportBuild]);
+
+  useEffect(() => {
+    if (staticExportBuild || updateCheckedRef.current) return;
+    updateCheckedRef.current = true;
+    void checkForUpdates(false, false);
+  }, [checkForUpdates, staticExportBuild]);
+
+  const dismissUpdate = () => {
+    if (updateStatus?.latestVersion) {
+      window.localStorage.setItem(DISMISSED_UPDATE_VERSION_STORAGE_KEY, updateStatus.latestVersion);
+    }
+    setUpdatePromptOpen(false);
+    setUpdateKey("");
+    setUpdateMessage("");
+  };
+
+  const requestUpdate = async () => {
+    if (!updateStatus?.updateAvailable) return;
+
+    const desktop = window.sketchforgeDesktop;
+    if (desktop) {
+      setUpdateStarting(true);
+      setUpdateMessage(`Downloading SketchForge ${updateStatus.latestVersion ?? "update"}…`);
+      try {
+        const result = await desktop.installUpdate();
+        if (result.error) throw new Error(result.error);
+        if (!result.updateAvailable) {
+          setUpdateStatus({
+            currentVersion: result.currentVersion,
+            latestVersion: result.latestVersion,
+            updateAvailable: false,
+            checkedAt: result.checkedAt,
+            updateUrl: "",
+            installationReady: true,
+            requiresUpdateKey: false,
+            updateMode: "desktop",
+          });
+          setUpdateMessage("SketchForge is already up to date.");
+        } else {
+          setUpdateMessage("Update downloaded. SketchForge is restarting to install it…");
+        }
+      } catch (error) {
+        setUpdateMessage(error instanceof Error ? error.message : "Could not install the update");
+      } finally {
+        setUpdateStarting(false);
+      }
+      return;
+    }
+
+    if (!updateStatus.installationReady) {
+      window.open(updateStatus.updateUrl, "_blank", "noopener,noreferrer");
+      dismissUpdate();
+      return;
+    }
+    if (updateStatus.requiresUpdateKey && !updateKey.trim()) {
+      setUpdateMessage("Enter the server update key to continue.");
+      return;
+    }
+
+    setUpdateStarting(true);
+    setUpdateMessage("");
+    try {
+      const response = await fetch("/api/app-update", {
+        method: "POST",
+        headers: { "x-sketchforge-update-key": updateKey.trim() },
+      });
+      const payload = await response.json() as { accepted?: boolean; error?: string; updateUrl?: string; updateMode?: "local" | "server"; restartRequired?: boolean };
+      if (!response.ok || !payload.accepted) throw new Error(payload.error || "Could not start the update");
+      if (updateStatus.latestVersion) {
+        window.localStorage.setItem(DISMISSED_UPDATE_VERSION_STORAGE_KEY, updateStatus.latestVersion);
+      }
+      setUpdateKey("");
+      if (payload.updateMode === "local" || updateStatus.updateMode === "local") {
+        const expectedVersion = updateStatus.latestVersion;
+        setUpdateMessage("Update installed. Restarting local SketchForge…");
+        await new Promise((resolve) => window.setTimeout(resolve, 1800));
+        for (let attempt = 0; attempt < 60; attempt += 1) {
+          try {
+            const statusResponse = await fetch("/api/app-update?force=1", { cache: "no-store" });
+            if (statusResponse.ok) {
+              const statusPayload = await statusResponse.json() as AppUpdateStatus;
+              if (!expectedVersion || statusPayload.currentVersion === expectedVersion || !statusPayload.updateAvailable) {
+                window.location.reload();
+                return;
+              }
+            }
+          } catch {
+            // The local dev server is expected to be briefly unavailable while it restarts.
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+        }
+        setUpdateMessage("Update installed. Reload this page once local SketchForge finishes restarting.");
+      } else {
+        setUpdateMessage("Update started. The server may briefly go offline; reopen this page after it restarts.");
+      }
+    } catch (error) {
+      setUpdateMessage(error instanceof Error ? error.message : "Could not start the update");
+    } finally {
+      setUpdateStarting(false);
+    }
   };
 
   return (
@@ -1421,15 +1725,23 @@ function Dashboard({
               <SlidersHorizontal size={20} />
               <span>Challenges</span>
             </button>
+            <button className={`dashboard-nav-item ${dashboardSection === "customization" ? "active" : ""}`} type="button" aria-label="Customization" title="Customization" onClick={onCustomization}>
+              <Palette size={20} />
+              <span>Customization</span>
+            </button>
           </div>
-          <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
-            <Settings size={20} />
-            <span>Settings</span>
-          </button>
+          <div className="dashboard-sidebar-footer">
+            <button className="dashboard-nav-item dashboard-settings-button" type="button" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
+              <Settings size={20} />
+              <span>Settings</span>
+            </button>
+          </div>
         </aside>
 
-        <section className="dashboard-main" aria-label={dashboardSection === "challenges" ? "Challenges" : dashboardSection === "shared" ? "Shared projects" : "Dashboard"}>
+        <section className="dashboard-main" aria-label={dashboardSection === "challenges" ? "Challenges" : dashboardSection === "shared" ? "Shared projects" : dashboardSection === "customization" ? "Customization" : "Dashboard"}>
           {dashboardSection === "challenges" ? (
+            <ChallengesDashboard onStartChallenge={onStartChallenge} />
+          ) : dashboardSection === "customization" ? (
             <div className="dashboard-coming-soon" role="status">
               <strong>Coming soon</strong>
             </div>
@@ -1451,11 +1763,40 @@ function Dashboard({
                   {sharedProjects.map((project, index) => (
                     <article className="project-card shared-project-card" key={project.fileName}>
                       <button className="project-card-open" type="button" onClick={() => onOpenSharedProject(project)}>
-                        <ProjectPreview accent={PROJECT_ACCENTS[index % PROJECT_ACCENTS.length]} />
+                        <ProjectPreview accent={PROJECT_ACCENTS[index % PROJECT_ACCENTS.length]} thumbnailUrl={project.thumbnailUrl} />
                         <span className="project-card-title">{project.name}</span>
                         <span className="project-card-meta">{formatUpdated(project.updatedAt)} - {formatFileSize(project.size)}</span>
                       </button>
                       <span className="shared-project-badge">Shared</span>
+                      <button
+                        className="project-menu-trigger"
+                        type="button"
+                        aria-label={`Shared project options for ${project.name}`}
+                        aria-expanded={openSharedProjectMenuFileName === project.fileName}
+                        title="Shared project options"
+                        onClick={() => {
+                          setOpenProjectMenuId(null);
+                          setOpenSharedProjectMenuFileName((current) => (current === project.fileName ? null : project.fileName));
+                        }}
+                      >
+                        <EllipsisVertical size={19} strokeWidth={2.5} />
+                      </button>
+                      {openSharedProjectMenuFileName === project.fileName ? (
+                        <div className="project-card-menu" role="menu" aria-label={`Options for shared project ${project.name}`}>
+                          <button
+                            className="delete"
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenSharedProjectMenuFileName(null);
+                              setSharedProjectPendingDeleteFileName(project.fileName);
+                            }}
+                          >
+                            <Trash2 size={16} />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      ) : null}
                     </article>
                   ))}
                 </div>
@@ -1535,7 +1876,10 @@ function Dashboard({
                         aria-label={`Project options for ${project.name}`}
                         aria-expanded={openProjectMenuId === project.id}
                         title="Project options"
-                        onClick={() => setOpenProjectMenuId((current) => (current === project.id ? null : project.id))}
+                        onClick={() => {
+                          setOpenSharedProjectMenuFileName(null);
+                          setOpenProjectMenuId((current) => (current === project.id ? null : project.id));
+                        }}
                       >
                         <EllipsisVertical size={19} strokeWidth={2.5} />
                       </button>
@@ -1597,6 +1941,30 @@ function Dashboard({
         </section>
       ) : null}
 
+      {sharedProjectPendingDelete ? (
+        <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-shared-project-title">
+          <div className="dashboard-confirm-dialog">
+            <header>
+              <strong id="delete-shared-project-title">Delete shared project?</strong>
+              <button type="button" aria-label="Cancel shared project deletion" onClick={() => setSharedProjectPendingDeleteFileName(null)}>
+                <X size={18} />
+              </button>
+            </header>
+            <p>
+              Delete <span>{sharedProjectPendingDelete.name}</span> from shared storage? This removes it for everyone using this shared space.
+            </p>
+            <div className="dashboard-confirm-actions">
+              <button className="dashboard-confirm-cancel" type="button" onClick={() => setSharedProjectPendingDeleteFileName(null)}>
+                Cancel
+              </button>
+              <button className="dashboard-confirm-delete" type="button" onClick={confirmSharedProjectDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {projectPendingRename ? (
         <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="rename-project-title">
           <form
@@ -1634,6 +2002,53 @@ function Dashboard({
         </section>
       ) : null}
 
+      {updatePromptOpen && updateStatus?.updateAvailable && updateStatus.latestVersion ? (
+        <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="app-update-title">
+          <div className="dashboard-confirm-dialog dashboard-update-dialog">
+            <header>
+              <strong id="app-update-title">SketchForge {updateStatus.latestVersion} is available</strong>
+              <button type="button" aria-label="Dismiss update" onClick={dismissUpdate} disabled={updateStarting}>
+                <X size={18} />
+              </button>
+            </header>
+            <div className="dashboard-update-copy">
+              <p>Do you want to update from version {updateStatus.currentVersion}?</p>
+              <div className="dashboard-update-safety">
+                {updateStatus.updateMode === "local" ? (
+                  <>Your browser projects are kept. The updater only replaces the local SketchForge application files.</>
+                ) : (
+                  <>Your projects are kept. Private projects stay in this browser, and Docker shared projects remain in the persistent <code>/data/projects</code> volume.</>
+                )}
+              </div>
+              {!updateStatus.installationReady ? (
+                <div className="dashboard-update-note">One-click installation is not configured on this server. Continue to the safe update guide.</div>
+              ) : null}
+              {updateStatus.requiresUpdateKey ? (
+                <label className="dashboard-update-key">
+                  <span>Server update key</span>
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={updateKey}
+                    onChange={(event) => setUpdateKey(event.currentTarget.value)}
+                    disabled={updateStarting}
+                  />
+                </label>
+              ) : null}
+              {updateMessage ? <div className="dashboard-update-message" role="status">{updateMessage}</div> : null}
+            </div>
+            <div className="dashboard-confirm-actions">
+              <button className="dashboard-confirm-cancel" type="button" onClick={dismissUpdate} disabled={updateStarting}>
+                Not now
+              </button>
+              <button className="dashboard-confirm-save" type="button" onClick={() => void requestUpdate()} disabled={updateStarting}>
+                {updateStarting ? "Starting…" : updateStatus.installationReady ? "Update" : "Open update guide"}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {settingsOpen ? (
         <section className="dashboard-settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
           <header>
@@ -1663,7 +2078,56 @@ function Dashboard({
           </label>
           <div className="dashboard-version-row">
             <span>SketchForge version</span>
-            <strong>{SKF_CREATED_WITH_VERSION}</strong>
+            <strong>{desktopAppVersion ?? updateStatus?.currentVersion ?? SKF_CREATED_WITH_VERSION}</strong>
+          </div>
+          <section className="dashboard-update-settings" aria-label="Software updates">
+            <div>
+              <strong>Software updates</strong>
+              <span>Updates are checked automatically but are never installed without your approval.</span>
+            </div>
+            {staticExportBuild ? (
+              <span className="dashboard-update-status">Managed by the website owner</span>
+            ) : updateStatus?.checkError ? (
+              <span className="dashboard-update-status error">{updateStatus.checkError}</span>
+            ) : desktopUpdaterConnected && updateStatus?.updateAvailable && updateStatus.latestVersion ? (
+              <button
+                className="dashboard-update-available"
+                type="button"
+                onClick={() => void requestUpdate()}
+                disabled={updateStarting}
+              >
+                {updateStarting ? "Downloading update…" : `Update to ${updateStatus.latestVersion}`}
+              </button>
+            ) : updateStatus?.updateAvailable && updateStatus.latestVersion ? (
+              <button
+                className="dashboard-update-available"
+                type="button"
+                onClick={() => {
+                  onCloseSettings();
+                  setUpdateMessage("");
+                  setUpdatePromptOpen(true);
+                }}
+              >
+                Update to {updateStatus.latestVersion}
+              </button>
+            ) : updateStatus ? (
+              <span className="dashboard-update-status ready">Up to date</span>
+            ) : null}
+            {!staticExportBuild ? (
+              <button className="dashboard-check-update" type="button" onClick={() => void checkForUpdates(true, true)} disabled={updateChecking}>
+                <RefreshCw size={15} className={updateChecking ? "spin" : ""} />
+                <span>{updateChecking ? "Checking…" : "Check for updates"}</span>
+              </button>
+            ) : null}
+            {updateMessage && settingsOpen ? <span className="dashboard-update-status" role="status">{updateMessage}</span> : null}
+          </section>
+          <div className="dashboard-version-row">
+            <span>License</span>
+            <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">AGPLv3</a>
+          </div>
+          <div className="dashboard-version-row">
+            <span>Corresponding source</span>
+            <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer">View source</a>
           </div>
         </section>
       ) : null}

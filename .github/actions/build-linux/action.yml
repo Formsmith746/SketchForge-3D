@@ -1,0 +1,35 @@
+name: Build Linux desktop
+
+description: Build and store the Linux desktop package.
+
+inputs:
+  version:
+    description: Package version.
+    required: true
+  artifact-name:
+    description: GitHub Actions artifact name.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Build Linux package
+      shell: bash
+      run: npm run desktop:dist -- --publish never --linux --x64
+
+    - name: Verify Linux artifacts
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        test -f "dist/desktop/SketchForge-$VERSION-x86_64.AppImage"
+        test -f dist/desktop/latest-linux.yml
+
+    - name: Store Linux artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          dist/desktop/SketchForge-*.AppImage
+          dist/desktop/latest-linux.yml
+        if-no-files-found: error

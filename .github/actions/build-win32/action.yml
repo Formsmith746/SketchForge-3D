@@ -1,0 +1,44 @@
+name: Build Windows desktop
+
+description: Build and store the Windows desktop package.
+
+inputs:
+  version:
+    description: Package version.
+    required: true
+  artifact-name:
+    description: GitHub Actions artifact name.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Build Windows package
+      shell: bash
+      run: npm run desktop:dist -- --publish never --win --x64
+
+    - name: Verify Windows artifacts
+      shell: pwsh
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        $required = @(
+          "dist/desktop/SketchForge-Setup-$env:VERSION-x64.exe",
+          "dist/desktop/SketchForge-Setup-$env:VERSION-x64.exe.blockmap",
+          "dist/desktop/latest.yml"
+        )
+        foreach ($file in $required) {
+          if (-not (Test-Path $file -PathType Leaf)) {
+            throw "Missing Windows artifact: $file"
+          }
+        }
+
+    - name: Store Windows artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          dist/desktop/SketchForge-Setup-*-x64.exe
+          dist/desktop/SketchForge-Setup-*-x64.exe.blockmap
+          dist/desktop/latest.yml
+        if-no-files-found: error

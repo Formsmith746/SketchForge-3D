@@ -4,9 +4,10 @@ import {
   completeSketchForgeMcpCommand,
   dispatchSketchForgeMcpCommand,
   listSketchForgeMcpEditors,
-  pollSketchForgeMcpCommand,
   registerSketchForgeMcpEditor,
+  waitForSketchForgeMcpCommand,
 } from "@/lib/sketchforgeMcpStore";
+import { SKETCHFORGE_MCP_LONG_POLL_TIMEOUT_MS } from "@/lib/sketchforgeMcpProtocol";
 
 export const revalidate = false;
 
@@ -81,7 +82,11 @@ export async function POST(request: Request) {
     if (typeof body.editorId !== "string") {
       return NextResponse.json({ error: "Invalid editor poll." }, { status: 400 });
     }
-    return NextResponse.json({ command: pollSketchForgeMcpCommand(body.editorId) });
+    const command = await waitForSketchForgeMcpCommand(body.editorId, {
+      timeoutMs: SKETCHFORGE_MCP_LONG_POLL_TIMEOUT_MS,
+      signal: request.signal,
+    });
+    return NextResponse.json({ command });
   }
 
   if (body.type === "result") {

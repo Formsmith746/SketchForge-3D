@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 export const revalidate = false;
 
 const THUMBNAIL_DIR = path.join(process.cwd(), ".codex", "project-thumbnails");
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 const PNG_DATA_URL_PREFIX = "data:image/png;base64,";
 const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
 const MAX_THUMBNAIL_REQUEST_BYTES = Math.ceil((MAX_THUMBNAIL_BYTES * 4) / 3) + PNG_DATA_URL_PREFIX.length + 2048;
@@ -23,26 +22,24 @@ function thumbnailPath(projectId: string) {
   return path.join(THUMBNAIL_DIR, `${safeId}.png`);
 }
 
-function isLocalSameOriginRequest(request: Request) {
-  const requestUrl = new URL(request.url);
-  if (!LOCAL_HOSTS.has(requestUrl.hostname)) {
-    return false;
-  }
-
+function isSameOriginRequest(request: Request) {
   const origin = request.headers.get("origin");
   if (origin) {
     try {
-      const originUrl = new URL(origin);
-      if (!LOCAL_HOSTS.has(originUrl.hostname) || originUrl.port !== requestUrl.port || originUrl.protocol !== requestUrl.protocol) {
-        return false;
-      }
+      const requestUrl = new URL(request.url);
+      const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+      const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+      const host = forwardedHost || request.headers.get("host") || requestUrl.host;
+      const protocol = (forwardedProtocol || requestUrl.protocol.replace(/:$/, "")).toLowerCase();
+      if (protocol !== "http" && protocol !== "https") return false;
+      if (new URL(origin).origin !== new URL(`${protocol}://${host}`).origin) return false;
     } catch {
       return false;
     }
   }
 
   const fetchSite = request.headers.get("sec-fetch-site");
-  return !fetchSite || fetchSite === "same-origin" || fetchSite === "same-site" || fetchSite === "none";
+  return !fetchSite || fetchSite === "same-origin" || fetchSite === "none";
 }
 
 function decodedBase64ByteLength(value: string) {
@@ -54,8 +51,8 @@ function decodedBase64ByteLength(value: string) {
 }
 
 export async function GET(request: Request) {
-  if (!isLocalSameOriginRequest(request)) {
-    return new NextResponse("Project thumbnails are only available from this localhost app", { status: 403 });
+  if (!isSameOriginRequest(request)) {
+    return new NextResponse("Project thumbnails require a same-origin request", { status: 403 });
   }
 
   const projectId = new URL(request.url).searchParams.get("projectId") ?? "";
@@ -78,8 +75,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isLocalSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Project thumbnails are only available from this localhost app" }, { status: 403 });
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Project thumbnails require a same-origin request" }, { status: 403 });
   }
 
   const contentLength = Number(request.headers.get("content-length"));
@@ -124,8 +121,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!isLocalSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Project thumbnails are only available from this localhost app" }, { status: 403 });
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Project thumbnails require a same-origin request" }, { status: 403 });
   }
 
   const projectId = new URL(request.url).searchParams.get("projectId") ?? "";

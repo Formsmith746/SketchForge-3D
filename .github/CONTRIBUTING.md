@@ -38,4 +38,4 @@ The app runs at `http://127.0.0.1:3000/` by default.
 
 ## Contribution Licensing
 
-Unless explicitly agreed otherwise in writing, by submitting a contribution you license it under the MIT License. See [LICENSE](../LICENSE).
+Unless explicitly agreed otherwise in writing, by submitting a contribution you license it under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](../LICENSE).

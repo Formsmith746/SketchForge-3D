@@ -41,35 +41,38 @@ describe("sketch revolve", () => {
     expect(Math.min(...mesh.positions.filter((_value, index) => index % 3 === 1))).toBeCloseTo(0, 6);
   });
 
-  it("creates thickness automatically for an open profile", () => {
+  it("requires a closed profile", () => {
     const profile: SketchProfile = {
       points: [{ id: "a", x: -8, z: 0 }, { id: "b", x: -8, z: 20 }],
       segments: [{ id: "ab", startId: "a", endId: "b", kind: "line" }],
     };
-    const polygons = sketchProfileToRevolvePolygons(profile, { thickness: 2 });
-    expect(polygons).toHaveLength(1);
-    expect(Math.min(...polygons[0].map((point) => point[0]))).toBeCloseTo(7, 6);
-    expect(Math.max(...polygons[0].map((point) => point[0]))).toBeCloseTo(9, 6);
-    const mesh = buildSketchRevolveMesh(runtime, profile, { thickness: 2, sides: 24 });
-    expect(mesh.triangleCount).toBeGreaterThan(0);
-    expect(mesh.width).toBeCloseTo(18, 4);
-    expect(mesh.height).toBeCloseTo(20, 4);
+    expect(sketchProfileToRevolvePolygons(profile)).toEqual([]);
+    expect(() => buildSketchRevolveMesh(runtime, profile, { sides: 24 })).toThrow("Draw at least one closed profile");
   });
 
-  it("allows construction points across the axis but only revolves the working-side segment", () => {
+  it("clips a closed profile at the revolve axis", () => {
     const profile: SketchProfile = {
-      points: [{ id: "construction", x: 10, z: 0 }, { id: "profile", x: -10, z: 20 }],
-      segments: [{ id: "crossing", startId: "construction", endId: "profile", kind: "line" }],
+      points: [
+        { id: "top-right", x: 10, z: 0 },
+        { id: "top-left", x: -10, z: 0 },
+        { id: "bottom-left", x: -10, z: 20 },
+        { id: "bottom-right", x: 10, z: 20 },
+      ],
+      segments: [
+        { id: "top", startId: "top-right", endId: "top-left", kind: "line" },
+        { id: "left", startId: "top-left", endId: "bottom-left", kind: "line" },
+        { id: "bottom", startId: "bottom-left", endId: "bottom-right", kind: "line" },
+        { id: "right", startId: "bottom-right", endId: "top-right", kind: "line" },
+      ],
     };
-    const polygons = sketchProfileToRevolvePolygons(profile, { thickness: 1 });
+    const polygons = sketchProfileToRevolvePolygons(profile);
     expect(polygons).toHaveLength(1);
-    expect(Math.max(...polygons[0].map((point) => point[1]))).toBeLessThan(11);
-    expect(Math.max(...polygons[0].map((point) => point[0]))).toBeGreaterThan(10);
+    expect(Math.min(...polygons[0].map((point) => point[0]))).toBeCloseTo(0, 6);
+    expect(Math.max(...polygons[0].map((point) => point[0]))).toBeCloseTo(10, 6);
 
-    const mesh = buildSketchRevolveMesh(runtime, profile, { thickness: 1, sides: 24 });
+    const mesh = buildSketchRevolveMesh(runtime, profile, { sides: 24 });
     expect(mesh.triangleCount).toBeGreaterThan(0);
-    expect(mesh.height).toBeGreaterThan(9);
-    expect(mesh.height).toBeLessThan(11);
+    expect(mesh.height).toBeCloseTo(20, 4);
   });
 
   it("supports partial and reverse sweeps", () => {
@@ -82,12 +85,11 @@ describe("sketch revolve", () => {
   });
 
   it("normalizes unsafe revolve settings", () => {
-    expect(normalizeSketchRevolveSettings({ startAngle: -30, sweepAngle: 0, sides: 500, quality: 0, thickness: -2 })).toEqual({
+    expect(normalizeSketchRevolveSettings({ startAngle: -30, sweepAngle: 0, sides: 900, quality: 0 })).toEqual({
       startAngle: 330,
       sweepAngle: 1,
-      sides: 128,
+      sides: 512,
       quality: 1,
-      thickness: 0.1,
     });
   });
 });
