@@ -35,6 +35,15 @@ export type ParametricShapeKind = (typeof PARAMETRIC_SHAPE_KINDS)[number];
 /** Every kind a shape request may name, including the two swept ones. */
 export type ShapeKind = ParametricShapeKind | "revolve" | "thread";
 
+/** Sampled wall-thickness estimate; not a certified minimum-thickness result. */
+export type WallThicknessEstimate = {
+  minimum: number | null;
+  unit: "mm";
+  method: "sampled-opposing-surface-distance";
+  samplesPerFace: number;
+  facesChecked: number;
+};
+
 /** Thread designations the server's catalog carries a pitch for. */
 export const THREAD_DESIGNATIONS = [
   "M2",

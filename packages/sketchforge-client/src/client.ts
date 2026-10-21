@@ -21,6 +21,7 @@ import { Properties } from "./resources/properties.js";
 import { Shapes } from "./resources/shapes.js";
 import { Shell } from "./resources/shell.js";
 import { Treatments } from "./resources/treatments.js";
+import { Thickness } from "./resources/thickness.js";
 import type {
   AlignRequest,
   BakedMirrorResult,
@@ -70,6 +71,7 @@ export class SketchForgeClient {
   readonly patterns: Patterns;
   readonly imports: Imports;
   readonly interference: Interference;
+  readonly thickness: Thickness;
   private readonly transport: Transport;
 
   constructor(options: SketchForgeClientOptions) {
@@ -89,6 +91,7 @@ export class SketchForgeClient {
     this.patterns = new Patterns(this.transport);
     this.imports = new Imports(this.transport);
     this.interference = new Interference(this.transport);
+    this.thickness = new Thickness(this.transport);
   }
 
   get apiRoot() {

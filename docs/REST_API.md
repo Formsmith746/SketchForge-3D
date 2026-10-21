@@ -57,12 +57,13 @@ All paths are under `/api/v1`. Bodies and responses are JSON; errors are `{ "err
 | `POST` | `/distribute?projectId=` | Spreads three or more shapes evenly along an axis. |
 | `POST` | `/patterns?projectId=` | Repeats shapes in a row or around a ring, adding the copies. |
 | `POST` | `/imports?projectId=` | Adds the model an STL, OBJ or SVG file describes. |
-| `POST` | `/exports?projectId=` | Exports a project or selected shapes as STL, OBJ, 3MF, STEP, SKF, a ZIP kit, or an SVG drawing. |
+| `POST` | `/exports?projectId=` | Exports a project or selected shapes as STL, OBJ, 3MF, STEP, SKF, a ZIP kit, SVG drawings or section DXF. |
 | `GET` | `/faces?projectId=&shapeId=` | The shape's faces: index, area, surface type, centroid, normal, direction. |
 | `POST` | `/shell?projectId=&shapeId=` | Hollows the shape out to a wall, optionally leaving faces open. |
 | `GET` | `/measurements?projectId=&shapeId=` | Measures every edge and face: length, radius, diameter, area. |
 | `POST` | `/measurements?projectId=` | The distance between two entities, and the angle if both are flat faces. |
 | `GET` | `/properties?projectId=&shapeId=` | One shape's volume, area, center of mass, bounds, validity and geometry provenance. |
+| `GET` | `/thickness?projectId=&shapeId=` | Sampled estimate of the minimum distance between opposing surfaces. |
 | `POST` | `/interference?projectId=` | Exact shape-to-shape gaps and overlap volumes within a requested clearance; capped at 128 shapes and 512 AABB candidates. |
 
 The project and shape are named in the query string rather than the path. That is not a style choice: a dynamic path segment makes the static-export build fail outright, because an exported build has no server to resolve one against. The dashboard's own routes are shaped this way for the same reason.

@@ -6,6 +6,7 @@ export { Shapes, chunk, shapePatchFromSummary } from "./resources/shapes.js";
 export { Align, Distribute, Patterns } from "./resources/arrange.js";
 export { Edges } from "./resources/edges.js";
 export { Faces } from "./resources/faces.js";
+export { Thickness } from "./resources/thickness.js";
 export { Imports } from "./resources/imports.js";
 export { Interference } from "./resources/interference.js";
 export { Measurements } from "./resources/measurements.js";
