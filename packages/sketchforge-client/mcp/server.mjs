@@ -193,6 +193,7 @@ const tools = [
         id: { type: "string" },
         name: { type: "string" },
         color: { type: "string" },
+        faceColors: { type: "object", description: "Optional colors keyed by current CAD face index, such as {0:'#ff0000'}. Geometry edits discard this map." },
         hole: { type: "boolean" },
         x: { type: "number" },
         z: { type: "number" },
@@ -301,6 +302,11 @@ const tools = [
         id: { type: "string" },
       },
     },
+  },
+  {
+    name: "sketchforge_explode_step_assembly",
+    description: "Explode an imported STEP assembly into independent exact solids. Limited to 200 solids and 8 MiB source files.",
+    inputSchema: { ...editorTargetSchema, required: ["projectId", "shapeId"], properties: { ...editorTargetSchema.properties, projectId: { type: "string" }, shapeId: { type: "string" } } },
   },
   {
     name: "sketchforge_list_edges",
@@ -627,6 +633,8 @@ async function callRemoteTool(name, args, baseUrl) {
       return bridgeCommand("boolean_cut", args, 45000, baseUrl);
     case "sketchforge_separate_parts":
       return bridgeCommand("separate_parts", args, 15000, baseUrl);
+    case "sketchforge_explode_step_assembly":
+      return restRequest("POST", "/explode", { query: { projectId: args.projectId, shapeId: args.shapeId }, body: {}, baseUrl });
     case "sketchforge_list_edges":
       return bridgeCommand("list_edges", args, 30000, baseUrl);
     case "sketchforge_apply_edge_treatment":

@@ -196,6 +196,14 @@ describe("local MCP engine mode", () => {
       }
     }
 
+    const dxfPath = path.join(projectsDir, "Local case.dxf");
+    const dxf = callMcp(projectsDir, 2, "sketchforge_export_scene", {
+      projectId: "case", format: "dxf", section: { plane: "xy", offset: 1.5 }, shapeIds: [plate.id], outputPath: dxfPath,
+    });
+    expect(dxf[1].result.isError, JSON.stringify(dxf[1].result.content)).toBeUndefined();
+    expect(JSON.parse(dxf[1].result.content[0].text)).toMatchObject({ savedTo: dxfPath, shapeCount: 1 });
+    expect(fs.readFileSync(dxfPath, "utf8")).toContain("LWPOLYLINE");
+
     const macroDirectory = path.join(projectsDir, "macros");
     fs.mkdirSync(macroDirectory);
     const macroName = "bolt-plate.macro.mjs";
@@ -263,6 +271,7 @@ describe("local MCP engine mode", () => {
     const tools = listMcpTools(projectsDir);
     const listEditors = tools.find((tool: { name: string }) => tool.name === "sketchforge_list_editors");
     expect(tools.find((tool: { name: string }) => tool.name === "sketchforge_export_scene").inputSchema.properties.format.enum).toContain("svg");
+    expect(tools.find((tool: { name: string }) => tool.name === "sketchforge_explode_step_assembly").inputSchema.required).toContain("shapeId");
     const projectView = tools.find((tool: { name: string }) => tool.name === "sketchforge_project_view");
     expect(projectView.inputSchema.properties.view.enum).toEqual(["multiview", "front", "back", "top", "bottom", "left", "right", "iso"]);
     const sectionView = tools.find((tool: { name: string }) => tool.name === "sketchforge_section_view");

@@ -285,6 +285,24 @@ describe("shape properties", () => {
   });
 });
 
+describe("STEP assembly explosion", () => {
+  it("sends the target shape to the project replacement endpoint", async () => {
+    const server = fakeServer({ body: { shapes: [{ id: "part-1" }, { id: "part-2" }], revision: 8 } });
+    await expect(client(server).project("p9").explodeStepAssembly("assembly"))
+      .resolves.toMatchObject({ shapes: [{ id: "part-1" }, { id: "part-2" }], revision: 8 });
+    expect(server.calls[0]?.url).toBe("http://localhost:3100/api/v1/explode?projectId=p9&shapeId=assembly");
+  });
+});
+
+describe("wall thickness estimates", () => {
+  it("requests the sampled estimate for one project shape", async () => {
+    const thickness = { minimum: 2, unit: "mm" as const, method: "sampled-opposing-surface-distance" as const, samplesPerFace: 25, facesChecked: 6 };
+    const server = fakeServer({ body: { thickness } });
+    await expect(client(server).thickness.estimate("p1", "s1")).resolves.toEqual(thickness);
+    expect(server.calls[0]?.url).toBe("http://localhost:3100/api/v1/thickness?projectId=p1&shapeId=s1");
+  });
+});
+
 describe("interference", () => {
   it("sends the project, selected ids and clearance to the exact endpoint", async () => {
     const report = { shapesChecked: 2, candidatePairsChecked: 1, clearance: 0.5, method: "OCCT exact distance and common volume; AABB candidate prefilter" as const, pairs: [] };
@@ -306,6 +324,13 @@ describe("section drawings", () => {
       .resolves.toMatchObject({ filename: "Plate.svg", shapeCount: 1, svg });
     expect(server.calls[0]?.url).toBe("http://localhost:3100/api/v1/exports?projectId=p1");
     expect(server.calls[0]?.body).toEqual({ format: "svg", section: { plane: "xy", offset: 2 }, shapeIds: ["s1"] });
+  });
+
+  it("requests and decodes section contours as DXF", async () => {
+    const dxf = "0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n";
+    const server = fakeServer({ body: { filename: "Plate.dxf", mimeType: "application/dxf", bytes: dxf.length, shapeCount: 1, base64: btoa(dxf) } });
+    await expect(client(server).project("p1").sectionDxf({ plane: "xy", offset: 2 })).resolves.toMatchObject({ filename: "Plate.dxf", dxf });
+    expect(server.calls[0]?.body).toMatchObject({ format: "dxf", section: { plane: "xy", offset: 2 } });
   });
 });
 

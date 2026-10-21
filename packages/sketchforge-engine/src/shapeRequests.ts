@@ -394,7 +394,7 @@ export function shapeFromRequest(request: ShapeRequest, defaults: { elevation?: 
  * `size` stands in for all three dimensions, as it does on creation.
  */
 export const SHAPE_CHANGE_FIELDS = [
-  "name", "color", "x", "z", "elevation", "width", "depth", "height", "size",
+  "name", "color", "faceColors", "x", "z", "elevation", "width", "depth", "height", "size",
   "rotation", "rotationX", "rotationZ", "mirrorX", "mirrorY", "mirrorZ", "hole", "locked", "hidden",
 ] as const;
 
@@ -432,6 +432,19 @@ export function shapeWithRequestedChanges(shape: WorkplaneShape, request: ShapeR
   if (unapplicable.length > 0) return { ok: false, unapplicable };
 
   const next: WorkplaneShape = { ...shape };
+  if (request.faceColors !== undefined) {
+    if (shape.groupedShapes?.length || shape.importedMesh && !shape.importedMesh.brepStep && !shape.cadBrep) {
+      return { ok: false, unapplicable: ["faceColors"] };
+    }
+    if (!request.faceColors || typeof request.faceColors !== "object" || Array.isArray(request.faceColors)) {
+      return { ok: false, unapplicable: ["faceColors"] };
+    }
+    const entries = Object.entries(request.faceColors);
+    if (entries.some(([index, color]) => !/^\d+$/.test(index) || !/^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/.test(String(color)))) {
+      return { ok: false, unapplicable: ["faceColors"] };
+    }
+    next.faceColors = Object.fromEntries(entries.map(([index, color]) => [Number(index), color as string]));
+  }
   if (request.name !== undefined) next.name = nonEmptyString(request.name, shape.name);
   if (request.color !== undefined) next.color = nonEmptyString(request.color, shape.color);
   if (request.x !== undefined) next.x = finiteNumber(request.x, shape.x);
@@ -465,6 +478,13 @@ export function shapeWithRequestedChanges(shape: WorkplaneShape, request: ShapeR
   for (const name of shapeParameterNamesFor(shape.kind)) {
     if (request[name] === undefined) continue;
     Object.assign(next, { [name]: readShapeParameter(name, request[name], shapeParameterContext(next), shape[name]) });
+  }
+
+  const geometryFields = ["width", "depth", "height", "size", ...Object.keys(SHAPE_PARAMETERS)];
+  const nextFields = next as unknown as Record<string, unknown>;
+  const previousFields = shape as unknown as Record<string, unknown>;
+  if (geometryFields.some((field) => request[field] !== undefined && JSON.stringify(nextFields[field]) !== JSON.stringify(previousFields[field]))) {
+    delete next.faceColors;
   }
 
   return { ok: true, shape: canonicalizeShape(next) };

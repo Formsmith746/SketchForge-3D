@@ -75,6 +75,23 @@ describe("creating a shape applies what the request asked for", () => {
     expect(change).toMatchObject({ ok: true, shape: { mirrorX: true, mirrorY: true, mirrorZ: true } });
   });
 
+  it("stores colors by current face index and drops them after a geometry edit", () => {
+    const box = created({ kind: "box", width: 20, depth: 20, height: 20 });
+    const painted = shapeWithRequestedChanges(box, { faceColors: { 0: "#ff0000", 3: "#00ff00" } });
+    expect(painted).toMatchObject({ ok: true, shape: { faceColors: { 0: "#ff0000", 3: "#00ff00" } } });
+    if (!painted.ok) return;
+    const unchanged = shapeWithRequestedChanges(painted.shape, { width: painted.shape.width });
+    expect(unchanged.ok && unchanged.shape.faceColors).toEqual({ 0: "#ff0000", 3: "#00ff00" });
+    const resized = shapeWithRequestedChanges(painted.shape, { width: 30 });
+    expect(resized.ok).toBe(true);
+    if (resized.ok) expect(resized.shape).not.toHaveProperty("faceColors");
+  });
+
+  it("rejects malformed per-face color maps", () => {
+    const box = created({ kind: "box", width: 20, depth: 20, height: 20 });
+    expect(shapeWithRequestedChanges(box, { faceColors: { "-1": "red" } })).toMatchObject({ ok: false, unapplicable: ["faceColors"] });
+  });
+
   it("applies every table parameter its kind claims, on create as on change", () => {
     // Table-driven so a parameter added later is covered without anyone
     // remembering this test exists.

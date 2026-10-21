@@ -149,5 +149,6 @@ export {
 export { meshProjectShapes } from "./projectMeshes.js";
 export { renderSectionSvg, SECTION_PLANES, type SectionDrawing, type SectionPlane } from "./cadSection.js";
 export { sectionShapesToSvg, type SectionOptions } from "./serverCadSection.js";
+export { explodeStepAssembly, MAX_EXPLODE_SOLIDS, MAX_EXPLODE_SOURCE_BYTES } from "./serverStepExplode.js";
 export { analyzeMeshTopology, type TriangleFace } from "./meshValidation.js";
 export { mirrorShapes } from "./serverShapeGroups.js";

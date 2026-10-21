@@ -11,6 +11,7 @@ import { Transport, type TransportOptions } from "./http.js";
 import { Align, Distribute, Patterns } from "./resources/arrange.js";
 import { Drawings } from "./resources/drawings.js";
 import { Edges } from "./resources/edges.js";
+import { Explosions } from "./resources/explosions.js";
 import { Faces } from "./resources/faces.js";
 import { Imports } from "./resources/imports.js";
 import { Interference } from "./resources/interference.js";
@@ -50,6 +51,7 @@ import type {
   TreatmentResult,
   SectionDrawingArtifact,
   SectionDrawingRequest,
+  SectionDxfArtifact,
 } from "./types.js";
 
 export type SketchForgeClientOptions = TransportOptions;
@@ -58,6 +60,7 @@ export class SketchForgeClient {
   readonly projects: Projects;
   readonly shapes: Shapes;
   readonly edges: Edges;
+  readonly explosions: Explosions;
   readonly faces: Faces;
   readonly measurements: Measurements;
   readonly mirrors: Mirrors;
@@ -77,6 +80,7 @@ export class SketchForgeClient {
     this.projects = new Projects(this.transport);
     this.shapes = new Shapes(this.transport);
     this.edges = new Edges(this.transport);
+    this.explosions = new Explosions(this.transport);
     this.faces = new Faces(this.transport);
     this.measurements = new Measurements(this.transport);
     this.mirrors = new Mirrors(this.transport);
@@ -199,8 +203,20 @@ export class ProjectHandle {
     return this.client.properties.get(this.id, shapeId);
   }
 
+  explodeStepAssembly(shapeId: string) {
+    return this.client.explosions.explode(this.id, shapeId);
+  }
+
+  estimateWallThickness(shapeId: string) {
+    return this.client.thickness.estimate(this.id, shapeId);
+  }
+
   sectionDrawing(request: SectionDrawingRequest): Promise<SectionDrawingArtifact> {
     return this.client.drawings.section(this.id, request);
+  }
+
+  sectionDxf(request: SectionDrawingRequest): Promise<SectionDxfArtifact> {
+    return this.client.drawings.dxf(this.id, request);
   }
 
   measurementsWithRadius(shapeId: string): Promise<MeasurementSummary[]> {

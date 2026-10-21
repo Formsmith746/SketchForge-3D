@@ -495,6 +495,7 @@ export function shapeWithCadResult(shape: WorkplaneShape, result: ServerCadResul
   const bakedRotation = treatmentBakesRotation(shape);
   return canonicalizeShape({
     ...shape,
+    faceColors: undefined,
     kind: "mesh",
     width,
     depth,

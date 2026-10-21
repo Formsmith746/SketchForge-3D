@@ -9,7 +9,7 @@ import {
 import type { WorkplaneShape } from "./domain/sketchforge.js";
 
 export type Vec3 = [number, number, number];
-export type MeshData = { name: string; vertices: Vec3[]; faces: [number, number, number][] };
+export type MeshData = { name: string; vertices: Vec3[]; faces: [number, number, number][]; triangleColors?: (string | null)[] };
 
 /**
  * Place a shape's local mesh into the scene: taper, mirror, rotate, translate.

@@ -76,6 +76,7 @@ const MUTATION_TOOLS = new Set([
   "sketchforge_ungroup_objects",
   "sketchforge_boolean_cut",
   "sketchforge_separate_parts",
+  "sketchforge_explode_step_assembly",
   "sketchforge_apply_edge_treatment",
   "sketchforge_hollow_shape",
   "sketchforge_mirror_objects",
@@ -131,6 +132,8 @@ async function exportScene(args) {
     format: args.format,
     shapeIds: requestedIds.length ? requestedIds : undefined,
     name: args.name,
+    ...(args.view === undefined ? {} : { view: args.view }),
+    ...(args.section === undefined ? {} : { section: args.section }),
   });
   const bytes = artifact.data;
   const response = {
@@ -401,6 +404,8 @@ async function callLocalEngineToolRaw(name, args = {}) {
     }
     case "sketchforge_separate_parts":
       return unwrap(await engine.separate(id, args.id ?? selectedObjectIds[0]));
+    case "sketchforge_explode_step_assembly":
+      return unwrap(await engine.explode(id, args.shapeId ?? args.id));
     case "sketchforge_list_edges":
       return unwrap(await engine.edges(id, args.shapeId ?? args.id));
     case "sketchforge_list_faces":
@@ -409,6 +414,12 @@ async function callLocalEngineToolRaw(name, args = {}) {
       return unwrap(await engine.measurements(id, args.shapeId));
     case "sketchforge_shape_properties":
       return unwrap(await engine.properties(id, args.shapeId));
+    case "sketchforge_estimate_wall_thickness": {
+      const project = await unwrap(await engine.project(id));
+      const shape = project.shapes.find((entry) => entry.id === args.shapeId);
+      if (!shape) throw new Error(`Shape ${args.shapeId} is not in the project.`);
+      return enginePackage.wallThickness(shape);
+    }
     case "sketchforge_measure_between":
       return unwrap(await engine.measureBetween(id, args.from, args.to));
     case "sketchforge_check_interference":

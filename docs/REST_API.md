@@ -58,6 +58,7 @@ All paths are under `/api/v1`. Bodies and responses are JSON; errors are `{ "err
 | `POST` | `/patterns?projectId=` | Repeats shapes in a row or around a ring, adding the copies. |
 | `POST` | `/imports?projectId=` | Adds the model an STL, OBJ or SVG file describes. |
 | `POST` | `/exports?projectId=` | Exports a project or selected shapes as STL, OBJ, 3MF, STEP, SKF, a ZIP kit, or an SVG drawing. |
+| `POST` | `/explode?projectId=&shapeId=` | Splits a retained STEP assembly into separately positioned exact solids (up to 200 solids and 8 MiB source). |
 | `GET` | `/faces?projectId=&shapeId=` | The shape's faces: index, area, surface type, centroid, normal, direction. |
 | `POST` | `/shell?projectId=&shapeId=` | Hollows the shape out to a wall, optionally leaving faces open. |
 | `GET` | `/measurements?projectId=&shapeId=` | Measures every edge and face: length, radius, diameter, area. |
@@ -76,6 +77,14 @@ The project and shape are named in the query string rather than the path. That i
 `kind` is one of `box`, `cube`, `cylinder`, `cone`, `sphere`, `halfSphere`, `torus`, `tube`, `ring`, `polygon`, `pyramid`, `roof`, `roundRoof`, `wedge`, `icosahedron`, `text`, `loft`, `gear`, plus `revolve` and `thread` (below). A `cube` is a box whose sides match, and `size` stands in for `width`, `depth`, and `height` together. Only `mesh`, `sketch`, and `scribble` are left out: those need geometry or a drawn profile rather than numbers.
 
 Common fields: `name`, `color`, `x`, `z`, `elevation`, `width`, `depth`, `height`, `rotation`, `rotationX`, `rotationZ`, `hole`.
+
+`PATCH /shapes?projectId=&shapeId=` also accepts `faceColors`, a map from the current CAD face index to a hex color, such as `{ "faceColors": { "0": "#ff0000" } }`. Use `GET /faces` to find indexes. Face colors are persisted and included in 3MF per-triangle material assignments. Geometry edits and CAD treatments discard them; indexes are positional, not persistent face identities.
+
+`PATCH /shapes?projectId=&shapeId=` also accepts `faceColors`, a map from the current CAD face index to a hex color, such as `{ "faceColors": { "0": "#ff0000" } }`. Use `GET /faces` to find indexes. Face colors are persisted and included in 3MF per-triangle material assignments. Geometry edits and CAD treatments discard them; indexes are positional, not persistent face identities.
+
+`format: "dxf"` requires `section: { "plane": "xy", "offset": 4 }` (also `xz` or `yz`). It exports sampled section polylines. SVG section export uses the same contours.
+
+`GET /thickness?projectId=&shapeId=` returns a sampled estimate using a 5 × 5 UV grid on each face. It can miss thin regions between samples and is not a certified minimum-thickness result.
 
 Per kind:
 

@@ -984,6 +984,14 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
       if (value < 0 || value > 1) throw new LocalizedError("errors.skf.outOfRange", { label: `${label}.appearance.${field}` });
     });
   }
+  if (definition.faceColors !== undefined) {
+    const colors = objectRecord(definition.faceColors, `${label}.faceColors`);
+    for (const [index, color] of Object.entries(colors)) {
+      if (!/^\d+$/.test(index) || typeof color !== "string" || !/^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/.test(color)) {
+        throw new LocalizedError("errors.skf.fieldInvalid", { label: `${label}.faceColors.${index}` });
+      }
+    }
+  }
   ["x", "z", "size", "width", "depth", "height", "rotation"].forEach((field) => finiteNumber(definition[field], `${label}.${field}`));
   if ((definition.width as number) <= 0 || (definition.depth as number) <= 0 || (definition.height as number) <= 0) {
     throw new LocalizedError("errors.skf.nonPositiveDimensions", { label });

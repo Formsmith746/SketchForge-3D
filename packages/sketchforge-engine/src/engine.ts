@@ -39,6 +39,7 @@ import {
 } from "./serverCadMeasure.js";
 import { shapeProperties, type ServerCadShapeProperties } from "./serverCadProperties.js";
 import { checkInterference, type InterferenceReport, type InterferenceRequest, type InterferenceRefusal } from "./serverCadInterference.js";
+import { explodeStepAssembly } from "./serverStepExplode.js";
 import {
   alignShifts,
   effectiveAlignAnchorId,
@@ -85,7 +86,7 @@ import {
   withHoleMode,
 } from "./workplaneShapes.js";
 import type { ProjectDocument, ProjectStore } from "./projectStore.js";
-import type { WorkplaneShape } from "./domain/sketchforge.js";
+import type { ProjectAsset, WorkplaneShape } from "./domain/sketchforge.js";
 
 /**
  * Why an operation did not happen.
@@ -275,6 +276,8 @@ export type Engine = {
   ungroup(projectId: string, shapeId: string): Promise<EngineResult<ShapesWritten>>;
   /** Split a shape into the separate bodies it is made of. */
   separate(projectId: string, shapeId: string): Promise<EngineResult<ShapesWritten>>;
+  /** Split a retained STEP assembly source into exact positioned solid shapes. */
+  explode(projectId: string, shapeId: string): Promise<EngineResult<ShapesWritten>>;
   /** A shape's edges, numbered as a treatment request refers to them. */
   edges(projectId: string, shapeId: string): Promise<EngineResult<ServerCadEdge[]>>;
   /** A shape's faces, numbered as a shell request refers to them. */
@@ -831,6 +834,23 @@ export function createEngine(store: ProjectStore): Engine {
 
       const shapes = [...document.shapes.filter((candidate) => candidate.id !== shapeId), ...parts];
       return ok({ shapes: parts, revision: await writeShapes(projectId, document, shapes) });
+    }),
+
+    explode: (projectId, shapeId) => mutating(projectId, async (document) => {
+      const found = oneShape(document, shapeId);
+      if (!found.ok) return found;
+      if (found.value.locked) return failed({ reason: "shape_locked", ids: [shapeId] });
+      const assetId = found.value.importedMesh?.assetId;
+      const source = assetId ? document.assets.find((asset) => asset.id === assetId) : undefined;
+      if (!source) return failed({ reason: "cad_refused", message: "The imported STEP source asset is no longer available.", status: 422 });
+      try {
+        const parts = await explodeStepAssembly(found.value, source);
+        const index = document.shapes.findIndex((shape) => shape.id === shapeId);
+        const shapes = [...document.shapes.slice(0, index), ...parts, ...document.shapes.slice(index + 1)];
+        return ok({ shapes: parts, revision: await writeShapes(projectId, document, shapes) });
+      } catch (error) {
+        return failed(cadFailure(error));
+      }
     }),
 
     edges: (projectId, shapeId) => reading(projectId, async (document) => {

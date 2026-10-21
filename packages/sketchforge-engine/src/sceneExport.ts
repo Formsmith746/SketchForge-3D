@@ -58,11 +58,24 @@ function objBytes(meshes: Awaited<ReturnType<typeof meshProjectShapes>>) {
 
 function threeMfBytes(meshes: Awaited<ReturnType<typeof meshProjectShapes>>) {
   const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
-  const objects = meshes.map((mesh, index) =>
-    `<object id="${index + 1}" type="model" name="${escape(mesh.name)}"><mesh><vertices>${mesh.vertices.map(([x, y, z]) => `<vertex x="${x}" y="${-z}" z="${y}"/>`).join("")}</vertices><triangles>${mesh.faces.map(([a, b, c]) => `<triangle v1="${a}" v2="${b}" v3="${c}"/>`).join("")}</triangles></mesh></object>`
-  ).join("");
+  const materials = meshes.map((mesh, index) => {
+    const colors = [...new Set((mesh.triangleColors ?? []).filter((color): color is string => color !== null))];
+    if (!colors.length) return "";
+    return `<basematerials id="${meshes.length + index + 1}">${colors.map((color) => `<base name="Face" displaycolor="${color.length === 7 ? `${color}FF` : color}"/>`).join("")}</basematerials>`;
+  }).join("");
+  const objects = meshes.map((mesh, index) => {
+    const colors = [...new Set((mesh.triangleColors ?? []).filter((color): color is string => color !== null))];
+    const materialId = meshes.length + index + 1;
+    const triangles = mesh.faces.map(([a, b, c], triangleIndex) => {
+      const color = mesh.triangleColors?.[triangleIndex];
+      if (!color) return `<triangle v1="${a}" v2="${b}" v3="${c}"/>`;
+      const colorIndex = colors.indexOf(color);
+      return `<triangle v1="${a}" v2="${b}" v3="${c}" pid="${materialId}" p1="${colorIndex}" p2="${colorIndex}" p3="${colorIndex}"/>`;
+    }).join("");
+    return `<object id="${index + 1}" type="model" name="${escape(mesh.name)}"><mesh><vertices>${mesh.vertices.map(([x, y, z]) => `<vertex x="${x}" y="${-z}" z="${y}"/>`).join("")}</vertices><triangles>${triangles}</triangles></mesh></object>`;
+  }).join("");
   const items = meshes.map((_, index) => `<item objectid="${index + 1}"/>`).join("");
-  const model = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>${objects}</resources><build>${items}</build></model>`;
+  const model = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>${materials}${objects}</resources><build>${items}</build></model>`;
   return zipSync({
     "[Content_Types].xml": strToU8('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'),
     "_rels/.rels": strToU8('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'),

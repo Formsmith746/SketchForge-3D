@@ -47,6 +47,7 @@ export function apiShapeSummary(shape: WorkplaneShape) {
     ...(requestKind === undefined ? {} : { requestKind }),
     ...(shape.sketchOperation === undefined ? {} : { sketchOperation: shape.sketchOperation }),
     color: shape.color,
+    ...(shape.faceColors ? { faceColors: shape.faceColors } : {}),
     hole: Boolean(shape.hole),
     locked: Boolean(shape.locked),
     hidden: Boolean(shape.hidden),

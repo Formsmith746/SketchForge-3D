@@ -215,6 +215,7 @@ export type ShapePatch = ShapePlacement &
   AnyKindFields &
   TaperFields &
   RevolveSettings & {
+    faceColors?: Record<number, string>;
     locked?: boolean;
     hidden?: boolean;
     /** Replaces a revolve's outline; the sweep is rebuilt on the server. */
@@ -259,6 +260,7 @@ export type ShapeSummary = {
   requestKind?: ShapeKind;
   sketchOperation?: SketchOperation;
   color: string;
+  faceColors?: Record<number, string>;
   hole: boolean;
   locked: boolean;
   hidden: boolean;
@@ -634,6 +636,8 @@ export type SectionDrawingArtifact = {
   shapeCount: number;
   svg: string;
 };
+
+export type SectionDxfArtifact = { filename: string; mimeType: "application/dxf"; bytes: number; shapeCount: number; dxf: string };
 
 /**
  * A model file to import.

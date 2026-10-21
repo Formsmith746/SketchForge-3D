@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { POST as createProject } from "@/app/api/v1/projects/route";
 import { POST as createShapes } from "@/app/api/v1/shapes/route";
 import { POST as exportProject } from "@/app/api/v1/exports/route";
+import { PATCH as changeShape } from "@/app/api/v1/shapes/route";
+import { GET as listShapes } from "@/app/api/v1/shapes/route";
 import { API_TOKEN_ENV } from "@/lib/apiTokens";
 import { SERVER_PROJECTS_ENV } from "@/lib/serverProjectStore";
 
@@ -196,6 +198,25 @@ describe("REST API v1 project exports", () => {
     }));
     expect(outOfRange.status).toBe(400);
   });
+
+  it("exports stored face colors as 3MF per-triangle materials", async () => {
+    const projectId = await makeProject();
+    const listed = await listShapes(authorized(`/api/v1/shapes?projectId=${projectId}`));
+    const [{ id: shapeId }] = (await listed.json() as { shapes: Array<{ id: string }> }).shapes;
+    const changed = await changeShape(authorized(`/api/v1/shapes?projectId=${projectId}&shapeId=${shapeId}`, {
+      method: "PATCH", body: JSON.stringify({ faceColors: { 0: "#ff0000" } }),
+    }));
+    expect(changed.status).toBe(200);
+    expect(await changed.json()).toMatchObject({ shape: { faceColors: { 0: "#ff0000" } } });
+    const response = await exportProject(authorized(`/api/v1/exports?projectId=${projectId}`, {
+      method: "POST", body: JSON.stringify({ format: "3mf" }),
+    }));
+    expect(response.status).toBe(200);
+    const artifact = await response.json() as { base64: string };
+    const model = new TextDecoder().decode(unzipSync(Buffer.from(artifact.base64, "base64"))["3D/3dmodel.model"]);
+    expect(model).toContain('displaycolor="#ff0000FF"');
+    expect(model).toMatch(/pid="\d+" p1="0" p2="0" p3="0"/);
+  }, 90_000);
 
   it("refuses a view it does not know, and a view on a format that has none", async () => {
     const projectId = await makeProject();
