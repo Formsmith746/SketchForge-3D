@@ -6,6 +6,7 @@ import { wallThickness } from "@constructorfleet/sketchforge-engine/serverCadThi
 describe("sampled wall thickness", { timeout: CAD_TEST_TIMEOUT_MS }, () => {
   it("reports the known wall between opposite faces of a rectangular solid", async () => {
     const shape = shapeFromRequest({ kind: "box", width: 20, depth: 12, height: 8 });
+    if (!shape) throw new Error("box fixture was not created");
     await expect(wallThickness(shape)).resolves.toMatchObject({
       minimum: 8,
       unit: "mm",

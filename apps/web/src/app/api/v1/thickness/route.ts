@@ -1,6 +1,7 @@
 import { apiContext, apiError, apiErrors, apiJson, apiTarget } from "@/lib/apiV1";
 import { readProjectDocument } from "@/lib/engine/serverProjectDocument";
 import { wallThickness } from "@constructorfleet/sketchforge-engine/serverCadThickness";
+import { ServerCadError } from "@constructorfleet/sketchforge-engine/serverCadOperations";
 import { apiReadOnlyOptions } from "@/lib/apiV1Methods";
 
 export const runtime = "nodejs";
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   try {
     return apiJson({ thickness: await wallThickness(shape) });
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "Wall thickness could not be estimated.", 422, "geometry_failed");
+    return apiError(error instanceof Error ? error.message : "Wall thickness could not be estimated.", error instanceof ServerCadError ? error.status : 422, "geometry_failed");
   }
 }
 
