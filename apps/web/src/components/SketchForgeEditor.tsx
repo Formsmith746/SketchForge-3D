@@ -3364,9 +3364,30 @@ function pointInsideCuboid(point: Vec3, cuboid: Cuboid, inset = -POINT_TOLERANCE
   );
 }
 
+// meshAabb rebuilds the full mesh of an imported or grouped hole, and
+// pointInsideHoleShape runs once per source triangle during a cut, so cache the
+// bounds per hole object (keyed by its transform in case it is edited in place).
+const holeBoundsCache = new WeakMap<WorkplaneShape, { key: string; bounds: Cuboid }>();
+
+function cachedHoleBounds(shape: WorkplaneShape): Cuboid {
+  const key = [
+    shape.x, shape.z, shape.elevation ?? 0, shapeWidth(shape), shapeDepth(shape), shape.height,
+    shape.rotation, shape.rotationX ?? 0, shape.rotationZ ?? 0,
+    Boolean(shape.mirrorX), Boolean(shape.mirrorY), Boolean(shape.mirrorZ),
+    shape.importedMesh?.positions.length ?? 0, shape.groupedShapes?.length ?? 0,
+  ].join("|");
+  const cached = holeBoundsCache.get(shape);
+  if (cached && cached.key === key) {
+    return cached.bounds;
+  }
+  const bounds = meshAabb(shape);
+  holeBoundsCache.set(shape, { key, bounds });
+  return bounds;
+}
+
 function pointInsideHoleShape(point: Vec3, shape: WorkplaneShape, strictInterior = false) {
   if (shape.importedMesh || shape.groupedShapes?.length) {
-    return pointInsideCuboid(point, meshAabb(shape), strictInterior ? CUTTER_RESIDUAL_INSET : -POINT_TOLERANCE);
+    return pointInsideCuboid(point, cachedHoleBounds(shape), strictInterior ? CUTTER_RESIDUAL_INSET : -POINT_TOLERANCE);
   }
 
   const centerY = shape.height / 2;
